@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 
-from prime_rl.configs.algorithm import GRPOAlgoConfig
+from prime_rl.configs.algorithm import MAX_TETHER_POSITION_BINS, GRPOAlgoConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.inference import WeightBroadcastConfig as InferenceWeightBroadcastConfig
 from prime_rl.configs.orchestrator import (
@@ -306,6 +306,19 @@ class RLConfig(BaseConfig):
             adaptive = algo.baseline.adaptive
             if adaptive is not None and adaptive.batch_size is None:
                 adaptive.batch_size = value.batch_size
+            position = algo.baseline.position
+            if position is None:
+                continue
+            horizon = position.max_action_tokens or self.orchestrator.seq_len
+            if horizon > self.orchestrator.seq_len:
+                raise ValueError("tether.position.max_action_tokens cannot exceed orchestrator.seq_len")
+            num_bins = (horizon + position.bin_size - 1) // position.bin_size
+            if num_bins < 2:
+                raise ValueError("tether position conditioning must resolve to at least two bins")
+            if num_bins > MAX_TETHER_POSITION_BINS:
+                raise ValueError(
+                    f"tether position config creates {num_bins} bins; maximum is {MAX_TETHER_POSITION_BINS}"
+                )
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
 

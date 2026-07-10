@@ -6,8 +6,8 @@ import torch
 
 from prime_rl.configs.algorithm import GRPOAlgoConfig
 from prime_rl.orchestrator.algo.base import Algorithm
-from prime_rl.orchestrator.algo.tether import AdaptiveTetherCoefficients, tether_regression_stats
-from prime_rl.value.math import group_advantages, group_baselines, linear_mix_advantages, tether_advantages
+from prime_rl.orchestrator.algo.tether import AdaptiveTetherCoefficients, TetherRuntime
+from prime_rl.value.math import group_advantages, linear_mix_advantages
 
 if TYPE_CHECKING:
     from prime_rl.configs.value import ValueFunctionConfig
@@ -39,27 +39,38 @@ class GRPOAlgorithm(Algorithm):
         )
         self.length_penalty = config.length_penalty
         self.baseline = config.baseline
-        self.adaptive_tether: AdaptiveTetherCoefficients | None = None
-        if self.baseline.type == "tether" and self.baseline.adaptive is not None:
-            if value_config is None or value_config.batch_size is None:
-                raise ValueError("adaptive tether needs a resolved value_function.batch_size")
-            adaptive_batch_size = self.baseline.adaptive.batch_size or value_config.batch_size
-            self.adaptive_tether = AdaptiveTetherCoefficients(
-                self.baseline.adaptive,
-                batch_size=adaptive_batch_size,
-                reward_range=self.baseline.reward_range,
+        self.tether: TetherRuntime | None = None
+        if self.baseline.type == "tether":
+            if value_config is None or value_config.model is None:
+                raise ValueError("TETHER needs a resolved value_function model")
+            adaptive_batch_size = None
+            if self.baseline.adaptive is not None:
+                if value_config.batch_size is None:
+                    raise ValueError("adaptive TETHER needs a resolved value_function.batch_size")
+                adaptive_batch_size = self.baseline.adaptive.batch_size or value_config.batch_size
+            self.tether = TetherRuntime(
+                self.baseline,
+                value_seq_len=value_config.model.seq_len,
+                policy_seq_len=policy_seq_len or value_config.model.seq_len,
+                adaptive_batch_size=adaptive_batch_size,
             )
 
+    @property
+    def adaptive_tether(self) -> AdaptiveTetherCoefficients | None:
+        """Compatibility view of the adaptive controller, when configured."""
+        return self.tether.adaptive if self.tether is not None else None
+
     def metrics(self) -> dict[str, float]:
-        return self.adaptive_tether.metrics() if self.adaptive_tether is not None else {}
+        return self.tether.metrics() if self.tether is not None else {}
 
     def metric_keys(self) -> list[str]:
-        return self.adaptive_tether.metric_keys() if self.adaptive_tether is not None else []
+        return self.tether.metric_keys() if self.tether is not None else []
 
     def state_dict(self) -> dict[str, Any]:
         if self.adaptive_tether is None:
             return {}
-        return {"adaptive_tether": self.adaptive_tether.state_dict()}
+        assert self.tether is not None
+        return {"adaptive_tether": self.tether.state_dict()}
 
     def load_state_dict(self, state: dict[str, Any]) -> None:
         adaptive_state = state.get("adaptive_tether")
@@ -67,7 +78,8 @@ class GRPOAlgorithm(Algorithm):
             return
         if self.adaptive_tether is None:
             raise ValueError("checkpoint contains adaptive TETHER state but adaptive mode is disabled")
-        self.adaptive_tether.load_state_dict(adaptive_state)
+        assert self.tether is not None
+        self.tether.load_state_dict(adaptive_state)
 
     @property
     def minimum_group_size(self) -> int:
@@ -117,57 +129,8 @@ class GRPOAlgorithm(Algorithm):
             return
 
         if baseline.type == "tether":
-            group_anchors = group_baselines(raw_rewards, baseline.group)
-            alpha, rho = (
-                self.adaptive_tether.coefficients
-                if self.adaptive_tether is not None
-                else (baseline.alpha, baseline.rho)
-            )
-            regression_stats = []
-            for rollout, group_anchor in zip(group, group_anchors, strict=True):
-                assert rollout.value_predictions is not None
-                assert self.value_config is not None and self.value_config.model is not None
-                corrected: list[float] = []
-                regression_values: list[list[float]] = []
-                regression_masks: list[list[bool]] = []
-                for sample, values in zip(rollout.samples, rollout.value_predictions, strict=True):
-                    value_length = min(
-                        len(sample.token_ids),
-                        self.value_config.model.seq_len,
-                        self.policy_seq_len or len(sample.token_ids),
-                    )
-                    valid_values = values[:value_length]
-                    valid_mask = sample.mask[:value_length]
-                    branch_advantages = tether_advantages(
-                        reward=float(rollout.reward),
-                        group_anchor=group_anchor,
-                        values=valid_values,
-                        mask=valid_mask,
-                        alpha=alpha,
-                        rho=rho,
-                        reward_range=baseline.reward_range,
-                    )
-                    corrected.extend(branch_advantages + [0.0] * (len(sample.token_ids) - value_length))
-                    regression_values.append(valid_values)
-                    regression_masks.append(valid_mask)
-                rollout.assign_advantages(corrected)
-                if self.adaptive_tether is not None:
-                    regression_stats.append(
-                        tether_regression_stats(
-                            reward=float(rollout.reward),
-                            group_anchor=group_anchor,
-                            value_predictions=regression_values,
-                            masks=regression_masks,
-                            reward_range=baseline.reward_range,
-                            alpha=alpha,
-                            rho=rho,
-                        )
-                    )
-            # Never let a reward tune the baseline used for its own group. The
-            # entire group has already been assigned before these moments can
-            # update coefficients for a later group.
-            if self.adaptive_tether is not None:
-                self.adaptive_tether.observe_group(regression_stats)
+            assert self.tether is not None
+            self.tether.score_group(group)
             return
 
         raise TypeError(f"unsupported GRPO baseline {type(baseline).__name__}")

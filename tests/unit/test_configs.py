@@ -277,6 +277,34 @@ def test_adaptive_tether_inherits_the_critic_rollout_batch_size():
         assert env.algo.baseline.adaptive.batch_size == 16
 
 
+@pytest.mark.parametrize(
+    ("seq_len", "position", "message"),
+    [
+        (256, {}, "at least two bins"),
+        (128, {"bin_size": 16, "max_action_tokens": 129}, "cannot exceed"),
+        (129, {"bin_size": 1, "max_action_tokens": 129}, "maximum is 128"),
+    ],
+)
+def test_tether_position_contract_is_validated_during_config_resolution(seq_len, position, message):
+    with pytest.raises(ValidationError, match=message):
+        RLConfig.model_validate(
+            {
+                "seq_len": seq_len,
+                "trainer": {},
+                "orchestrator": {
+                    "batch_size": 16,
+                    "group_size": 4,
+                    "algo": {
+                        "type": "grpo",
+                        "baseline": {"type": "tether", "position": position},
+                    },
+                },
+                "value_function": {},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+
 def test_per_environment_adaptive_tether_batch_size_overrides_inheritance():
     adaptive = {"type": "grpo", "baseline": {"type": "tether", "adaptive": {}}}
     custom = {

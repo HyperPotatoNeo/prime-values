@@ -13,7 +13,6 @@ from prime_rl.value.math import (
     group_baselines,
     linear_mix_advantages,
     predict_values,
-    tether_advantages,
 )
 
 
@@ -177,6 +176,12 @@ def test_adaptive_tether_defaults_to_zero_initialized_slow_ema():
     assert adaptive.ema_decay == 0.9
     assert adaptive.ridge == 1e-6
     assert adaptive.batch_size is None
+    assert adaptive.min_bin_rollouts is None
+
+    position = TetherBaselineConfig(position={}).position
+    assert position is not None
+    assert position.bin_size == 1024
+    assert position.max_action_tokens is None
 
 
 def test_adaptive_tether_requires_leave_one_out():
@@ -199,6 +204,7 @@ def test_adaptive_tether_resolved_config_round_trips_static_defaults():
         {"ema_decay": -0.1},
         {"ema_decay": 1.0},
         {"ridge": -1e-6},
+        {"min_bin_rollouts": 0},
         {"initial_alpha": float("nan")},
         {"initial_rho": float("inf")},
     ],
@@ -228,34 +234,3 @@ def test_bounded_value_configs_reject_nonfinite_reward_ranges():
         TetherBaselineConfig(reward_range=(0.0, float("inf")))
     with pytest.raises(ValueError, match="reward_range"):
         TetherBaselineConfig(reward_range=(-1e308, 1e308))
-
-
-def test_tether_clips_the_full_baseline_above_reward_range():
-    output = tether_advantages(
-        reward=1.0,
-        group_anchor=0.5,
-        values=[9.0, 0.7, 8.0, 1.7],
-        mask=[False, True, False, True],
-        alpha=0.5,
-        rho=0.8,
-        reward_range=(0.0, 1.0),
-    )
-
-    # B=0.5; first baseline=.6. The complete final expression is
-    # .5 + .5(.7-.5) + .8(1.7-.7) = 1.4, then the full baseline clips to 1.
-    assert output == pytest.approx([0.0, 0.4, 0.0, 0.0])
-
-
-def test_tether_clips_the_full_baseline_below_reward_range():
-    output = tether_advantages(
-        reward=1.0,
-        group_anchor=0.5,
-        values=[9.0, 0.7, 8.0, -1.3],
-        mask=[False, True, False, True],
-        alpha=0.5,
-        rho=0.8,
-        reward_range=(0.0, 1.0),
-    )
-
-    # .5 + .5(.7-.5) + .8(-1.3-.7) = -1.0, then the full baseline clips to 0.
-    assert output == pytest.approx([0.0, 0.4, 0.0, 1.0])

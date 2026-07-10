@@ -803,6 +803,16 @@ class Orchestrator:
                     f"rho={algorithm_metrics['tether/rho']:.3f}, "
                     f"fits={int(algorithm_metrics['tether/updates'])}"
                 )
+            elif "tether/position/num_bins" in algorithm_metrics:
+                adaptive_parts.append(
+                    f"{env.name}: "
+                    f"alpha=[{algorithm_metrics['tether/position/alpha_min']:.3f}, "
+                    f"{algorithm_metrics['tether/position/alpha_max']:.3f}], "
+                    f"rho=[{algorithm_metrics['tether/position/rho_min']:.3f}, "
+                    f"{algorithm_metrics['tether/position/rho_max']:.3f}], "
+                    f"active={int(algorithm_metrics['tether/position/active_bins'])}/"
+                    f"{int(algorithm_metrics['tether/position/num_bins'])}"
+                )
         if adaptive_parts:
             body += "; adaptive TETHER " + " | ".join(adaptive_parts)
         if lag_stats.n > 0:

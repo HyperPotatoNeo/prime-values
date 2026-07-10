@@ -53,6 +53,10 @@ not add value loss or value-model state to the policy trainer.
 - Multi-node runs reserve `deployment.num_value_train_nodes` and
   `deployment.num_value_eval_nodes`; use `examples/value_function/rl.toml` as
   the local smoke and `configs/rg_mix/async_value.toml` as the four-node shape.
+- Before a local GPU smoke on Perlmutter, point compiler and package caches at
+  scratch (`UV_CACHE_DIR`, `XDG_CACHE_HOME`, `HF_HOME`, `TRITON_CACHE_DIR`,
+  `TORCHINDUCTOR_CACHE_DIR`, `CUDA_CACHE_PATH`, and `TMPDIR`). Triton otherwise
+  defaults to the quota-limited home filesystem and can fail during vLLM startup.
 - Check `logs/value_trainer.log`, `logs/value_evaluator.log`, evaluator
   `/health` and `/version`, plus `value/batch_pending_rollouts` and
   `value/batch_drop_rate`. `value_function.batch_size` inherits the policy
@@ -68,6 +72,11 @@ not add value loss or value-model state to the policy trainer.
   batch size, and updates during value warmup. Watch
   `algorithm/<env>/tether/{alpha,rho,updates,mse_ema}`; orchestrator checkpoints
   preserve the estimator state.
+- TETHER position conditioning is opt-in through
+  `[orchestrator.algo.baseline.position]`. It uses fixed-width, branch-local
+  generated-action bins (`bin_size = 1024` by default). With adaptive TETHER,
+  watch the per-bin coefficient/support metrics under
+  `algorithm/<env>/tether/position/bin_NNN/*` as well as the active-bin summary.
 
 ## `sft` — SFT training
 

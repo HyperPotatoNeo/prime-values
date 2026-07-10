@@ -257,6 +257,9 @@ token-normalized. The features and target are divided by the reward-range width
 before their moments are accumulated, so `ridge` is invariant to a linear
 rescaling of the reward. The fit targets the unclipped linear residual; the
 full TETHER baseline is still clipped once when advantages are constructed.
+`V_0` is the first native model-sampled action value on the branch. On a
+shared-prefix fork, that remains the shared branch start even when the prefix's
+policy gradient is deduplicated onto another leaf.
 
 There is one estimator per training environment, shared globally across that
 environment's prompts. A group snapshots the current coefficients before any
@@ -278,13 +281,84 @@ depend on the current rollout, in which case LOO alone does not provide this
 guarantee. Regression collection happens before the policy-batch warmup gate,
 so coefficients adapt during value warmup too.
 
+### Position-conditioned TETHER
+
+Position conditioning is opt-in. It replaces the global coefficient pair with
+fixed-width bins over causal, branch-local action-token depth:
+
+```toml
+[orchestrator.algo.baseline]
+type = "tether"
+alpha = 1.0
+rho = 1.0
+
+[orchestrator.algo.baseline.position]
+bin_size = 1024
+# max_action_tokens = 20000  # otherwise the policy sequence length
+```
+
+The position of an action token is the number of native model-sampled action
+tokens before it on that root-to-leaf branch. Prompt tokens, tool results, user
+feedback, and rendering scaffold neither receive an advantage nor advance the
+position. Shared sampled prefixes advance every descendant branch, while their
+gradient/regression rows are still counted only once. Independent branches
+start at zero. This definition does not impose a timing-dependent total order
+on concurrent subagents.
+
+Bin boundaries and the horizon are fixed before sampling. The implementation
+does not normalize by a rollout's realized final length, since doing so would
+let future stopping decisions change the baseline of an earlier action. Tokens
+beyond an explicit `max_action_tokens` use the final bin. The position config
+must resolve to between 2 and 128 bins; the default 1024-token width gives 20
+bins for a 20k-token horizon.
+
+In static mode, the configured `alpha` and `rho` are endpoints. For `K` bins,
+bin `k` uses the ex-ante ramp
+
+```text
+gate_k  = k / (K - 1)
+alpha_k = gate_k * alpha
+rho_k   = gate_k * rho
+```
+
+The first bin is therefore the configured group anchor (LOO under the default
+configuration). With `alpha = rho = 1`, the final bin is the pure current value
+`V_t`; other endpoint values remain valid static control-variate choices.
+
+Adding the ordinary adaptive table fits one independent alpha/rho pair per
+position bin:
+
+```toml
+[orchestrator.algo.baseline.adaptive]
+ridge = 1e-6
+ema_decay = 0.9
+initial_alpha = 0.0
+initial_rho = 0.0
+# min_bin_rollouts = 32
+```
+
+All bins start from the adaptive initial coefficients (zero/zero, hence LOO,
+by default). A bin is fitted only from rows in the current exact rollout
+regression window and only when enough distinct rollouts reached it. The
+default support threshold is one eighth of the regression batch, rounded up.
+Unsupported bins retain their coefficients without EMA decay. Supported bins
+use `ema_decay ** (contributing_rollouts / batch_size)`, so sparse tail evidence
+moves a coefficient less than full-batch evidence. Each bin's moments are
+normalized by its own trainable-token count, and its ridge strength is scaled
+by `batch_size / contributing_rollouts`. A bin's fit is therefore invariant to
+unrelated tokens in other bins while sparse bins are regularized more strongly,
+without retaining stale raw rollouts across critic versions.
+
 The applied coefficients, raw batch fits, MSE proxies, clipping fraction,
 condition number, update count, and pending rollout count are logged on the
 wall-clock axis under `algorithm/<env>/tether/*`. Coefficients need not rise
 monotonically as the critic improves: a directionally correct but shrunken
 critic can need `rho > 1`, while better calibration can later move it back
 toward one. Orchestrator checkpoints preserve the EMA and pending sufficient
-statistics; a run interrupted before its first policy checkpoint has no
+statistics. Positioned adaptive runs additionally log each bin's coefficients,
+raw fit, support, token count, age, condition number, and update counts under
+`algorithm/<env>/tether/position/bin_NNN/*`, plus min/max and active-bin
+summaries. A run interrupted before its first policy checkpoint has no
 warmup-only orchestrator checkpoint to restore.
 
 `value`, `linear_mix`, and `tether` are invalid unless `[value_function]` is

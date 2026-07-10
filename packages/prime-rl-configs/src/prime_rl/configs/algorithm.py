@@ -114,6 +114,8 @@ LengthPenaltyConfig: TypeAlias = LinearLengthPenaltyConfig
 # GRPO baselines
 # ---------------------------------------------------------------------------
 
+MAX_TETHER_POSITION_BINS = 128
+
 
 class MeanBaselineConfig(BaseConfig):
     type: Literal["mean"] = "mean"
@@ -141,6 +143,16 @@ class LinearMixBaselineConfig(BaseConfig):
     """Static value-advantage coefficient. Any finite value is allowed."""
 
 
+class TetherPositionConfig(BaseConfig):
+    """Causal, branch-local action-position bins for TETHER coefficients."""
+
+    bin_size: int = Field(1024, ge=1)
+    """Generated assistant tokens per coefficient bin."""
+
+    max_action_tokens: int | None = Field(None, ge=1)
+    """Fixed ex-ante action horizon. None uses the policy sequence length."""
+
+
 class AdaptiveTetherConfig(BaseConfig):
     """Online two-factor control-variate fit for TETHER.
 
@@ -165,6 +177,11 @@ class AdaptiveTetherConfig(BaseConfig):
     initial_rho: float = Field(0.0, allow_inf_nan=False)
     """Applied rho before the first fit and the EMA's initial value."""
 
+    min_bin_rollouts: int | None = Field(None, ge=1)
+    """Minimum distinct contributing rollouts required to fit a position bin.
+    None resolves to one eighth of the regression batch in positioned mode and
+    one rollout in the ordinary one-bin mode."""
+
 
 class TetherBaselineConfig(BaseConfig):
     type: Literal["tether"] = "tether"
@@ -182,6 +199,10 @@ class TetherBaselineConfig(BaseConfig):
     adaptive: AdaptiveTetherConfig | None = None
     """Optional online coefficient fit. When enabled, its initial coefficients
     replace the static ``alpha`` and ``rho`` fields and default to zero."""
+
+    position: TetherPositionConfig | None = None
+    """Optional causal action-position conditioning. None keeps the default
+    single global alpha/rho pair."""
 
     reward_range: tuple[float, float] = (0.0, 1.0)
     """Closed interval used to clip the corrected baseline."""

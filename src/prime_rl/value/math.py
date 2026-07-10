@@ -202,30 +202,3 @@ def linear_mix_advantages(
             continue
         output[index] = (1.0 - config.rho) * group_advantage + config.rho * value_advantages[index]
     return output
-
-
-def tether_advantages(
-    *,
-    reward: float,
-    group_anchor: float,
-    values: list[float],
-    mask: list[bool],
-    alpha: float,
-    rho: float,
-    reward_range: tuple[float, float],
-) -> list[float]:
-    """Clipped TETHER: group anchor + start correction + value progress."""
-    if len(values) != len(mask):
-        raise ValueError("value prediction/mask length mismatch")
-    first_action = next((index for index, trainable in enumerate(mask) if trainable), None)
-    if first_action is None:
-        return [0.0] * len(mask)
-    low, high = reward_range
-    start_value = values[first_action]
-    output = [0.0] * len(mask)
-    for index, trainable in enumerate(mask):
-        if not trainable:
-            continue
-        baseline = group_anchor + alpha * (start_value - group_anchor) + rho * (values[index] - start_value)
-        output[index] = reward - min(max(baseline, low), high)
-    return output

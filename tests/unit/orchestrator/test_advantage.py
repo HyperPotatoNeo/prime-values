@@ -97,6 +97,53 @@ def _build_rollout(
     return rollout
 
 
+def _build_branched_rollout(reward: float) -> Rollout:
+    """Build two leaf branches that share one sampled assistant prefix."""
+    nodes = [
+        vf.MessageNode(
+            message=vf.UserMessage(content="q"),
+            token_ids=[0],
+            mask=[False],
+            logprobs=[0.0],
+            sampled=False,
+            parent=None,
+        ),
+        vf.MessageNode(
+            message=vf.AssistantMessage(content="shared"),
+            token_ids=[1],
+            mask=[True],
+            logprobs=[-0.1],
+            sampled=True,
+            parent=0,
+        ),
+        vf.MessageNode(
+            message=vf.AssistantMessage(content="left"),
+            token_ids=[2],
+            mask=[True],
+            logprobs=[-0.1],
+            sampled=True,
+            parent=1,
+        ),
+        vf.MessageNode(
+            message=vf.AssistantMessage(content="right"),
+            token_ids=[3],
+            mask=[True],
+            logprobs=[-0.1],
+            sampled=True,
+            parent=1,
+        ),
+    ]
+    rollout = Rollout[vf.Task](
+        task=vf.Task(idx=0, prompt=None),
+        nodes=nodes,
+        rewards={"reward": reward},
+        metrics={},
+    )
+    rollout.env_name = "test"
+    rollout.samples = trace_to_samples(rollout, env_name="test")
+    return rollout
+
+
 def _make_rollout(
     reward: float,
     completion_len: int = 1,
@@ -286,6 +333,79 @@ def test_static_and_adaptive_initial_tether_coefficients_score_end_to_end(baseli
     assert [_scalar(rollout) for rollout in group] == pytest.approx([0.0, 0.0])
 
 
+@pytest.mark.parametrize(
+    ("position", "shared_advantage"),
+    [
+        (None, 0.3),
+        ({"bin_size": 1, "max_action_tokens": 2}, 0.5),
+    ],
+)
+def test_tether_shared_prefix_keeps_native_start_value_and_action_depth(position, shared_advantage):
+    baseline = TetherBaselineConfig(alpha=1.0, rho=0.0, position=position)
+    algo = GRPOAlgorithm(
+        GRPOAlgoConfig(baseline=baseline),
+        policy_pool=None,
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 8}, batch_size=2),
+    )
+    branched = _build_branched_rollout(1.0)
+    sibling = _make_rollout(0.5)
+    branched.value_predictions = [[0.0, 0.7, 0.8], [0.0, 0.7, 0.9]]
+    sibling.value_predictions = [[0.0, 0.5]]
+
+    asyncio.run(algo.score_group([branched, sibling]))
+
+    assert [sample.mask for sample in branched.samples] == [[False, True, True], [False, False, True]]
+    assert branched.advantages == pytest.approx([0.0, shared_advantage, 0.3, 0.0, 0.0, 0.3])
+
+
+def test_adaptive_tether_shared_prefix_counts_each_gradient_row_once():
+    baseline = TetherBaselineConfig(
+        position={"bin_size": 1, "max_action_tokens": 2},
+        adaptive=AdaptiveTetherConfig(batch_size=4, min_bin_rollouts=1),
+    )
+    algo = GRPOAlgorithm(
+        GRPOAlgoConfig(baseline=baseline),
+        policy_pool=None,
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 8}, batch_size=4),
+    )
+    branched = _build_branched_rollout(1.0)
+    sibling = _make_rollout(0.5)
+    branched.value_predictions = [[0.0, 0.7, 0.8], [0.0, 0.7, 0.9]]
+    sibling.value_predictions = [[0.0, 0.5]]
+
+    asyncio.run(algo.score_group([branched, sibling]))
+
+    assert algo.adaptive_tether is not None
+    assert [stats.weight for stats in algo.adaptive_tether.pending_bins] == [2, 2]
+    assert algo.adaptive_tether.pending_contributors == [2, 1]
+    child_stats = algo.adaptive_tether.pending_bins[1]
+    assert child_stats.alpha_alpha == pytest.approx(0.08)
+    assert child_stats.alpha_rho == pytest.approx(0.06)
+    assert child_stats.rho_rho == pytest.approx(0.05)
+    assert child_stats.alpha_target == pytest.approx(0.2)
+    assert child_stats.rho_target == pytest.approx(0.15)
+
+
+def test_tether_rejects_permuted_branch_samples():
+    baseline = TetherBaselineConfig(alpha=1.0, rho=0.0)
+    algo = GRPOAlgorithm(
+        GRPOAlgoConfig(baseline=baseline),
+        policy_pool=None,
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 8}, batch_size=2),
+    )
+    branched = _build_branched_rollout(1.0)
+    branched.samples.reverse()
+    branched.value_predictions = [[0.0, 0.7, 0.9], [0.0, 0.7, 0.8]]
+    sibling = _make_rollout(0.5)
+    sibling.value_predictions = [[0.0, 0.5]]
+
+    with pytest.raises(ValueError, match="token streams are misaligned"):
+        asyncio.run(algo.score_group([branched, sibling]))
+
+
 def test_adaptive_tether_excludes_tokens_beyond_actor_context_from_regression():
     baseline = TetherBaselineConfig(adaptive=AdaptiveTetherConfig(batch_size=4))
     algo = GRPOAlgorithm(
@@ -304,7 +424,8 @@ def test_adaptive_tether_excludes_tokens_beyond_actor_context_from_regression():
     asyncio.run(algo.score_group(group))
 
     assert algo.adaptive_tether is not None
-    assert [stats.weight for stats in algo.adaptive_tether.pending] == [1, 1]
+    assert algo.adaptive_tether.pending_rollouts == 2
+    assert algo.adaptive_tether.pending_bins[0].weight == 2
     assert [rollout.advantages[-1] for rollout in group] == [0.0, 0.0]
 
 
