@@ -224,6 +224,7 @@ class Algorithm:
                 mask=sample.mask[:value_length],
                 gamma=self.value_config.gamma,
                 gae_lambda=self.value_config.gae_lambda,
+                value_target_lambda=self.value_config.value_target_lambda,
             )
             padding = len(sample.token_ids) - value_length
             advantages.append(sample_advantages + [0.0] * padding)

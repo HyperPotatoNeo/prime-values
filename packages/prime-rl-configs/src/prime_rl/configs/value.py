@@ -122,15 +122,20 @@ class ValueFunctionConfig(BaseConfig):
     tokenizer_name: str | None = None
     """Tokenizer vocabulary expected by the value backbone. Defaults to ``model.name`` and must match the policy tokenizer."""
 
-    loss: ValueLossConfig = MSEValueLossConfig()
+    loss: ValueLossConfig = ClassificationValueLossConfig()
+    """Value-head objective. Defaults to two-bin classification over ``[0, 1]``."""
 
-    optim: OptimizerConfig = AdamWConfig(lr=5e-5)
+    optim: OptimizerConfig = AdamWConfig(lr=1e-5)
 
     scheduler: SchedulerConfig = ConstantSchedulerConfig()
 
     gamma: float = Field(1.0, ge=0, le=1)
 
     gae_lambda: float = Field(1.0, ge=0, le=1)
+    """Lambda used for the policy's generalized advantage estimate."""
+
+    value_target_lambda: float = Field(1.0, ge=0, le=1)
+    """Independent lambda used for the critic's TD(lambda) return target."""
 
     updates_per_batch: int = Field(1, ge=1)
     """Optimizer updates on one recent trajectory batch before it is discarded."""

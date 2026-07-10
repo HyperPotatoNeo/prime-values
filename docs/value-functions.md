@@ -5,6 +5,37 @@ not add a value loss to the policy trainer. The policy trainer receives the
 same token ids, sampling log probabilities, masks, and already-computed
 advantages as it does without a critic.
 
+## Quickstart
+
+Add an empty value-function table and select a value-backed GRPO baseline. The
+empty table uses binary classification over `[0, 1]`, learning rate `1e-5`, one
+critic update per trajectory batch, and independent policy/target lambdas of
+`1.0`:
+
+```toml
+[orchestrator]
+group_size = 2
+
+[orchestrator.algo]
+type = "grpo"
+
+[orchestrator.algo.baseline]
+type = "linear_mix" # "value" and "tether" are also value-backed
+# group = "leave_one_out" is the linear_mix/tether default
+
+[value_function]
+```
+
+Run it through the normal entrypoint; the value roles are launched
+automatically:
+
+```bash
+uv run rl @ examples/value_function/rl.toml
+```
+
+Use `uv run rl @ <config> --dry-run` to inspect the fully resolved value,
+orchestrator, trainer, evaluator, and Slurm configs before allocating GPUs.
+
 ## Runtime topology
 
 Enabling `[value_function]` adds two roles:
@@ -71,21 +102,92 @@ sequences reset both the causal value shift and GAE recursion at every sequence
 boundary. Value predictions are versioned; if an update lands while siblings
 are being scored, the whole group is re-evaluated at one coherent version.
 
-The default `gamma = 1` and `gae_lambda = 1` gives Monte Carlo return-to-go
-targets. This also makes warmup independent of the randomly initialized value
-head.
+The policy GAE and critic target have independent lambda values:
+
+```text
+delta_t = r_t + gamma * V_(t+1) - V_t
+A_policy_t = sum_l (gamma * gae_lambda)^l * delta_(t+l)
+target_t = V_t + sum_l (gamma * value_target_lambda)^l * delta_(t+l)
+```
+
+Both lambdas default to `1.0`. With terminal rewards and `gamma = 1`, that
+makes both streams Monte Carlo. They can be decoupled; for example,
+`gae_lambda = 0.5` gives the policy a more biased, lower-variance advantage
+while `value_target_lambda = 1.0` keeps the critic target Monte Carlo. The
+critic target is not derived from the policy advantage after the two lambdas
+diverge.
 
 ## Value head and losses
 
-The default loss is scalar MSE regression. The value head is one unconstrained
-linear output: there is no sigmoid or other bounding activation.
+The default loss is two-bin classification over `[0, 1]`. The head emits two
+logits and its scalar prediction is the softmax expectation over support
+`[0, 1]`. This is equivalent to a Bernoulli prediction, but uses the same
+categorical implementation as larger supports.
 
-Classification is optional. It uses `num_bins` logits over evenly spaced
-support points in `reward_range`; softmax expectation gives the scalar value.
-Continuous targets are projected onto their two adjacent support bins, which
-preserves the target expectation instead of rounding it to one class. Targets
-outside the configured range fail immediately. The RG-Mix example uses two
-bins over `[0, 1]`, so binary rewards remain ordinary one-hot classes.
+For a continuous target `y = 0.3`, the soft target is `[0.7, 0.3]`. If the
+model predicts probabilities `[p0, p1]`, then:
+
+```text
+loss = -0.7 * log(p0) - 0.3 * log(p1)
+predicted_value = 0 * p0 + 1 * p1 = p1
+```
+
+There is no rounding to class 0 or class 1: the target distribution preserves
+the exact expectation `0.3`. For a support with more than two points, the same
+projection puts weight on the two adjacent support points in proportion to
+distance.
+
+This is a standard categorical/discrete-regression construction, related to
+the fixed-support projection in [C51](https://arxiv.org/abs/1707.06887) and the
+two-hot critic targets in
+[DreamerV3](https://arxiv.org/abs/2301.04104). Choosing exactly two endpoints
+over `[0, 1]` as the default is specific to binary-reward RL workloads; it is
+not a universal critic default. Tasks whose returns leave `[0, 1]` must widen
+`reward_range`, add support bins, or select MSE regression.
+
+MSE regression remains available with `loss.type = "mse"`. It uses one
+unconstrained linear output: there is no sigmoid, clipping, or other bounding
+activation.
+
+```toml
+[value_function.loss]
+type = "mse"
+```
+
+Classification targets outside the configured range fail immediately rather
+than being silently clipped.
+
+## Configuration reference
+
+| Setting | Default | Purpose |
+|---|---:|---|
+| `value_function.loss.type` | `classification` | `classification` for a categorical support or `mse` for scalar regression. |
+| `value_function.loss.reward_range` | `[0.0, 1.0]` | Closed categorical support range. Classification targets must lie inside it. |
+| `value_function.loss.num_bins` | `2` | Number of evenly spaced support atoms. |
+| `value_function.gamma` | `1.0` | Discount used by both policy GAE and critic TD(lambda) targets. |
+| `value_function.gae_lambda` | `1.0` | Lambda for policy advantages. |
+| `value_function.value_target_lambda` | `1.0` | Independent lambda for critic targets. |
+| `value_function.optim.lr` | `1e-5` | Critic AdamW learning rate. Other optimizer fields use normal trainer defaults. |
+| `value_function.updates_per_batch` | `1` | Optimizer updates made on one recent value batch before discarding it. |
+| `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Generation continues during warmup. |
+| `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
+| `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context. |
+| `value_function.evaluator.dtype` | `bfloat16` | Evaluator serving-copy parameter dtype; outputs and advantage math stay FP32. |
+| `value_function.evaluator.double_buffer_weights` | `true` | Atomically swap weight versions without pausing inference; needs roughly two model copies of GPU memory. |
+| `value_function.evaluator.max_batch_tokens` | `32768` | Dynamic evaluator batch token ceiling. |
+| `value_function.max_steps` | unset | Optional independent cap on critic updates. |
+| `value_function.ckpt.interval` | unset | Optional periodic value checkpoint interval; normal completion always writes the latest version. |
+| `deployment.num_value_train_gpus` / `num_value_train_nodes` | `1` | Single-node GPU count or multi-node critic-trainer node count. |
+| `deployment.num_value_eval_gpus` / `num_value_eval_nodes` | `1` | Evaluator replica capacity; multi-node currently launches one single-GPU replica per node. |
+
+Every field is also available as a dotted CLI override, for example:
+
+```bash
+uv run rl @ rl.toml \
+  --value-function.gae-lambda 0.5 \
+  --value-function.value-target-lambda 1.0 \
+  --value-function.optim.lr 1e-5
+```
 
 ## Baselines
 
@@ -128,6 +230,31 @@ The value queue is intentionally lossy and capacity one. This is the desired
 overload behavior for an online regressor: train repeatedly on one coherent
 recent batch, then move to the newest available policy distribution instead of
 working through an increasingly stale FIFO backlog.
+
+## Monitoring
+
+Enabling the top-level `[wandb]` block propagates the same W&B project, run,
+group, tags, and shared-run identity to the value trainer. Value metrics are
+logged after every critic optimizer update; evaluator and value-queue metrics
+are also logged by the orchestrator.
+
+| Metric | Interpretation |
+|---|---|
+| `value/loss`, `value/mae`, `value/mse`, `value/rmse` | Training objective and prediction-space error views. For classification, `value/loss` is cross entropy while the error metrics use the softmax expectation. |
+| `value/bias`, `value/explained_variance` | Signed prediction error and fraction of target variance explained. Explained variance is reported as zero for a constant-target batch. |
+| `value/prediction_{mean,std,min,max}` | Critic predictions on the optimizer batch. |
+| `value/target_{mean,std,min,max}` | TD(lambda) target distribution. |
+| `value/accuracy`, `value/entropy`, `value/confidence` | Classification diagnostics. Accuracy compares the most probable support atom to the target's nearest atom; error metrics remain more informative for continuous soft targets. |
+| `value/version`, `value/source_value_version`, `value/source_value_lag` | Trainer version, evaluator version that labeled the batch, and their staleness gap. |
+| `value/source_policy_version`, `value/batch_id`, `value/source_batches_skipped` | Policy provenance and latest-only transport replacement pressure. |
+| `value/batch_{tokens,samples}`, `value/total_{tokens,samples}` | Per-update and cumulative critic data volume. |
+| `value/update_seconds`, `value/tokens_per_second` | Value optimizer performance. |
+| `optim/lr`, `optim/grad_norm`, `optim/zero_grad_ratio` | Critic optimizer health. |
+| `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
+| `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
+| `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
+| `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
+| `value/batches_{published,dropped}`, `value/batch_drop_rate` | Orchestrator-to-critic latest-only queue pressure. Dropping stale intermediate batches is expected under overload. |
 
 ## Warmup
 

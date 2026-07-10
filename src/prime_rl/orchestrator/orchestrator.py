@@ -22,6 +22,7 @@ in ``setup()`` and drives them from ``main_loop()``.
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import time
 from typing import TYPE_CHECKING
@@ -101,6 +102,19 @@ MAX_CONSECUTIVE_EMPTY_BATCHES = 10
 # dispatcher is paused via ``update_dispatch_gate`` once this is exceeded;
 # resumed when the watcher advances ``policy.version``.
 TARGET_LAG = 1
+
+
+def _scalar_summary(prefix: str, values: list[float]) -> dict[str, float]:
+    if not values:
+        return {}
+    mean = math.fsum(values) / len(values)
+    variance = math.fsum((value - mean) ** 2 for value in values) / len(values)
+    return {
+        f"{prefix}_mean": mean,
+        f"{prefix}_std": variance**0.5,
+        f"{prefix}_min": min(values),
+        f"{prefix}_max": max(values),
+    }
 
 
 class Orchestrator:
@@ -410,6 +424,16 @@ class Orchestrator:
                 "event_loop_lag/p99",
                 "event_loop_lag/max",
                 "event_loop_lag/n",
+                *(
+                    [
+                        "value/batches_published",
+                        "value/batches_dropped",
+                        "value/batch_drop_rate",
+                        *self.value_evaluator.metrics(),
+                    ]
+                    if self.value_evaluator is not None
+                    else []
+                ),
             ],
             interval=log_interval,
             wandb_enabled=wandb_enabled,
@@ -603,6 +627,29 @@ class Orchestrator:
         value_versions = [r.value_version for r in effective if r.value_version is not None]
         if value_versions:
             metrics["value/evaluator_version"] = float(max(value_versions))
+            metrics["value/evaluator_version_min"] = float(min(value_versions))
+            metrics["value/evaluator_version_spread"] = float(max(value_versions) - min(value_versions))
+            value_streams: dict[str, list[float]] = {
+                "value/rollout_prediction": [],
+                "value/rollout_advantage": [],
+                "value/rollout_target": [],
+            }
+            for rollout in effective:
+                for prefix, branches in (
+                    ("value/rollout_prediction", rollout.value_predictions),
+                    ("value/rollout_advantage", rollout.value_advantages),
+                    ("value/rollout_target", rollout.value_returns),
+                ):
+                    if branches is None:
+                        continue
+                    for sample, values in zip(rollout.samples, branches, strict=True):
+                        value_streams[prefix].extend(
+                            value for value, trainable in zip(values, sample.mask, strict=True) if trainable
+                        )
+            for prefix, values in value_streams.items():
+                metrics |= _scalar_summary(prefix, values)
+        if self.value_evaluator is not None:
+            metrics |= self.value_evaluator.metrics()
         if self.value_publisher is not None:
             attempted = self.value_publisher.published + self.value_publisher.dropped
             metrics["value/batches_published"] = float(self.value_publisher.published)
@@ -729,6 +776,8 @@ class Orchestrator:
             payload["value/batches_published"] = float(self.value_publisher.published)
             payload["value/batches_dropped"] = float(self.value_publisher.dropped)
             payload["value/batch_drop_rate"] = self.value_publisher.dropped / attempted if attempted else 0.0
+        if self.value_evaluator is not None:
+            payload |= self.value_evaluator.metrics()
         if lag_stats.n > 0:
             payload["event_loop_lag/min"] = lag_stats.min
             payload["event_loop_lag/mean"] = lag_stats.mean

@@ -42,6 +42,7 @@ def test_gae_monte_carlo_terminal_reward_ignores_context_tokens():
         mask=[False, True, False, True],
         gamma=1.0,
         gae_lambda=1.0,
+        value_target_lambda=1.0,
     )
 
     assert advantages == pytest.approx([0.0, 0.8, 0.0, 0.4])
@@ -55,10 +56,25 @@ def test_gae_nontrivial_gamma_and_lambda():
         mask=[False, True, False, True],
         gamma=0.9,
         gae_lambda=0.5,
+        value_target_lambda=0.5,
     )
 
     assert advantages == pytest.approx([0.0, 0.43, 0.0, 0.6])
     assert returns == pytest.approx([0.0, 0.63, 0.0, 1.0])
+
+
+def test_policy_gae_and_value_target_use_independent_lambdas():
+    advantages, returns = compute_gae(
+        reward=1.0,
+        values=[9.0, 0.2, 8.0, 0.4],
+        mask=[False, True, False, True],
+        gamma=1.0,
+        gae_lambda=0.0,
+        value_target_lambda=1.0,
+    )
+
+    assert advantages == pytest.approx([0.0, 0.2, 0.0, 0.6])
+    assert returns == pytest.approx([0.0, 1.0, 0.0, 1.0])
 
 
 def test_leave_one_out_group_advantage_excludes_own_reward():
@@ -89,7 +105,7 @@ def test_regression_value_prediction_is_unbounded_without_sigmoid():
 
 def test_classification_uses_expectation_preserving_two_hot_targets():
     logits = torch.tensor([[[math.log(0.6), math.log(0.4)]]], requires_grad=True)
-    loss, _ = compute_value_loss(
+    loss, metrics = compute_value_loss(
         logits=logits,
         targets=torch.tensor([[0.4]]),
         mask=torch.tensor([[True]]),
@@ -101,6 +117,9 @@ def test_classification_uses_expectation_preserving_two_hot_targets():
 
     assert logits.grad is not None
     assert torch.allclose(logits.grad, torch.zeros_like(logits), atol=1e-6)
+    assert metrics["value/error"].item() == pytest.approx(0.0, abs=1e-6)
+    assert metrics["value/entropy"].item() == pytest.approx(-0.6 * math.log(0.6) - 0.4 * math.log(0.4))
+    assert metrics["value/confidence"].item() == pytest.approx(0.6)
 
 
 def test_classification_rejects_targets_outside_support():
@@ -125,6 +144,8 @@ def test_value_loss_masks_context_tokens():
 
     assert loss.item() == pytest.approx(1.0)
     assert metrics["value/loss"].tolist() == [1.0]
+    assert metrics["value/error"].tolist() == [1.0]
+    assert metrics["value/squared_error"].tolist() == [1.0]
 
 
 def test_linear_mix_position_schedule_only_spans_actions():

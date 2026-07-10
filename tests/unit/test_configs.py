@@ -15,6 +15,7 @@ from prime_rl.configs.sft import SFTConfig
 from prime_rl.configs.shared import SlurmConfig
 from prime_rl.configs.trainer import ModelConfig as TrainerModelConfig
 from prime_rl.configs.trainer import TrainerConfig
+from prime_rl.configs.value import ClassificationValueLossConfig, ValueFunctionConfig
 from prime_rl.entrypoints.rl import validate_value_tokenizer_compatibility, write_slurm_script
 from prime_rl.utils.config import BaseConfig, cli
 
@@ -265,6 +266,18 @@ def test_shared_observability_reaches_value_trainer():
     assert config.value_function.wandb is not None
     assert config.value_function.wandb.project == "critic-test"
     assert config.value_function.wandb.name == "shared-run"
+
+
+def test_value_function_defaults_to_binary_classification_and_independent_lambdas():
+    config = ValueFunctionConfig()
+
+    assert isinstance(config.loss, ClassificationValueLossConfig)
+    assert config.loss.num_bins == 2
+    assert config.loss.reward_range == (0.0, 1.0)
+    assert config.optim.lr == 1e-5
+    assert config.updates_per_batch == 1
+    assert config.gae_lambda == 1.0
+    assert config.value_target_lambda == 1.0
 
 
 def test_group_only_baseline_does_not_require_value_function():

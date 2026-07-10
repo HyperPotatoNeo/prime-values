@@ -269,7 +269,7 @@ The per-token training signal is set by `algo.type` and the [algorithm](#the-alg
 
 | Type | Component | Effect |
 |---|---|---|
-| `grpo` | `rl` | Group-norm: reward minus per-group baseline, optional length penalty. |
+| `grpo` | `rl` | Configurable group or value-function baseline, with an optional length penalty for group-only credit. |
 | `max_rl` | `rl` | Mean-normalized group credit (maximum-likelihood RL). |
 | `echo` | `rl` + `ce` | Group-norm on action tokens, plus weighted CE on env-provided tokens selected by message role (each role's `alpha` is its ECHO λ), optionally narrowed by a user filter. |
 | `opd` | `ref_kl` | On-policy distillation: per-token reverse KL to a reference model (`model`, an inline frozen hosted model), evaluated in the trainer from shipped reference logprobs. No credit — rollouts keep `advantages = None` (advantage-based filters never fire) and ship no advantage stream; `group_size` only fans out sampling. |
@@ -279,6 +279,20 @@ The per-token training signal is set by `algo.type` and the [algorithm](#the-alg
 ### Default Advantage
 
 The default advantage is per-group reward minus per-group baseline (DR-GRPO without std normalization). For each prompt's group of `group_size` rollouts, every token in rollout $i$ receives advantage $s_i - \bar{s}$ where $\bar{s}$ is the group mean.
+
+`[orchestrator.algo.baseline]` selects the credit rule:
+
+| `baseline.type` | Credit |
+|---|---|
+| `mean` | Reward minus the full group mean; the GRPO default. |
+| `leave_one_out` | Reward minus the mean of the other group members. |
+| `value` | Per-token GAE from the async critic. |
+| `linear_mix` | Convex combination of group credit and per-token GAE; its group side defaults to leave-one-out. |
+| `tether` | Clipped group anchor plus start-value and value-progress corrections; its group anchor defaults to leave-one-out. |
+
+The three value-backed choices require `[value_function]`. Their topology,
+losses, targets, configuration, and monitoring are documented in
+[Value Functions](value-functions.md).
 
 This is intentionally simple — it does the right thing for most envs. Write a named algorithm class when you need group-aware shaping that depends on trajectory metadata (sub-agent rollouts, relative-rank shaping, …) — see [Authoring an Algorithm](#authoring-an-algorithm).
 

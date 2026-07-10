@@ -88,29 +88,42 @@ def compute_value_loss(
             "value/loss": empty,
             "value/prediction": empty,
             "value/target": empty,
+            "value/error": empty,
             "value/abs_error": empty,
+            "value/squared_error": empty,
         }
 
     if isinstance(config, ClassificationValueLossConfig):
         target_distribution = _classification_target_distribution(targets[mask], config)
         log_probs = F.log_softmax(logits[mask].float(), dim=-1)
+        probabilities = log_probs.exp()
         per_token = -(target_distribution * log_probs).sum(dim=-1)
         nearest_bin = target_distribution.argmax(dim=-1)
         accuracy = (logits[mask].argmax(dim=-1) == nearest_bin).float().detach()
+        entropy = -(probabilities * log_probs).sum(dim=-1).detach()
+        confidence = probabilities.max(dim=-1).values.detach()
     elif isinstance(config, MSEValueLossConfig):
         per_token = F.mse_loss(predictions[mask], targets[mask].float(), reduction="none")
         accuracy = None
+        entropy = None
+        confidence = None
     else:
         raise TypeError(f"unsupported value loss {type(config).__name__}")
 
+    errors = predictions[mask] - targets[mask].float()
     metrics = {
         "value/loss": per_token.detach(),
         "value/prediction": predictions[mask].detach(),
         "value/target": targets[mask].detach(),
-        "value/abs_error": (predictions[mask] - targets[mask]).abs().detach(),
+        "value/error": errors.detach(),
+        "value/abs_error": errors.abs().detach(),
+        "value/squared_error": errors.square().detach(),
     }
     if accuracy is not None:
         metrics["value/accuracy"] = accuracy
+    if entropy is not None and confidence is not None:
+        metrics["value/entropy"] = entropy
+        metrics["value/confidence"] = confidence
     return per_token.sum() / max(scale, 1), metrics
 
 
@@ -121,14 +134,16 @@ def compute_gae(
     mask: list[bool],
     gamma: float,
     gae_lambda: float,
+    value_target_lambda: float,
 ) -> tuple[list[float], list[float]]:
-    """GAE and lambda returns over action tokens in one trajectory branch."""
+    """Policy GAE and independently parameterized TD(lambda) value targets."""
     if len(values) != len(mask):
         raise ValueError(f"value/mask length mismatch: {len(values)} != {len(mask)}")
     action_indices = [index for index, trainable in enumerate(mask) if trainable]
     advantages = [0.0] * len(mask)
     returns = [0.0] * len(mask)
-    next_gae = 0.0
+    next_policy_gae = 0.0
+    next_target_advantage = 0.0
     for action_position in reversed(range(len(action_indices))):
         index = action_indices[action_position]
         has_next = action_position + 1 < len(action_indices)
@@ -136,9 +151,10 @@ def compute_gae(
         immediate_reward = reward if not has_next else 0.0
         nonterminal = 1.0 if has_next else 0.0
         delta = immediate_reward + gamma * next_value * nonterminal - values[index]
-        next_gae = delta + gamma * gae_lambda * nonterminal * next_gae
-        advantages[index] = next_gae
-        returns[index] = next_gae + values[index]
+        next_policy_gae = delta + gamma * gae_lambda * nonterminal * next_policy_gae
+        next_target_advantage = delta + gamma * value_target_lambda * nonterminal * next_target_advantage
+        advantages[index] = next_policy_gae
+        returns[index] = next_target_advantage + values[index]
     return advantages, returns
 
 

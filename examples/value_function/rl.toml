@@ -30,7 +30,7 @@ id = "reverse-text"
 [inference]
 
 [value_function]
-updates_per_batch = 2
+updates_per_batch = 1
 warmup_updates = 2
 
 [value_function.ckpt]
