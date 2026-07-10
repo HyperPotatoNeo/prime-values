@@ -172,16 +172,6 @@ def group_advantages(rewards: list[float], baseline: str) -> list[float]:
     raise ValueError(f"unsupported group baseline {baseline!r}")
 
 
-def action_position_fractions(mask: list[bool]) -> list[float]:
-    fractions = [0.0] * len(mask)
-    indices = [index for index, trainable in enumerate(mask) if trainable]
-    if len(indices) > 1:
-        denominator = len(indices) - 1
-        for position, index in enumerate(indices):
-            fractions[index] = position / denominator
-    return fractions
-
-
 def linear_mix_advantages(
     group_advantage: float,
     value_advantages: list[float],
@@ -191,15 +181,10 @@ def linear_mix_advantages(
     if len(value_advantages) != len(mask):
         raise ValueError("value advantage/mask length mismatch")
     output = [0.0] * len(mask)
-    for index, (trainable, fraction) in enumerate(zip(mask, action_position_fractions(mask), strict=True)):
+    for index, trainable in enumerate(mask):
         if not trainable:
             continue
-        rho = (
-            config.rho
-            if config.schedule == "constant"
-            else config.rho_start + (config.rho_end - config.rho_start) * fraction
-        )
-        output[index] = (1.0 - rho) * group_advantage + rho * value_advantages[index]
+        output[index] = (1.0 - config.rho) * group_advantage + config.rho * value_advantages[index]
     return output
 
 
@@ -221,10 +206,11 @@ def tether_advantages(
     group_anchor = reward - group_advantage
     start_value = values[action_indices[0]]
     output = [0.0] * len(mask)
-    for index, (trainable, fraction) in enumerate(zip(mask, action_position_fractions(mask), strict=True)):
+    for index, trainable in enumerate(mask):
         if not trainable:
             continue
-        rho = config.rho if config.schedule == "constant" else config.rho * fraction
-        baseline = group_anchor + config.alpha * (start_value - group_anchor) + rho * (values[index] - start_value)
+        baseline = (
+            group_anchor + config.alpha * (start_value - group_anchor) + config.rho * (values[index] - start_value)
+        )
         output[index] = reward - min(max(baseline, low), high)
     return output

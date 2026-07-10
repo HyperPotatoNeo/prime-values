@@ -44,7 +44,7 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
 ### Optional async value plane
 
 An RL config with `[value_function]` makes the `rl` launcher add two roles:
-`value-trainer` consumes a capacity-one latest-trajectory stream, and
+`value-trainer` consumes a capacity-one stream of full rollout batches, and
 `value-evaluator` serves versioned token values used by the orchestrator. Do
 not add value loss or value-model state to the policy trainer.
 
@@ -54,8 +54,11 @@ not add value loss or value-model state to the policy trainer.
   `deployment.num_value_eval_nodes`; use `examples/value_function/rl.toml` as
   the local smoke and `configs/rg_mix/async_value.toml` as the four-node shape.
 - Check `logs/value_trainer.log`, `logs/value_evaluator.log`, evaluator
-  `/health` and `/version`, plus `value/batch_drop_rate`. Drops are expected
-  under overload; value work must not backpressure policy rollout generation.
+  `/health` and `/version`, plus `value/batch_pending_rollouts` and
+  `value/batch_drop_rate`. `value_function.batch_size` inherits the policy
+  rollout batch size unless set explicitly; token-batched policy runs must set
+  it explicitly. Drops are expected under overload; value work must not
+  backpressure policy rollout generation.
 - Value checkpoints live under `<output_dir>/value` and have an independent
   version. `warmup_updates` gates only policy-batch shipping while generation
   and value training continue.

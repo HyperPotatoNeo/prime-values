@@ -31,7 +31,6 @@ type = "tether"
 group = "leave_one_out"
 alpha = 0.5
 rho = 0.8
-schedule = "linear"
 reward_range = [0.0, 1.0]
 
 [orchestrator.train.sampling]

@@ -4,9 +4,9 @@
    dispatcher producing more rollouts), then the env algorithm's
    ``finalize_rollout`` (rollout-local scoring + any reference I/O). Errored
    rollouts skip this.
-2. ``process_group`` — filters errored rollouts, hands survivors to the env
-   algorithm's ``finalize_group`` (advantages + per-sample wire stamping),
-   runs the pre-batch filter pass.
+2. ``process_group`` — removes errored or sampleless rollouts, validates the
+   surviving cohort, hands it to the env algorithm's ``finalize_group``
+   (advantages + per-sample wire stamping), then runs pre-batch filters.
 3. ``process_batch`` — applies post-batch filter annotations and assembles
    the trainer-bound ``TrainingSample`` list. Returns a ``TrainBatch``.
 
@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections import defaultdict
+from dataclasses import dataclass
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.envs import TrainEnvs
@@ -31,6 +32,13 @@ from prime_rl.utils.async_utils import safe_cancel_all
 from prime_rl.utils.logger import get_logger
 from prime_rl.value.transport import LatestValueBatchPublisher
 from prime_rl.value.types import ValueTrainingBatch, ValueTrainingSample
+
+
+@dataclass(frozen=True)
+class _PendingValueRollout:
+    samples: list[ValueTrainingSample]
+    policy_version: int
+    value_version: int
 
 
 class TrainSink:
@@ -62,6 +70,7 @@ class TrainSink:
         self.post_filters = post_filters
         self.value_publisher = value_publisher
         self.value_batch_id = 0
+        self.pending_value_rollouts: list[_PendingValueRollout] = []
 
         # Keyed by the dispatcher's group UUID. ``(env_name, task_idx)``
         # isn't unique — the same task can be re-sampled while an
@@ -122,6 +131,14 @@ class TrainSink:
             counts[r.env_name] += 1
         return dict(counts)
 
+    def value_batch_progress(self) -> tuple[int, int] | None:
+        """Current and target rollout counts for the independent critic batch."""
+        if self.value_publisher is None:
+            return None
+        assert self.config.value_function is not None
+        assert self.config.value_function.batch_size is not None
+        return len(self.pending_value_rollouts), self.config.value_function.batch_size
+
     async def add(self, rollout: Rollout) -> TrainBatch | None:
         """Process one arrival; finalize the group on the ``group_size``-th
         arrival; return a ``TrainBatch`` if the batch threshold is met."""
@@ -163,32 +180,41 @@ class TrainSink:
         )
 
     async def process_group(self, group_id: uuid.UUID) -> None:
-        """Finalize one GRPO group: drop errored rollouts (the whole group
-        when ``requires_group_scoring`` and any failed), assign advantages,
-        run pre-batch filters, append survivors to ``pending_batch``."""
+        """Finalize one group: remove unusable rollouts, enforce the algorithm's
+        minimum cohort, assign credit, queue critic data, and run pre-filters."""
         group = self.pending_groups.pop(group_id, [])
         if not group:
             return
         env_name = group[0].env_name
         task_idx = group[0].task.idx
-        survivors = [r for r in group if not r.has_error]
-        num_errored = len(group) - len(survivors)
+        num_errored = sum(r.has_error for r in group)
+        num_without_samples = sum(not r.has_error and not r.samples for r in group)
+        survivors = [r for r in group if not r.has_error and r.samples]
         scoring_tasks = [self.scoring_tasks.pop(id(rollout), None) for rollout in group]
         await asyncio.gather(*(task for task in scoring_tasks if task is not None))
 
-        # Group-scoring envs: any failure makes survivors' rewards unsafe
-        # (computed relative to the missing ones)
+        # Group-scoring envs: any unusable rollout makes survivors' rewards
+        # unsafe because their rewards were computed relative to the full group.
         env = self.train_envs.get(env_name)
-        if num_errored > 0 and env.requires_group_scoring:
+        if (num_errored > 0 or num_without_samples > 0) and env.requires_group_scoring:
             get_logger().debug(
                 f"Finished group | env={env_name} task_idx={task_idx} | "
-                f"rollouts={len(group)} (errored={num_errored}) | dropped: group-scored partial"
+                f"rollouts={len(group)} (errored={num_errored}, no_samples={num_without_samples}) | "
+                "dropped: group-scored partial"
             )
             return
         if not survivors:
             get_logger().debug(
                 f"Finished group | env={env_name} task_idx={task_idx} | "
-                f"rollouts={len(group)} (errored={num_errored}) | dropped: all failed"
+                f"rollouts={len(group)} (errored={num_errored}, no_samples={num_without_samples}) | "
+                "dropped: no trainable survivors"
+            )
+            return
+        if len(survivors) < env.algorithm.minimum_group_size:
+            get_logger().debug(
+                f"Finished group | env={env_name} task_idx={task_idx} | "
+                f"rollouts={len(group)} (survivors={len(survivors)}, "
+                f"required={env.algorithm.minimum_group_size}) | dropped: insufficient siblings"
             )
             return
 
@@ -196,7 +222,7 @@ class TrainSink:
         # routing) are the algorithm's job (finalize_group); the sink only
         # owns the grouping mechanics.
         await env.algorithm.finalize_group(survivors)
-        self.publish_value_batch(survivors)
+        self.enqueue_value_rollouts(survivors)
 
         # The env has a single sampling temperature; fan it out per token
         # (context tokens are masked out, so their temperature is don't-care).
@@ -233,24 +259,29 @@ class TrainSink:
         filter_str = ", ".join(f"{n}={c}" for n, c in filtered_by_name.items()) if filtered_by_name else "—"
         get_logger().debug(
             f"Finished group | env={env_name} task_idx={task_idx} | "
-            f"rollouts={len(group)} (errored={num_errored}, filtered={num_filtered}) | "
+            f"rollouts={len(group)} (errored={num_errored}, no_samples={num_without_samples}, "
+            f"filtered={num_filtered}) | "
             f"reward={avg_reward:.4f} | filters: {filter_str}"
         )
 
-    def publish_value_batch(self, rollouts: list[Rollout]) -> None:
+    def enqueue_value_rollouts(self, rollouts: list[Rollout]) -> None:
+        """Accumulate finalized rollouts and publish exact-size critic batches."""
         if self.value_publisher is None:
             return
-        if not any(rollout.value_returns is not None for rollout in rollouts):
+        assert self.config.value_function is not None
+        assert self.config.value_function.batch_size is not None
+        assert self.config.value_function.model is not None
+        trainable_rollouts = [rollout for rollout in rollouts if rollout.samples]
+        if not any(rollout.value_returns is not None for rollout in trainable_rollouts):
             return
-        versions = {rollout.value_version for rollout in rollouts}
-        if None in versions or len(versions) != 1:
-            raise RuntimeError(f"value batch needs one concrete evaluator version, got {versions}")
-        samples: list[ValueTrainingSample] = []
-        for rollout in rollouts:
-            if rollout.value_returns is None:
-                raise RuntimeError("value evaluator did not attach lambda-return targets")
+        if not all(
+            rollout.value_returns is not None and rollout.value_version is not None for rollout in trainable_rollouts
+        ):
+            raise RuntimeError("value evaluator did not attach concrete lambda-return targets")
+        for rollout in trainable_rollouts:
+            assert rollout.value_returns is not None and rollout.value_version is not None
+            samples: list[ValueTrainingSample] = []
             for sample, targets in zip(rollout.samples, rollout.value_returns, strict=True):
-                assert self.config.value_function is not None and self.config.value_function.model is not None
                 value_length = min(len(sample.token_ids), self.config.value_function.model.seq_len)
                 samples.append(
                     ValueTrainingSample(
@@ -259,18 +290,38 @@ class TrainSink:
                         targets=targets[:value_length],
                     )
                 )
-        policy_versions = {rollout.policy_version for rollout in rollouts}
-        if len(policy_versions) != 1:
-            raise RuntimeError(f"rollout group spans policy versions: {policy_versions}")
+            self.pending_value_rollouts.append(
+                _PendingValueRollout(
+                    samples=samples,
+                    policy_version=rollout.policy_version,
+                    value_version=rollout.value_version,
+                )
+            )
+        batch_size = self.config.value_function.batch_size
+        while len(self.pending_value_rollouts) >= batch_size:
+            batch_rollouts = self.pending_value_rollouts[:batch_size]
+            del self.pending_value_rollouts[:batch_size]
+            self.publish_value_batch(batch_rollouts)
+
+    def publish_value_batch(self, rollouts: list[_PendingValueRollout]) -> None:
+        if self.value_publisher is None:
+            return
+        samples = [sample for rollout in rollouts for sample in rollout.samples]
+        policy_versions = [rollout.policy_version for rollout in rollouts]
+        value_versions = [rollout.value_version for rollout in rollouts]
         batch = ValueTrainingBatch(
             samples=samples,
             batch_id=self.value_batch_id,
-            policy_version=policy_versions.pop(),
-            value_version=versions.pop(),  # type: ignore[arg-type]
+            num_rollouts=len(rollouts),
+            policy_version_min=min(policy_versions),
+            policy_version_max=max(policy_versions),
+            value_version_min=min(value_versions),
+            value_version_max=max(value_versions),
         )
         published = self.value_publisher.publish(batch)
         get_logger().debug(
-            f"Value batch {self.value_batch_id} {'published' if published else 'dropped'} ({len(samples)} samples)"
+            f"Value batch {self.value_batch_id} {'published' if published else 'dropped'} "
+            f"({len(rollouts)} rollouts, {len(samples)} samples)"
         )
         self.value_batch_id += 1
 
@@ -326,6 +377,9 @@ class TrainSink:
         owned by this sink (not the dispatcher), so drain them explicitly
         before clients and evaluator endpoints are closed.
         """
+        if self.pending_value_rollouts:
+            get_logger().info(f"Discarding incomplete value batch with {len(self.pending_value_rollouts)} rollout(s)")
+            self.pending_value_rollouts.clear()
         tasks = list(self.scoring_tasks.values())
         self.scoring_tasks.clear()
         await safe_cancel_all(tasks)

@@ -132,22 +132,13 @@ class ValueBaselineConfig(BaseConfig):
 
 class LinearMixBaselineConfig(BaseConfig):
     type: Literal["linear_mix"] = "linear_mix"
-    """Convexly mix a group-relative advantage with per-token GAE."""
+    """Affinely mix a group-relative advantage with per-token GAE."""
 
     group: Literal["mean", "leave_one_out"] = "leave_one_out"
     """Group baseline used by the non-value side of the mixture."""
 
-    rho: float = Field(0.5, ge=0, le=1)
-    """Value-advantage weight for a constant schedule."""
-
-    schedule: Literal["constant", "linear"] = "constant"
-    """Constant ``rho`` or a response-position ramp from ``rho_start`` to ``rho_end``."""
-
-    rho_start: float = Field(0.0, ge=0, le=1)
-    """Value weight at the first action token for a linear schedule."""
-
-    rho_end: float = Field(1.0, ge=0, le=1)
-    """Value weight at the final action token for a linear schedule."""
+    rho: float = Field(0.5, allow_inf_nan=False)
+    """Static value-advantage coefficient. Any finite value is allowed."""
 
 
 class TetherBaselineConfig(BaseConfig):
@@ -157,14 +148,11 @@ class TetherBaselineConfig(BaseConfig):
     group: Literal["mean", "leave_one_out"] = "leave_one_out"
     """Group anchor reconstructed from reward minus group advantage."""
 
-    alpha: float = Field(0.5, ge=0, le=1)
-    """Weight on the correction from the group anchor to the start value."""
+    alpha: float = Field(0.5, allow_inf_nan=False)
+    """Static coefficient on the correction from the group anchor to the start value."""
 
-    rho: float = Field(0.5, ge=0, le=1)
-    """Weight on value progress from the start state to the current state."""
-
-    schedule: Literal["constant", "linear"] = "linear"
-    """Use ``rho`` everywhere or ramp the progress coefficient from zero to ``rho``."""
+    rho: float = Field(0.5, allow_inf_nan=False)
+    """Static coefficient on value progress from the start state to the current state."""
 
     reward_range: tuple[float, float] = (0.0, 1.0)
     """Closed interval used to clip the corrected baseline."""

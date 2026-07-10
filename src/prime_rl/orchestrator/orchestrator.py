@@ -770,9 +770,13 @@ class Orchestrator:
         payload: dict[str, float] = {**disp_gauges, **disp_drain, **watcher_gauges}
         if self.value_publisher is not None:
             attempted = self.value_publisher.published + self.value_publisher.dropped
+            value_pending, value_target = self.train_sink.value_batch_progress() or (0, 0)
             body += (
-                f"; value batches published={self.value_publisher.published}, dropped={self.value_publisher.dropped}"
+                f"; value batch {value_pending}/{value_target}, "
+                f"published={self.value_publisher.published}, dropped={self.value_publisher.dropped}"
             )
+            payload["value/batch_pending_rollouts"] = float(value_pending)
+            payload["value/batch_target_rollouts"] = float(value_target)
             payload["value/batches_published"] = float(self.value_publisher.published)
             payload["value/batches_dropped"] = float(self.value_publisher.dropped)
             payload["value/batch_drop_rate"] = self.value_publisher.dropped / attempted if attempted else 0.0

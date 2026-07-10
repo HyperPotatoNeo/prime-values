@@ -287,7 +287,7 @@ The default advantage is per-group reward minus per-group baseline (DR-GRPO with
 | `mean` | Reward minus the full group mean; the GRPO default. |
 | `leave_one_out` | Reward minus the mean of the other group members. |
 | `value` | Per-token GAE from the async critic. |
-| `linear_mix` | Convex combination of group credit and per-token GAE; its group side defaults to leave-one-out. |
+| `linear_mix` | Affine combination of group credit and per-token GAE using a static coefficient; its group side defaults to leave-one-out. |
 | `tether` | Clipped group anchor plus start-value and value-progress corrections; its group anchor defaults to leave-one-out. |
 
 The three value-backed choices require `[value_function]`. Their topology,

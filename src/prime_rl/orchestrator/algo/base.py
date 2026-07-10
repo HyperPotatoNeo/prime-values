@@ -122,6 +122,11 @@ class Algorithm:
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
 
+    @property
+    def minimum_group_size(self) -> int:
+        """Smallest surviving rollout group this algorithm can score."""
+        return 1
+
     def __init__(
         self,
         config: AlgoConfig,

@@ -165,7 +165,8 @@ def train_value(config: ValueFunctionConfig) -> None:
             if config.max_steps is not None and value_version >= config.max_steps:
                 break
             update_started_at = time.perf_counter()
-            source_value_lag = max(value_version - batch.value_version, 0)
+            source_value_lag_min = max(value_version - batch.value_version_max, 0)
+            source_value_lag_max = max(value_version - batch.value_version_min, 0)
             loss_sum = torch.zeros((), dtype=torch.float32, device="cuda")
             abs_error_sum = torch.zeros((), dtype=torch.float32, device="cuda")
             squared_error_sum = torch.zeros((), dtype=torch.float32, device="cuda")
@@ -301,11 +302,20 @@ def train_value(config: ValueFunctionConfig) -> None:
                     "value/target_min": metric_mins[1].item(),
                     "value/target_max": metric_maxes[1].item(),
                     "value/version": float(value_version),
-                    "value/source_policy_version": float(batch.policy_version),
-                    "value/source_value_version": float(batch.value_version),
-                    "value/source_value_lag": float(source_value_lag),
+                    "value/source_policy_version": float(batch.policy_version_max),
+                    "value/source_policy_version_min": float(batch.policy_version_min),
+                    "value/source_policy_version_max": float(batch.policy_version_max),
+                    "value/source_policy_version_spread": float(batch.policy_version_max - batch.policy_version_min),
+                    "value/source_value_version": float(batch.value_version_max),
+                    "value/source_value_version_min": float(batch.value_version_min),
+                    "value/source_value_version_max": float(batch.value_version_max),
+                    "value/source_value_version_spread": float(batch.value_version_max - batch.value_version_min),
+                    "value/source_value_lag": float(source_value_lag_max),
+                    "value/source_value_lag_min": float(source_value_lag_min),
+                    "value/source_value_lag_max": float(source_value_lag_max),
                     "value/batch_id": float(batch.batch_id),
                     "value/batch_tokens": float(scale),
+                    "value/batch_rollouts": float(batch.num_rollouts),
                     "value/batch_samples": float(len(batch.samples)),
                     "value/source_batches_skipped": float(source_batches_skipped),
                     "value/reuse_step": float(reuse_step),
@@ -325,7 +335,7 @@ def train_value(config: ValueFunctionConfig) -> None:
                 monitor.log(payload, step=value_version)
                 logger.info(
                     f"Value version {value_version} | batch {batch.batch_id} | "
-                    f"reuse {reuse_step + 1}/{config.updates_per_batch} | "
+                    f"rollouts {batch.num_rollouts} | reuse {reuse_step + 1}/{config.updates_per_batch} | "
                     f"loss {metric_totals[0].item():.5f} | mae {payload['value/mae']:.5f} | "
                     f"explained variance {payload['value/explained_variance']:.3f}"
                 )

@@ -295,6 +295,10 @@ class RLConfig(BaseConfig):
         value = self.value_function
         if not any(isinstance(algo, GRPOAlgoConfig) for _, algo in effective_algorithms):
             raise ValueError("[value_function] needs at least one GRPO-family training environment")
+        if value.batch_size is None:
+            if self.orchestrator.batch_size is None:
+                raise ValueError("value_function.batch_size must be set when the policy uses token_batch_size")
+            value.batch_size = self.orchestrator.batch_size
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
 

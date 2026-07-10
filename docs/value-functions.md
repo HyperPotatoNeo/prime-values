@@ -9,8 +9,8 @@ advantages as it does without a critic.
 
 Add an empty value-function table and select a value-backed GRPO baseline. The
 empty table uses binary classification over `[0, 1]`, learning rate `1e-5`, one
-critic update per trajectory batch, and independent policy/target lambdas of
-`1.0`:
+critic update per full rollout batch, and independent policy/target lambdas of
+`1.0`. The critic batch size inherits `orchestrator.batch_size`:
 
 ```toml
 [orchestrator]
@@ -40,10 +40,11 @@ orchestrator, trainer, evaluator, and Slurm configs before allocating GPUs.
 
 Enabling `[value_function]` adds two roles:
 
-1. The **value trainer** receives completed trajectories on a bounded,
-   latest-only queue. It runs `updates_per_batch` optimizer updates on the
-   newest available batch, discards that batch, and publishes a monotonically
-   increasing value version after every optimizer update.
+1. The orchestrator accumulates completed trajectories into full critic
+   rollout batches before filtering. The **value trainer** receives those
+   batches on a bounded, latest-only queue, runs `updates_per_batch` optimizer
+   updates on the newest available batch, discards it, and publishes a
+   monotonically increasing value version after every optimizer update.
 2. The **value evaluator** serves per-token values to the orchestrator. It
    adopts value-trainer weights independently of policy versions. By default,
    it loads each update into an inactive model and atomically swaps serving
@@ -94,8 +95,8 @@ the value prediction used for policy credit. For every trainable branch it:
    all earlier action tokens;
 2. evaluates the causal state value for every action token;
 3. computes GAE and lambda returns over action tokens only; and
-4. sends lambda returns to the value trainer while stamping the selected
-   advantage on the policy sample.
+4. queues lambda returns into a full critic rollout batch while stamping the
+   selected advantage on the policy sample.
 
 Context, prompt, and tool-response tokens are never value-loss members. Packed
 sequences reset both the causal value shift and GAE recursion at every sequence
@@ -167,8 +168,9 @@ than being silently clipped.
 | `value_function.gamma` | `1.0` | Discount used by both policy GAE and critic TD(lambda) targets. |
 | `value_function.gae_lambda` | `1.0` | Lambda for policy advantages. |
 | `value_function.value_target_lambda` | `1.0` | Independent lambda for critic targets. |
+| `value_function.batch_size` | `orchestrator.batch_size` | Rollouts per critic optimizer batch. Required explicitly when the policy uses token-based batching. |
 | `value_function.optim.lr` | `1e-5` | Critic AdamW learning rate. Other optimizer fields use normal trainer defaults. |
-| `value_function.updates_per_batch` | `1` | Optimizer updates made on one recent value batch before discarding it. |
+| `value_function.updates_per_batch` | `1` | Optimizer updates made on one recent full rollout batch before discarding it. |
 | `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Generation continues during warmup. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
 | `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context. |
@@ -197,7 +199,8 @@ discriminated configuration with non-value and value-backed choices:
 - `mean`: standard GRPO, `A = R - mean(R)`;
 - `leave_one_out`: `A_i = R_i - mean(R_{j != i})`;
 - `value`: pure per-token GAE;
-- `linear_mix`: a convex blend of a group advantage and GAE;
+- `linear_mix`: an affine blend of a group advantage and GAE using one static
+  coefficient, `A = (1 - rho) * A_group + rho * A_value`;
 - `tether`: a clipped two-factor correction anchored on a group baseline.
 
 Both `linear_mix` and `tether` accept `group = "mean"` or
@@ -206,11 +209,14 @@ Both `linear_mix` and `tether` accept `group = "mean"` or
 TETHER forms the complete baseline and clips once at the end:
 
 ```text
-b_t = clip(B_group + alpha * (V_0 - B_group) + rho_t * (V_t - V_0), low, high)
+b_t = clip(B_group + alpha * (V_0 - B_group) + rho * (V_t - V_0), low, high)
 A_t = R - b_t
 ```
 
 The anchor correction and progress term are not clipped separately.
+`alpha` and `rho` are static finite coefficients; they are not restricted to
+`[0, 1]` because calibrated control-variate coefficients may legitimately lie
+outside that interval (including being negative).
 
 `value`, `linear_mix`, and `tether` are invalid unless `[value_function]` is
 enabled. Enabling a value function with `mean` or `leave_one_out` is valid and
@@ -219,16 +225,19 @@ trains the critic for diagnostics or a later baseline change.
 ## Staleness and overload
 
 Value staleness is independent of policy off-policy level. Each evaluator
-response and each value-training batch records `value_version`. The
-orchestrator reports the evaluator version and value-batch publication/drop
-counts. The trainer reports `value/source_batches_skipped`, derived from source
-batch-id gaps, so replacements caused by conflation remain visible even when
-the producer's non-blocking send succeeded. It does not cancel policy rollouts
-when a new value version appears.
+response records one `value_version`; a full value-training batch records the
+minimum and maximum policy and evaluator versions represented. Evaluator
+coherence is enforced within every rollout group used for policy credit, while
+mixing independently labeled groups in a critic optimizer batch is allowed.
+The orchestrator reports value-batch fill and publication/drop counts. The
+trainer reports `value/source_batches_skipped`, derived from source batch-id
+gaps, so replacements caused by conflation remain visible even when the
+producer's non-blocking send succeeded. It does not cancel policy rollouts when
+a new value version appears.
 
 The value queue is intentionally lossy and capacity one. This is the desired
-overload behavior for an online regressor: train repeatedly on one coherent
-recent batch, then move to the newest available policy distribution instead of
+overload behavior for an online regressor: train repeatedly on one full recent
+batch, then move to the newest available policy distribution instead of
 working through an increasingly stale FIFO backlog.
 
 ## Monitoring
@@ -245,22 +254,22 @@ are also logged by the orchestrator.
 | `value/prediction_{mean,std,min,max}` | Critic predictions on the optimizer batch. |
 | `value/target_{mean,std,min,max}` | TD(lambda) target distribution. |
 | `value/accuracy`, `value/entropy`, `value/confidence` | Classification diagnostics. Accuracy compares the most probable support atom to the target's nearest atom; error metrics remain more informative for continuous soft targets. |
-| `value/version`, `value/source_value_version`, `value/source_value_lag` | Trainer version, evaluator version that labeled the batch, and their staleness gap. |
-| `value/source_policy_version`, `value/batch_id`, `value/source_batches_skipped` | Policy provenance and latest-only transport replacement pressure. |
-| `value/batch_{tokens,samples}`, `value/total_{tokens,samples}` | Per-update and cumulative critic data volume. |
+| `value/version`, `value/source_value_version_{min,max,spread}`, `value/source_value_lag_{min,max}` | Trainer version and the evaluator-version provenance range represented in the optimizer batch. The unsuffixed source-version metric is the maximum and the unsuffixed lag is the maximum. |
+| `value/source_policy_version_{min,max,spread}`, `value/batch_id`, `value/source_batches_skipped` | Policy provenance range and latest-only transport replacement pressure. |
+| `value/batch_{tokens,rollouts,samples}`, `value/total_{tokens,samples}` | Per-update and cumulative critic data volume. Samples count branches; rollouts count episodes used to trigger the batch. |
 | `value/update_seconds`, `value/tokens_per_second` | Value optimizer performance. |
 | `optim/lr`, `optim/grad_norm`, `optim/zero_grad_ratio` | Critic optimizer health. |
 | `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
-| `value/batches_{published,dropped}`, `value/batch_drop_rate` | Orchestrator-to-critic latest-only queue pressure. Dropping stale intermediate batches is expected under overload. |
+| `value/batch_{pending,target}_rollouts`, `value/batches_{published,dropped}`, `value/batch_drop_rate` | Producer-side critic batch fill and latest-only queue pressure. Dropping stale full batches is expected under overload. |
 
 ## Warmup
 
 `warmup_updates` is a value-version barrier, not a fixed number of rollout
 batches. During warmup the dispatcher and policy inference keep generating and
-publishing trajectories, while policy batches are withheld. As soon as the
+publishing full critic batches, while policy batches are withheld. As soon as the
 evaluator has adopted `warmup_updates`, normal policy shipping begins. Loading
 a value checkpoint may set the initial version and satisfy some or all of the
 barrier.

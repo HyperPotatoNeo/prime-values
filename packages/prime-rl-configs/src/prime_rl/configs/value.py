@@ -55,7 +55,7 @@ class LatestZMQValueTransportConfig(BaseConfig):
     """Interface on which the value trainer binds."""
 
     port: int = Field(29610, ge=1, le=65535)
-    """Dedicated latest-only trajectory port."""
+    """Dedicated latest-only full-batch trajectory port."""
 
     poll_timeout_ms: int = Field(1000, ge=1)
     """Receiver poll interval, allowing graceful policy-run shutdown checks."""
@@ -137,8 +137,11 @@ class ValueFunctionConfig(BaseConfig):
     value_target_lambda: float = Field(1.0, ge=0, le=1)
     """Independent lambda used for the critic's TD(lambda) return target."""
 
+    batch_size: int | None = Field(None, ge=1)
+    """Rollouts per critic optimizer batch. None inherits the orchestrator rollout batch size."""
+
     updates_per_batch: int = Field(1, ge=1)
-    """Optimizer updates on one recent trajectory batch before it is discarded."""
+    """Optimizer updates on one recent full rollout batch before it is discarded."""
 
     warmup_updates: int = Field(0, ge=0)
     """Evaluator value version required before the first policy batch ships."""

@@ -242,6 +242,7 @@ def test_value_function_resolves_separate_model_and_gpu_roles():
     assert config.value_function.model is not None
     assert config.value_function.model.name == config.trainer.model.name
     assert config.orchestrator.value_function is not None
+    assert config.value_function.batch_size == config.orchestrator.batch_size == 128
     assert config.value_function.evaluator.dtype == "bfloat16"
     assert config.deployment.type == "single_node"
     assert config.deployment.num_value_train_gpus == 1
@@ -278,6 +279,37 @@ def test_value_function_defaults_to_binary_classification_and_independent_lambda
     assert config.updates_per_batch == 1
     assert config.gae_lambda == 1.0
     assert config.value_target_lambda == 1.0
+
+
+def test_token_batched_policy_requires_explicit_value_rollout_batch_size():
+    with pytest.raises(ValidationError, match="value_function.batch_size must be set"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "token_batch_size": 4096,
+                    "max_inflight_rollouts": 16,
+                    "algo": {"type": "grpo"},
+                },
+                "value_function": {},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "token_batch_size": 4096,
+                "max_inflight_rollouts": 16,
+                "algo": {"type": "grpo"},
+            },
+            "value_function": {"batch_size": 32},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+    assert config.value_function is not None
+    assert config.value_function.batch_size == 32
 
 
 def test_group_only_baseline_does_not_require_value_function():

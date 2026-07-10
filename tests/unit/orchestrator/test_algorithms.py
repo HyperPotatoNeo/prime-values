@@ -9,7 +9,7 @@ from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.configs.value import ValueFunctionConfig
-from prime_rl.orchestrator.algo import EchoAlgorithm, stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.algo import EchoAlgorithm, GRPOAlgorithm, stamp_advantages, stamp_loss_routing
 from prime_rl.orchestrator.algo.base import Algorithm
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout
@@ -50,6 +50,21 @@ def test_type_defaults_are_the_vetted_algorithms(algorithm_type, build_kwargs, s
     assert algo.type == algorithm_type
     assert _ref_kind(algo.sampling.source) == source
     assert algo.action_loss_type == action_loss_type
+
+
+@pytest.mark.parametrize(
+    ("baseline", "minimum_group_size"),
+    [
+        ({"type": "mean"}, 1),
+        ({"type": "value"}, 1),
+        ({"type": "leave_one_out"}, 2),
+        ({"type": "linear_mix", "group": "leave_one_out"}, 2),
+        ({"type": "tether", "group": "mean"}, 1),
+    ],
+)
+def test_grpo_declares_minimum_surviving_group_size(baseline, minimum_group_size):
+    algorithm = GRPOAlgorithm(_build(type="grpo", baseline=baseline), MagicMock())
+    assert algorithm.minimum_group_size == minimum_group_size
 
 
 def test_echo_role_table():

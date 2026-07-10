@@ -10,8 +10,11 @@ class ValueTrainingSample(msgspec.Struct, array_like=True, gc=False):
 class ValueTrainingBatch(msgspec.Struct, array_like=True, gc=False):
     samples: list[ValueTrainingSample]
     batch_id: int
-    policy_version: int
-    value_version: int
+    num_rollouts: int
+    policy_version_min: int
+    policy_version_max: int
+    value_version_min: int
+    value_version_max: int
 
 
 class ValueEvaluationRequest(msgspec.Struct, gc=False):

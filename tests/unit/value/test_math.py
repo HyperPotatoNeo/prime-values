@@ -6,7 +6,6 @@ import torch
 from prime_rl.configs.algorithm import LinearMixBaselineConfig, TetherBaselineConfig
 from prime_rl.configs.value import ClassificationValueLossConfig, MSEValueLossConfig
 from prime_rl.value.math import (
-    action_position_fractions,
     align_value_logits,
     compute_gae,
     compute_value_loss,
@@ -86,10 +85,6 @@ def test_leave_one_out_requires_siblings():
         group_advantages([1.0], "leave_one_out")
 
 
-def test_action_position_fraction_spans_action_tokens_only():
-    assert action_position_fractions([False, True, False, True, True]) == pytest.approx([0.0, 0.0, 0.0, 0.5, 1.0])
-
-
 def test_classification_value_prediction_is_support_expectation():
     config = ClassificationValueLossConfig(reward_range=(-1.0, 1.0), num_bins=3)
     logits = torch.tensor([[[0.0, 20.0, 0.0]]])
@@ -148,15 +143,15 @@ def test_value_loss_masks_context_tokens():
     assert metrics["value/squared_error"].tolist() == [1.0]
 
 
-def test_linear_mix_position_schedule_only_spans_actions():
+def test_linear_mix_uses_static_unbounded_coefficient_on_actions():
     output = linear_mix_advantages(
         group_advantage=1.0,
         value_advantages=[0.0, 0.0, 0.0, -1.0],
         mask=[False, True, False, True],
-        config=LinearMixBaselineConfig(schedule="linear", rho_start=0.0, rho_end=1.0),
+        config=LinearMixBaselineConfig(rho=2.0),
     )
 
-    assert output == pytest.approx([0.0, 1.0, 0.0, -1.0])
+    assert output == pytest.approx([0.0, -1.0, 0.0, -3.0])
 
 
 def test_mixed_baselines_default_to_leave_one_out_and_allow_mean():
@@ -164,6 +159,26 @@ def test_mixed_baselines_default_to_leave_one_out_and_allow_mean():
     assert TetherBaselineConfig().group == "leave_one_out"
     assert LinearMixBaselineConfig(group="mean").group == "mean"
     assert TetherBaselineConfig(group="mean").group == "mean"
+
+
+def test_mixed_baseline_coefficients_allow_any_finite_value():
+    assert LinearMixBaselineConfig(rho=-0.25).rho == -0.25
+    tether = TetherBaselineConfig(alpha=-1.5, rho=2.0)
+    assert tether.alpha == -1.5
+    assert tether.rho == 2.0
+
+
+@pytest.mark.parametrize(
+    ("config_type", "kwargs"),
+    [
+        (LinearMixBaselineConfig, {"rho": float("inf")}),
+        (TetherBaselineConfig, {"alpha": float("nan")}),
+        (TetherBaselineConfig, {"rho": float("-inf")}),
+    ],
+)
+def test_mixed_baseline_coefficients_reject_nonfinite_values(config_type, kwargs):
+    with pytest.raises(ValueError):
+        config_type(**kwargs)
 
 
 def test_bounded_value_configs_reject_nonfinite_reward_ranges():
@@ -179,7 +194,7 @@ def test_tether_clips_the_full_baseline_above_reward_range():
         group_advantage=0.5,
         values=[9.0, 0.7, 8.0, 1.7],
         mask=[False, True, False, True],
-        config=TetherBaselineConfig(alpha=0.5, rho=0.8, schedule="constant"),
+        config=TetherBaselineConfig(alpha=0.5, rho=0.8),
     )
 
     # B=0.5; first baseline=.6. The complete final expression is
@@ -193,7 +208,7 @@ def test_tether_clips_the_full_baseline_below_reward_range():
         group_advantage=0.5,
         values=[9.0, 0.7, 8.0, -1.3],
         mask=[False, True, False, True],
-        config=TetherBaselineConfig(alpha=0.5, rho=0.8, schedule="constant"),
+        config=TetherBaselineConfig(alpha=0.5, rho=0.8),
     )
 
     # .5 + .5(.7-.5) + .8(-1.3-.7) = -1.0, then the full baseline clips to 0.

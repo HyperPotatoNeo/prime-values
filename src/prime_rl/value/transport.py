@@ -9,7 +9,7 @@ from prime_rl.value.types import ValueTrainingBatch
 
 
 class LatestValueBatchPublisher:
-    """Non-blocking capacity-one trajectory publisher.
+    """Non-blocking capacity-one full rollout-batch publisher.
 
     ``ZMQ_CONFLATE`` keeps only the newest complete, single-frame message. A
     disconnected or saturated value trainer drops value work without applying
@@ -42,7 +42,7 @@ class LatestValueBatchPublisher:
 
 
 class LatestValueBatchReceiver:
-    """Blocking receiver for the newest trajectory batch available."""
+    """Blocking receiver for the newest full rollout batch available."""
 
     def __init__(self, config: LatestZMQValueTransportConfig):
         self.decoder = msgspec.msgpack.Decoder(type=ValueTrainingBatch)

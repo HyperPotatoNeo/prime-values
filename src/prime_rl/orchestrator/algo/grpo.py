@@ -37,6 +37,11 @@ class GRPOAlgorithm(Algorithm):
         self.length_penalty = config.length_penalty
         self.baseline = config.baseline
 
+    @property
+    def minimum_group_size(self) -> int:
+        group_baseline = getattr(self.baseline, "group", self.baseline.type)
+        return 2 if group_baseline == "leave_one_out" else 1
+
     async def score_group(self, group: list[Rollout]) -> None:
         rewards = torch.tensor([rollout.reward for rollout in group], dtype=torch.float32)
         length_penalty = self.length_penalty
