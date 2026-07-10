@@ -299,6 +299,13 @@ class RLConfig(BaseConfig):
             if self.orchestrator.batch_size is None:
                 raise ValueError("value_function.batch_size must be set when the policy uses token_batch_size")
             value.batch_size = self.orchestrator.batch_size
+        algorithms_to_resolve = [self.orchestrator.algo, *(algo for _, algo in effective_algorithms)]
+        for algo in algorithms_to_resolve:
+            if not isinstance(algo, GRPOAlgoConfig) or algo.baseline.type != "tether":
+                continue
+            adaptive = algo.baseline.adaptive
+            if adaptive is not None and adaptive.batch_size is None:
+                adaptive.batch_size = value.batch_size
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
 

@@ -141,12 +141,37 @@ class LinearMixBaselineConfig(BaseConfig):
     """Static value-advantage coefficient. Any finite value is allowed."""
 
 
+class AdaptiveTetherConfig(BaseConfig):
+    """Online two-factor control-variate fit for TETHER.
+
+    One no-intercept ridge regression is fit after each completed rollout
+    batch. Its coefficients are exponentially averaged and only become
+    visible to later rollout groups, so rewards never tune the baseline used
+    for the actions that produced those rewards.
+    """
+
+    batch_size: int | None = Field(None, ge=1)
+    """Rollouts per regression fit. None inherits ``value_function.batch_size``."""
+
+    ridge: float = Field(1e-6, ge=0, allow_inf_nan=False)
+    """L2 penalty applied to token-normalized feature moments."""
+
+    ema_decay: float = Field(0.9, ge=0, lt=1, allow_inf_nan=False)
+    """EMA decay: ``new = decay * old + (1 - decay) * batch_fit``."""
+
+    initial_alpha: float = Field(0.0, allow_inf_nan=False)
+    """Applied alpha before the first fit and the EMA's initial value."""
+
+    initial_rho: float = Field(0.0, allow_inf_nan=False)
+    """Applied rho before the first fit and the EMA's initial value."""
+
+
 class TetherBaselineConfig(BaseConfig):
     type: Literal["tether"] = "tether"
     """Clipped group-anchor plus value-progress correction."""
 
     group: Literal["mean", "leave_one_out"] = "leave_one_out"
-    """Group anchor reconstructed from reward minus group advantage."""
+    """Group reward anchor; leave-one-out is computed directly from siblings."""
 
     alpha: float = Field(0.5, allow_inf_nan=False)
     """Static coefficient on the correction from the group anchor to the start value."""
@@ -154,14 +179,20 @@ class TetherBaselineConfig(BaseConfig):
     rho: float = Field(0.5, allow_inf_nan=False)
     """Static coefficient on value progress from the start state to the current state."""
 
+    adaptive: AdaptiveTetherConfig | None = None
+    """Optional online coefficient fit. When enabled, its initial coefficients
+    replace the static ``alpha`` and ``rho`` fields and default to zero."""
+
     reward_range: tuple[float, float] = (0.0, 1.0)
     """Closed interval used to clip the corrected baseline."""
 
     @model_validator(mode="after")
     def validate_reward_range(self):
         low, high = self.reward_range
-        if not math.isfinite(low) or not math.isfinite(high) or high <= low:
+        if not math.isfinite(low) or not math.isfinite(high) or high <= low or not math.isfinite(high - low):
             raise ValueError("tether.reward_range must be increasing")
+        if self.adaptive is not None and self.group != "leave_one_out":
+            raise ValueError("adaptive tether requires group='leave_one_out' to keep the baseline action-independent")
         return self
 
 

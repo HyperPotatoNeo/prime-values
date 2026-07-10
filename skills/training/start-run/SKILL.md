@@ -62,6 +62,12 @@ not add value loss or value-model state to the policy trainer.
 - Value checkpoints live under `<output_dir>/value` and have an independent
   version. `warmup_updates` gates only policy-batch shipping while generation
   and value training continue.
+- TETHER can fit its two coefficients online by adding an empty
+  `[orchestrator.algo.baseline.adaptive]` table. Adaptive mode requires the
+  leave-one-out anchor, starts from alpha/rho zero, inherits the critic rollout
+  batch size, and updates during value warmup. Watch
+  `algorithm/<env>/tether/{alpha,rho,updates,mse_ema}`; orchestrator checkpoints
+  preserve the estimator state.
 
 ## `sft` — SFT training
 

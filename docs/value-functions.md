@@ -214,9 +214,78 @@ A_t = R - b_t
 ```
 
 The anchor correction and progress term are not clipped separately.
-`alpha` and `rho` are static finite coefficients; they are not restricted to
-`[0, 1]` because calibrated control-variate coefficients may legitimately lie
-outside that interval (including being negative).
+Without an `adaptive` table, `alpha` and `rho` are static finite coefficients.
+They are not restricted to `[0, 1]` because calibrated control-variate
+coefficients may legitimately lie outside that interval (including being
+negative).
+
+### Adaptive TETHER coefficients
+
+An empty nested table enables the online two-factor fit:
+
+```toml
+[orchestrator.algo.baseline]
+type = "tether"
+group = "leave_one_out"
+reward_range = [0.0, 1.0]
+
+[orchestrator.algo.baseline.adaptive]
+# batch_size = value_function.batch_size
+# ridge = 1e-6
+# ema_decay = 0.9
+# initial_alpha = 0.0
+# initial_rho = 0.0
+```
+
+Adaptive mode ignores the static `baseline.alpha` and `baseline.rho` fields;
+use `adaptive.initial_alpha` and `adaptive.initial_rho` when a nonzero start is
+intentional. Their defaults are zero. With the required leave-one-out anchor,
+zero/zero is exactly the LOO sibling-mean baseline, not the own-inclusive GRPO
+group mean.
+
+For every trainable token, the estimator fits the no-intercept ridge problem
+
+```text
+y       = R - B_LOO
+x_alpha = V_0 - B_LOO
+x_rho   = V_t - V_0
+y ~= alpha * x_alpha + rho * x_rho
+```
+
+Rows are weighted by trainable-token count because the actor loss is
+token-normalized. The features and target are divided by the reward-range width
+before their moments are accumulated, so `ridge` is invariant to a linear
+rescaling of the reward. The fit targets the unclipped linear residual; the
+full TETHER baseline is still clipped once when advantages are constructed.
+
+There is one estimator per training environment, shared globally across that
+environment's prompts. A group snapshots the current coefficients before any
+of its advantages are assigned. Only after every sibling is scored are its
+sufficient statistics queued; each exact `batch_size` rollouts produces a new
+ridge fit, followed by
+
+```text
+beta <- ema_decay * beta + (1 - ema_decay) * beta_batch
+```
+
+The EMA is intentionally not bias-corrected: its early shrinkage toward the
+zero/zero LOO baseline is the safety ramp. The completed batch can therefore
+affect only later groups. Together with LOO and the evaluator's causal
+pre-action values, this prevents the coefficient fit from introducing a
+same-action reward-dependent baseline when sibling rewards are scored
+independently. A joint or rank-based group scorer can make sibling rewards
+depend on the current rollout, in which case LOO alone does not provide this
+guarantee. Regression collection happens before the policy-batch warmup gate,
+so coefficients adapt during value warmup too.
+
+The applied coefficients, raw batch fits, MSE proxies, clipping fraction,
+condition number, update count, and pending rollout count are logged on the
+wall-clock axis under `algorithm/<env>/tether/*`. Coefficients need not rise
+monotonically as the critic improves: a directionally correct but shrunken
+critic can need `rho > 1`, while better calibration can later move it back
+toward one. Orchestrator checkpoints preserve the EMA and pending sufficient
+statistics; a run interrupted before its first policy checkpoint has no
+warmup-only orchestrator checkpoint to restore.
 
 `value`, `linear_mix`, and `tether` are invalid unless `[value_function]` is
 enabled. Enabling a value function with `mean` or `leave_one_out` is valid and
@@ -264,6 +333,9 @@ are also logged by the orchestrator.
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
 | `value/batch_{pending,target}_rollouts`, `value/batches_{published,dropped}`, `value/batch_drop_rate` | Producer-side critic batch fill and latest-only queue pressure. Dropping stale full batches is expected under overload. |
+| `algorithm/<env>/tether/{alpha,rho,batch_fit_alpha,batch_fit_rho,batch_fit_valid}` | Adaptive TETHER coefficients currently applied to new groups and the most recent raw ridge fit. `batch_fit_valid=0` marks a skipped singular/non-finite fit. |
+| `algorithm/<env>/tether/{mse_loo,mse_batch_fit,mse_ema,clip_fraction,condition_number}` | Token-weighted residual-variance proxies and fit conditioning. `clip_fraction` is the realized rate under the pre-update coefficients that scored those rollouts. Heavy clipping or poor conditioning makes coefficient magnitude less informative. |
+| `algorithm/<env>/tether/{updates,skipped_updates,pending_rollouts,regression_batch_size}` | Adaptive fit cadence and health. These continue updating and logging during value warmup. |
 
 ## Warmup
 

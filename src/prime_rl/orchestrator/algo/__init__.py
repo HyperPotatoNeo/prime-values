@@ -63,6 +63,7 @@ def build_algorithm(
     *,
     value_evaluator: ValueEvaluatorClient | None = None,
     value_config: ValueFunctionConfig | None = None,
+    policy_seq_len: int | None = None,
 ) -> Algorithm:
     cls = ALGORITHM_CLASSES[config.type]
     assert cls.action_loss_type == config.action_loss_type  # config and runtime declare in two places
@@ -77,6 +78,7 @@ def build_algorithm(
             policy_pool,
             value_evaluator=value_evaluator,
             value_config=value_config,
+            policy_seq_len=policy_seq_len,
         )
     return cls(config, policy_pool)
 

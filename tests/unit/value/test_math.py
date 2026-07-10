@@ -3,13 +3,14 @@ import math
 import pytest
 import torch
 
-from prime_rl.configs.algorithm import LinearMixBaselineConfig, TetherBaselineConfig
+from prime_rl.configs.algorithm import AdaptiveTetherConfig, LinearMixBaselineConfig, TetherBaselineConfig
 from prime_rl.configs.value import ClassificationValueLossConfig, MSEValueLossConfig
 from prime_rl.value.math import (
     align_value_logits,
     compute_gae,
     compute_value_loss,
     group_advantages,
+    group_baselines,
     linear_mix_advantages,
     predict_values,
     tether_advantages,
@@ -78,6 +79,7 @@ def test_policy_gae_and_value_target_use_independent_lambdas():
 
 def test_leave_one_out_group_advantage_excludes_own_reward():
     assert group_advantages([0.0, 1.0, 1.0], "leave_one_out") == pytest.approx([-1.0, 0.5, 0.5])
+    assert group_baselines([0.0, 1.0, 1.0], "leave_one_out") == pytest.approx([1.0, 0.5, 0.5])
 
 
 def test_leave_one_out_requires_siblings():
@@ -168,6 +170,44 @@ def test_mixed_baseline_coefficients_allow_any_finite_value():
     assert tether.rho == 2.0
 
 
+def test_adaptive_tether_defaults_to_zero_initialized_slow_ema():
+    adaptive = AdaptiveTetherConfig()
+    assert adaptive.initial_alpha == 0.0
+    assert adaptive.initial_rho == 0.0
+    assert adaptive.ema_decay == 0.9
+    assert adaptive.ridge == 1e-6
+    assert adaptive.batch_size is None
+
+
+def test_adaptive_tether_requires_leave_one_out():
+    with pytest.raises(ValueError, match="leave_one_out"):
+        TetherBaselineConfig(group="mean", adaptive={})
+
+
+def test_adaptive_tether_resolved_config_round_trips_static_defaults():
+    baseline = TetherBaselineConfig(alpha=0.2, rho=0.3, adaptive={})
+    reloaded = TetherBaselineConfig.model_validate(baseline.model_dump())
+
+    assert reloaded.adaptive is not None
+    assert reloaded.adaptive.initial_alpha == 0.0
+    assert reloaded.adaptive.initial_rho == 0.0
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"ema_decay": -0.1},
+        {"ema_decay": 1.0},
+        {"ridge": -1e-6},
+        {"initial_alpha": float("nan")},
+        {"initial_rho": float("inf")},
+    ],
+)
+def test_adaptive_tether_rejects_invalid_fit_parameters(kwargs):
+    with pytest.raises(ValueError):
+        AdaptiveTetherConfig(**kwargs)
+
+
 @pytest.mark.parametrize(
     ("config_type", "kwargs"),
     [
@@ -186,15 +226,19 @@ def test_bounded_value_configs_reject_nonfinite_reward_ranges():
         ClassificationValueLossConfig(reward_range=(float("nan"), 1.0))
     with pytest.raises(ValueError, match="reward_range"):
         TetherBaselineConfig(reward_range=(0.0, float("inf")))
+    with pytest.raises(ValueError, match="reward_range"):
+        TetherBaselineConfig(reward_range=(-1e308, 1e308))
 
 
 def test_tether_clips_the_full_baseline_above_reward_range():
     output = tether_advantages(
         reward=1.0,
-        group_advantage=0.5,
+        group_anchor=0.5,
         values=[9.0, 0.7, 8.0, 1.7],
         mask=[False, True, False, True],
-        config=TetherBaselineConfig(alpha=0.5, rho=0.8),
+        alpha=0.5,
+        rho=0.8,
+        reward_range=(0.0, 1.0),
     )
 
     # B=0.5; first baseline=.6. The complete final expression is
@@ -205,10 +249,12 @@ def test_tether_clips_the_full_baseline_above_reward_range():
 def test_tether_clips_the_full_baseline_below_reward_range():
     output = tether_advantages(
         reward=1.0,
-        group_advantage=0.5,
+        group_anchor=0.5,
         values=[9.0, 0.7, 8.0, -1.3],
         mask=[False, True, False, True],
-        config=TetherBaselineConfig(alpha=0.5, rho=0.8),
+        alpha=0.5,
+        rho=0.8,
+        reward_range=(0.0, 1.0),
     )
 
     # .5 + .5(.7-.5) + .8(-1.3-.7) = -1.0, then the full baseline clips to 0.

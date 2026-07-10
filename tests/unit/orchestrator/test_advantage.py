@@ -1,13 +1,17 @@
 import asyncio
+from unittest.mock import MagicMock
 
 import pytest
 import verifiers.v1 as vf
 
 from prime_rl.configs.algorithm import (
+    AdaptiveTetherConfig,
     GRPOAlgoConfig,
     LinearLengthPenaltyConfig,
     MaxRLAlgoConfig,
+    TetherBaselineConfig,
 )
+from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.orchestrator.algo.grpo import GRPOAlgorithm
 from prime_rl.orchestrator.algo.max_rl import MaxRLAlgorithm
 from prime_rl.orchestrator.trajectories import trace_to_samples
@@ -215,6 +219,93 @@ def test_linear_turns_term_penalizes_more_turns():
     )
     assert advs[0] > advs[1]
     assert sum(advs) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_adaptive_tether_applies_each_fit_only_to_later_groups():
+    baseline = TetherBaselineConfig(
+        adaptive=AdaptiveTetherConfig(batch_size=2, ridge=1e-6, ema_decay=0.0)
+    )
+    algo = GRPOAlgorithm(
+        GRPOAlgoConfig(baseline=baseline),
+        policy_pool=None,
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 8}, batch_size=2),
+    )
+
+    def group_with_perfect_start_values() -> list[Rollout]:
+        group = _make_group([1.0, 0.0])
+        for rollout, start_value in zip(group, [1.0, 0.0], strict=True):
+            rollout.value_predictions = [
+                [start_value if trainable else 0.0 for trainable in sample.mask]
+                for sample in rollout.samples
+            ]
+        return group
+
+    first = group_with_perfect_start_values()
+    asyncio.run(algo.score_group(first))
+    # The first group is scored by the zero/zero snapshot (pure LOO), even
+    # though its moments produce alpha ~= 1 immediately afterward.
+    assert [_scalar(rollout) for rollout in first] == pytest.approx([1.0, -1.0])
+    assert algo.adaptive_tether is not None
+    assert algo.adaptive_tether.alpha == pytest.approx(1.0, rel=2e-6)
+
+    second = group_with_perfect_start_values()
+    asyncio.run(algo.score_group(second))
+    assert [_scalar(rollout) for rollout in second] == pytest.approx([0.0, 0.0], abs=2e-6)
+
+
+@pytest.mark.parametrize(
+    "baseline",
+    [
+        TetherBaselineConfig(alpha=1.0, rho=0.0),
+        TetherBaselineConfig(
+            adaptive=AdaptiveTetherConfig(
+                batch_size=4,
+                initial_alpha=1.0,
+                initial_rho=0.0,
+            )
+        ),
+    ],
+)
+def test_static_and_adaptive_initial_tether_coefficients_score_end_to_end(baseline):
+    algo = GRPOAlgorithm(
+        GRPOAlgoConfig(baseline=baseline),
+        policy_pool=None,
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 8}, batch_size=4),
+    )
+    group = _make_group([1.0, 0.0])
+    for rollout, start_value in zip(group, [1.0, 0.0], strict=True):
+        rollout.value_predictions = [
+            [start_value if trainable else 0.0 for trainable in sample.mask]
+            for sample in rollout.samples
+        ]
+
+    asyncio.run(algo.score_group(group))
+
+    assert [_scalar(rollout) for rollout in group] == pytest.approx([0.0, 0.0])
+
+
+def test_adaptive_tether_excludes_tokens_beyond_actor_context_from_regression():
+    baseline = TetherBaselineConfig(adaptive=AdaptiveTetherConfig(batch_size=4))
+    algo = GRPOAlgorithm(
+        GRPOAlgoConfig(baseline=baseline),
+        policy_pool=None,
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 8}, batch_size=4),
+        policy_seq_len=2,
+    )
+    group = _make_group([1.0, 0.0], completion_lengths=[2, 2])
+    for rollout, start_value in zip(group, [1.0, 0.0], strict=True):
+        # prompt + two actions, but the actor-valid prefix ends after the
+        # first action. The final value must not become a regression row.
+        rollout.value_predictions = [[0.0, start_value, 100.0]]
+
+    asyncio.run(algo.score_group(group))
+
+    assert algo.adaptive_tether is not None
+    assert [stats.weight for stats in algo.adaptive_tether.pending] == [1, 1]
+    assert [rollout.advantages[-1] for rollout in group] == [0.0, 0.0]
 
 
 # --------------------------------------------------------------------------

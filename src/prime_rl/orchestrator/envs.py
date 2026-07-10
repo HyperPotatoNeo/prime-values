@@ -288,6 +288,7 @@ class TrainEnvs(Envs[TrainEnv]):
         renderer_config=None,
         value_evaluator=None,
         value_config=None,
+        policy_seq_len=None,
     ):
         self._envs: dict[str, TrainEnv] = {}
         for config in configs:
@@ -300,6 +301,7 @@ class TrainEnvs(Envs[TrainEnv]):
                     policy_pool,
                     value_evaluator=value_evaluator,
                     value_config=value_config,
+                    policy_seq_len=policy_seq_len,
                 ),
             )
             self._envs[env.name] = env

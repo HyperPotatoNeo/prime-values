@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn.functional as F
 from jaxtyping import Bool, Float
 from torch import Tensor
 
-from prime_rl.configs.algorithm import LinearMixBaselineConfig, TetherBaselineConfig
+from prime_rl.configs.algorithm import LinearMixBaselineConfig
 from prime_rl.configs.value import ClassificationValueLossConfig, MSEValueLossConfig, ValueLossConfig
 
 
@@ -158,18 +160,32 @@ def compute_gae(
     return advantages, returns
 
 
-def group_advantages(rewards: list[float], baseline: str) -> list[float]:
+def group_baselines(rewards: list[float], baseline: str) -> list[float]:
     if not rewards:
         return []
     if baseline == "mean":
-        mean = sum(rewards) / len(rewards)
-        return [reward - mean for reward in rewards]
+        mean = math.fsum(rewards) / len(rewards)
+        return [mean] * len(rewards)
     if baseline == "leave_one_out":
         if len(rewards) < 2:
             raise ValueError("leave_one_out baseline requires group_size >= 2")
-        total = sum(rewards)
-        return [reward - (total - reward) / (len(rewards) - 1) for reward in rewards]
+        # Sum siblings directly rather than reconstructing their mean from a
+        # total that contains the rollout's own reward. Besides better numeric
+        # behavior, this keeps the implemented LOO anchor literally free of
+        # that reward.
+        return [
+            math.fsum(other for other_index, other in enumerate(rewards) if other_index != index)
+            / (len(rewards) - 1)
+            for index in range(len(rewards))
+        ]
     raise ValueError(f"unsupported group baseline {baseline!r}")
+
+
+def group_advantages(rewards: list[float], baseline: str) -> list[float]:
+    return [
+        reward - group_baseline
+        for reward, group_baseline in zip(rewards, group_baselines(rewards, baseline), strict=True)
+    ]
 
 
 def linear_mix_advantages(
@@ -191,26 +207,25 @@ def linear_mix_advantages(
 def tether_advantages(
     *,
     reward: float,
-    group_advantage: float,
+    group_anchor: float,
     values: list[float],
     mask: list[bool],
-    config: TetherBaselineConfig,
+    alpha: float,
+    rho: float,
+    reward_range: tuple[float, float],
 ) -> list[float]:
     """Clipped TETHER: group anchor + start correction + value progress."""
     if len(values) != len(mask):
         raise ValueError("value prediction/mask length mismatch")
-    action_indices = [index for index, trainable in enumerate(mask) if trainable]
-    if not action_indices:
+    first_action = next((index for index, trainable in enumerate(mask) if trainable), None)
+    if first_action is None:
         return [0.0] * len(mask)
-    low, high = config.reward_range
-    group_anchor = reward - group_advantage
-    start_value = values[action_indices[0]]
+    low, high = reward_range
+    start_value = values[first_action]
     output = [0.0] * len(mask)
     for index, trainable in enumerate(mask):
         if not trainable:
             continue
-        baseline = (
-            group_anchor + config.alpha * (start_value - group_anchor) + config.rho * (values[index] - start_value)
-        )
+        baseline = group_anchor + alpha * (start_value - group_anchor) + rho * (values[index] - start_value)
         output[index] = reward - min(max(baseline, low), high)
     return output
