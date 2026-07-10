@@ -1,9 +1,11 @@
 import warnings
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
+from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 
+from prime_rl.configs.algorithm import GRPOAlgoConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.inference import WeightBroadcastConfig as InferenceWeightBroadcastConfig
 from prime_rl.configs.orchestrator import (
@@ -32,6 +34,7 @@ from prime_rl.configs.trainer import (
 from prime_rl.configs.trainer import (
     NCCLWeightBroadcastConfig as TrainerNCCLWeightBroadcastConfig,
 )
+from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.utils.config import BaseConfig, find_package_resource
 from prime_rl.utils.validation import (
     propagate_shared_fields,
@@ -138,12 +141,20 @@ class SingleNodeDeploymentConfig(BaseDeploymentConfig):
     num_infer_gpus: int = 1
     """GPUs allocated to inference."""
 
+    num_value_train_gpus: int = Field(0, ge=0)
+    """GPUs allocated to the independent value trainer."""
+
+    num_value_eval_gpus: int = Field(0, ge=0)
+    """GPUs allocated to value evaluator replicas."""
+
     @model_validator(mode="after")
     def validate_gpu_count(self):
-        total = self.num_train_gpus + self.num_infer_gpus
+        total = self.num_train_gpus + self.num_infer_gpus + self.num_value_train_gpus + self.num_value_eval_gpus
         if total > self.gpus_per_node:
             raise ValueError(
-                f"Total GPU count ({total} = {self.num_train_gpus} train + {self.num_infer_gpus} infer)"
+                f"Total GPU count ({total} = {self.num_train_gpus} policy train + "
+                f"{self.num_infer_gpus} policy infer + {self.num_value_train_gpus} value train + "
+                f"{self.num_value_eval_gpus} value eval)"
                 f" exceeds gpus_per_node ({self.gpus_per_node})."
             )
         return self
@@ -167,6 +178,12 @@ class MultiNodeDeploymentConfig(BaseDeploymentConfig):
     orchestrator_on_inference: bool = False
     """Run the orchestrator on the last inference node instead of trainer rank 0 (frees host RAM on the trainer node)."""
 
+    num_value_train_nodes: int = Field(0, ge=0)
+    """Dedicated value-trainer nodes."""
+
+    num_value_eval_nodes: int = Field(0, ge=0)
+    """Dedicated value-evaluator nodes; the launcher starts one GPU replica per node."""
+
     @property
     def infer_nodes_per_replica(self) -> int:
         return self.num_infer_nodes or 0
@@ -188,6 +205,9 @@ class RLConfig(BaseConfig):
 
     inference: InferenceConfig | None = None
     """Inference server configuration. If None, the rl entrypoint will not start an inference server (useful for elastic inference pools or manually started servers)."""
+
+    value_function: ValueFunctionConfig | None = None
+    """Independent value trainer and evaluator. The policy trainer remains value-agnostic."""
 
     env_vars: EnvVars = {}
     """Extra environment variables for every launched RL component. Component-specific env_vars override these."""
@@ -235,6 +255,129 @@ class RLConfig(BaseConfig):
     """Only validate and dump resolved configs, then exit early."""
 
     ### Validate configs (e.g. raise for unsupported (combinations of) configs)
+
+    @model_validator(mode="after")
+    def resolve_value_function(self):
+        value_baselines: list[tuple[str, str]] = []
+        effective_algorithms = [
+            (env.resolved_name, env.algo or self.orchestrator.algo) for env in self.orchestrator.train.env
+        ] or [("orchestrator.algo", self.orchestrator.algo)]
+        for env_name, algo in effective_algorithms:
+            if isinstance(algo, GRPOAlgoConfig) and algo.baseline.type in {"value", "linear_mix", "tether"}:
+                value_baselines.append((env_name, algo.baseline.type))
+
+        for env_name, algo in effective_algorithms:
+            if not isinstance(algo, GRPOAlgoConfig):
+                continue
+            baseline = algo.baseline
+            group_kind = getattr(baseline, "group", baseline.type)
+            if group_kind != "leave_one_out":
+                continue
+            env = next((item for item in self.orchestrator.train.env if item.resolved_name == env_name), None)
+            group_size = env.group_size if env is not None else self.orchestrator.group_size
+            if group_size < 2:
+                raise ValueError(f"{env_name}: leave_one_out baseline requires group_size >= 2")
+
+        if self.value_function is None:
+            if value_baselines:
+                configured = ", ".join(f"{env}={kind}" for env, kind in value_baselines)
+                raise ValueError(f"value-backed baselines require [value_function]; configured: {configured}")
+            if self.deployment.type == "single_node" and (
+                self.deployment.num_value_train_gpus or self.deployment.num_value_eval_gpus
+            ):
+                raise ValueError("value deployment GPUs require [value_function]")
+            if self.deployment.type == "multi_node" and (
+                self.deployment.num_value_train_nodes or self.deployment.num_value_eval_nodes
+            ):
+                raise ValueError("value deployment nodes require [value_function]")
+            return self
+
+        value = self.value_function
+        if not any(isinstance(algo, GRPOAlgoConfig) for _, algo in effective_algorithms):
+            raise ValueError("[value_function] needs at least one GRPO-family training environment")
+        if self.trainer.max_concurrent_runs != 1:
+            raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
+
+        if value.model is None:
+            value.model = self.trainer.model.model_copy(deep=True)
+            # This validator runs before the shared-field propagation pass;
+            # apply the two shared model fields here as well so the copied
+            # critic sees the same resolved base/sequence length.
+            if self.model is not None and "name" not in self.trainer.model.model_fields_set:
+                value.model.name = self.model.name
+            if self.seq_len is not None and "seq_len" not in self.trainer.model.model_fields_set:
+                value.model.seq_len = self.seq_len
+        if value.model.lora is not None:
+            raise ValueError("value functions do not support LoRA yet")
+        if value.model.vlm is not None:
+            raise ValueError("value functions do not support VLM training yet")
+        if value.model.cp != 1:
+            raise ValueError("value functions do not support context parallelism yet")
+        if value.model.seq_len < self.orchestrator.seq_len:
+            raise ValueError("value_function.model.seq_len must be at least orchestrator.seq_len")
+        if value.evaluator.max_batch_tokens < value.model.seq_len:
+            raise ValueError("value_function.evaluator.max_batch_tokens must be at least value_function.model.seq_len")
+        if len(value.evaluator.base_url) != value.weight_broadcast.evaluator_world_size:
+            raise ValueError(
+                "value_function.evaluator.base_url count must equal "
+                "value_function.weight_broadcast.evaluator_world_size"
+            )
+        if "output_dir" not in value.model_fields_set:
+            value.output_dir = self.output_dir / "value"
+        self.orchestrator.value_function = value.model_copy(deep=True)
+
+        if self.deployment.type == "single_node":
+            if "num_value_train_gpus" not in self.deployment.model_fields_set:
+                self.deployment.num_value_train_gpus = 1
+            if "num_value_eval_gpus" not in self.deployment.model_fields_set:
+                self.deployment.num_value_eval_gpus = value.weight_broadcast.evaluator_world_size
+            if self.deployment.num_value_train_gpus < 1 or self.deployment.num_value_eval_gpus < 1:
+                raise ValueError("value functions need at least one value-trainer and one value-evaluator GPU")
+            if self.deployment.num_value_eval_gpus != value.weight_broadcast.evaluator_world_size:
+                raise ValueError(
+                    "deployment.num_value_eval_gpus must equal value_function.weight_broadcast.evaluator_world_size"
+                )
+            if value.model.dp_replicate < 1 or self.deployment.num_value_train_gpus % value.model.dp_replicate != 0:
+                raise ValueError(
+                    "deployment.num_value_train_gpus must be divisible by value_function.model.dp_replicate"
+                )
+            if isinstance(value.model.ep, int):
+                value_island_size = self.deployment.num_value_train_gpus // value.model.dp_replicate
+                if value.model.ep < 1 or value.model.ep > value_island_size or value_island_size % value.model.ep != 0:
+                    raise ValueError("value_function.model.ep must divide the value trainer FSDP island")
+            endpoint_ports = [urlparse(endpoint).port for endpoint in value.evaluator.base_url]
+            if len(endpoint_ports) != len(set(endpoint_ports)):
+                raise ValueError("single-node value evaluator replicas must use distinct ports")
+            reserved_ports = {
+                value.transport.port,
+                value.weight_broadcast.port,
+                value.weight_broadcast.control_port,
+            }
+            if any(port in reserved_ports for port in endpoint_ports):
+                raise ValueError("single-node value evaluator port conflicts with value transport or weights")
+            self.deployment.validate_gpu_count()
+        else:
+            if "num_value_train_nodes" not in self.deployment.model_fields_set:
+                self.deployment.num_value_train_nodes = 1
+            if "num_value_eval_nodes" not in self.deployment.model_fields_set:
+                self.deployment.num_value_eval_nodes = 1
+            if self.deployment.num_value_train_nodes < 1 or self.deployment.num_value_eval_nodes < 1:
+                raise ValueError("value functions need at least one value-trainer and one value-evaluator node")
+            # Evaluator nodes host one replica by default; value training may
+            # still use every GPU on its dedicated nodes.
+            expected_evaluators = self.deployment.num_value_eval_nodes
+            if expected_evaluators != value.weight_broadcast.evaluator_world_size:
+                raise ValueError(
+                    "multi-node value evaluator GPUs must equal value_function.weight_broadcast.evaluator_world_size"
+                )
+            value_world_size = self.deployment.num_value_train_nodes * self.deployment.gpus_per_node
+            if value.model.dp_replicate < 1 or value_world_size % value.model.dp_replicate != 0:
+                raise ValueError("value trainer world size must be divisible by value_function.model.dp_replicate")
+            if isinstance(value.model.ep, int):
+                value_island_size = value_world_size // value.model.dp_replicate
+                if value.model.ep < 1 or value.model.ep > value_island_size or value_island_size % value.model.ep != 0:
+                    raise ValueError("value_function.model.ep must divide the value trainer FSDP island")
+        return self
 
     @model_validator(mode="after")
     def auto_setup_infer_nodes(self):

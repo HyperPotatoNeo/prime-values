@@ -37,8 +37,14 @@ class SlurmConfig(BaseConfig):
     template_path: Path | None = None
     """SLURM template file. If None, uses the bundled single-node or multi-node template."""
 
-    partition: str = "cluster"
-    """SLURM partition (#SBATCH --partition)."""
+    partition: str | None = "cluster"
+    """SLURM partition. Set to an empty string to let the scheduler select it."""
+
+    constraint: str | None = None
+    """Optional node constraint (``#SBATCH --constraint``)."""
+
+    qos: str | None = None
+    """Optional quality of service (``#SBATCH --qos``)."""
 
     nodelist: str | None = None
     """Comma-separated list of specific nodes to run on (#SBATCH --nodelist)."""
@@ -68,6 +74,8 @@ class SlurmConfig(BaseConfig):
             "job_name": self.job_name,
             "project_dir": self.project_dir,
             "partition": self.partition,
+            "constraint": self.constraint,
+            "qos": self.qos,
             "nodelist": self.nodelist,
             "exclude": self.exclude,
             "account": self.account,

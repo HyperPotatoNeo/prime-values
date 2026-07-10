@@ -81,6 +81,8 @@ from prime_rl.utils.utils import (
     clean_exit,
     resolve_latest_ckpt_step,
 )
+from prime_rl.value.client import ValueEvaluatorClient
+from prime_rl.value.transport import LatestValueBatchPublisher
 
 monkey_patch_oai_iterable_types()
 monkey_patch_chat_completion_logprobs()
@@ -139,6 +141,8 @@ class Orchestrator:
     lora_name: str | None
     resume_step: int | None
     lag_task: asyncio.Task | None
+    value_evaluator: ValueEvaluatorClient | None
+    value_publisher: LatestValueBatchPublisher | None
 
     def __init__(self, config: OrchestratorConfig) -> None:
         self.config = config
@@ -182,6 +186,9 @@ class Orchestrator:
         self.lora_name = None
         self.resume_step = None
         self.lag_task = None
+        self.value_evaluator = None
+        self.value_publisher = None
+        self.last_warmup_value_version: int | None = None
 
     # ── lifecycle ──────────────────────────────────────────────────────────
 
@@ -240,9 +247,20 @@ class Orchestrator:
         pre_filters = setup_filters(config.pre_batch_filters, vocab_size=self.tokenizer.vocab_size, kind="pre-batch")
         post_filters = setup_filters(config.post_batch_filters, vocab_size=self.tokenizer.vocab_size, kind="post-batch")
 
+        if config.value_function is not None:
+            get_logger().info("Connecting to value evaluator")
+            self.value_evaluator = ValueEvaluatorClient(config.value_function.evaluator)
+            await self.value_evaluator.wait_for_ready()
+            self.value_publisher = LatestValueBatchPublisher(config.value_function.transport)
+            get_logger().success("Value evaluator ready")
+
         get_logger().info("Loading training environments")
         self.train_envs = TrainEnvs(
-            config.train.env, policy_pool=self.policy_inference, renderer_config=config.renderer
+            config.train.env,
+            policy_pool=self.policy_inference,
+            renderer_config=config.renderer,
+            value_evaluator=self.value_evaluator,
+            value_config=config.value_function,
         )
         get_logger().debug(
             f"Loaded {len(self.train_envs)} training environment(s) ({', '.join(self.train_envs.names)})"
@@ -361,6 +379,7 @@ class Orchestrator:
             token_batch_size=config.token_batch_size,
             pre_filters=pre_filters,
             post_filters=post_filters,
+            value_publisher=self.value_publisher,
         )
         self.eval_sink = EvalSink(eval_envs=self.eval_envs) if self.eval_envs is not None else None
         self.watcher = WeightWatcher(
@@ -476,6 +495,17 @@ class Orchestrator:
             # In drain mode any late-arriving train batch is dropped — we
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():
+                if self.value_evaluator is not None and self.config.value_function is not None:
+                    value_version = await self.value_evaluator.version()
+                    if value_version < self.config.value_function.warmup_updates:
+                        if value_version != self.last_warmup_value_version:
+                            get_logger().info(
+                                f"Value warmup {value_version}/{self.config.value_function.warmup_updates}; "
+                                "discarding policy batches while rollout generation continues"
+                            )
+                            self.last_warmup_value_version = value_version
+                        self.train_sink.reset_pre_filter_stats()
+                        continue
                 await self.finalize_train_batch(train_batch)
 
     async def finalize_train_batch(self, batch: TrainBatch) -> None:
@@ -570,6 +600,14 @@ class Orchestrator:
             "time/wait_for_policy": self.wait_for_policy_time,
             "step": step,
         }
+        value_versions = [r.value_version for r in effective if r.value_version is not None]
+        if value_versions:
+            metrics["value/evaluator_version"] = float(max(value_versions))
+        if self.value_publisher is not None:
+            attempted = self.value_publisher.published + self.value_publisher.dropped
+            metrics["value/batches_published"] = float(self.value_publisher.published)
+            metrics["value/batches_dropped"] = float(self.value_publisher.dropped)
+            metrics["value/batch_drop_rate"] = self.value_publisher.dropped / attempted if attempted else 0.0
         for env_name, env_pool in batch.rollouts.by_env().items():
             metrics[f"batch/{env_name}"] = len(env_pool) / len(batch.rollouts)
         if self.train_sink.pre_filter_seen > 0:
@@ -683,6 +721,14 @@ class Orchestrator:
         body = train_batch_part + eval_batch_part + "; " + inflight_part
 
         payload: dict[str, float] = {**disp_gauges, **disp_drain, **watcher_gauges}
+        if self.value_publisher is not None:
+            attempted = self.value_publisher.published + self.value_publisher.dropped
+            body += (
+                f"; value batches published={self.value_publisher.published}, dropped={self.value_publisher.dropped}"
+            )
+            payload["value/batches_published"] = float(self.value_publisher.published)
+            payload["value/batches_dropped"] = float(self.value_publisher.dropped)
+            payload["value/batch_drop_rate"] = self.value_publisher.dropped / attempted if attempted else 0.0
         if lag_stats.n > 0:
             payload["event_loop_lag/min"] = lag_stats.min
             payload["event_loop_lag/mean"] = lag_stats.mean
@@ -835,8 +881,13 @@ class Orchestrator:
         async def teardown() -> None:
             if self.sender is not None:
                 self.sender.close()
+            if self.value_publisher is not None:
+                self.value_publisher.close()
+                self.value_publisher = None
             if self.dispatcher is not None:
                 await self.dispatcher.stop()
+            if self.train_sink is not None:
+                await self.train_sink.stop()
             if self.watcher is not None:
                 await self.watcher.stop()
             if self.periodic_logger is not None:
@@ -851,6 +902,9 @@ class Orchestrator:
                 await self.inference_metrics.stop()
             if getattr(self, "policy_inference", None) is not None:
                 await self.policy_inference.stop()
+            if self.value_evaluator is not None:
+                await self.value_evaluator.close()
+                self.value_evaluator = None
             if self.train_envs is not None:
                 for env in self.train_envs:
                     for pool in (*env.sampler.connected_pools, *env.algorithm.connected_pools):

@@ -43,14 +43,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from prime_rl.configs.algorithm import ActionLossType, AlgoConfig, FrozenModelConfig
+from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.orchestrator.algo.routing import stamp_advantages, stamp_loss_routing
 from prime_rl.utils.logger import get_logger
+from prime_rl.value.math import compute_gae
 
 if TYPE_CHECKING:
     from renderers import RendererConfig
 
     from prime_rl.orchestrator.types import Rollout
     from prime_rl.utils.client import InferencePool
+    from prime_rl.value.client import ValueEvaluatorClient
 
 
 async def connect_frozen_pool(
@@ -119,9 +122,21 @@ class Algorithm:
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
 
-    def __init__(self, config: AlgoConfig, policy_pool: InferencePool):
+    def __init__(
+        self,
+        config: AlgoConfig,
+        policy_pool: InferencePool,
+        *,
+        value_evaluator: ValueEvaluatorClient | None = None,
+        value_config: ValueFunctionConfig | None = None,
+    ):
+        self.config = config
         self.policy_pool = policy_pool
         self.connected_pools: list[InferencePool] = []  # frozen pools connected in setup(); closed at shutdown
+        self.value_evaluator = value_evaluator
+        self.value_config = value_config
+        if (value_evaluator is None) != (value_config is None):
+            raise ValueError("value evaluator and value config must be provided together")
 
     async def setup(self) -> None:
         """Connect client pools to the algorithm's frozen models — override
@@ -153,13 +168,70 @@ class Algorithm:
         tokenized."""
         if rollout.samples:
             await self.score_rollout(rollout)
+            if self.value_evaluator is not None:
+                await self._evaluate_value(rollout)
 
     async def finalize_group(self, rollouts: list[Rollout]) -> None:
         """Group phase (non-virtual): group-relative scoring, then stamp each
         sample's wire fields (the advantage stream + loss routing). After this
         the records are frozen — groups die at stamping."""
+        if self.value_evaluator is not None:
+            versions = {rollout.value_version for rollout in rollouts if rollout.samples}
+            if len(versions) > 1:
+                # A critic update landed while siblings were completing. Re-score
+                # the group in one request so one coherent version defines credit.
+                token_ids = [self._value_input(sample.token_ids) for rollout in rollouts for sample in rollout.samples]
+                response = await self.value_evaluator.evaluate(token_ids)
+                offset = 0
+                for rollout in rollouts:
+                    count = len(rollout.samples)
+                    self._assign_value_result(rollout, response.values[offset : offset + count], response.version)
+                    offset += count
         await self.score_group(rollouts)
         for rollout in rollouts:
             stamp_advantages(rollout)
             for sample in rollout.samples:
                 stamp_loss_routing(sample, self.action_loss_type)
+
+    async def _evaluate_value(self, rollout: Rollout) -> None:
+        assert self.value_evaluator is not None
+        response = await self.value_evaluator.evaluate(
+            [self._value_input(sample.token_ids) for sample in rollout.samples]
+        )
+        self._assign_value_result(rollout, response.values, response.version)
+
+    def _value_input(self, token_ids: list[int]) -> list[int]:
+        assert self.value_config is not None and self.value_config.model is not None
+        return token_ids[: self.value_config.model.seq_len]
+
+    def _assign_value_result(self, rollout: Rollout, predictions: list[list[float]], version: int) -> None:
+        assert self.value_config is not None
+        if len(predictions) != len(rollout.samples):
+            raise ValueError(
+                f"value evaluator returned {len(predictions)} branches for rollout with {len(rollout.samples)} samples"
+            )
+        advantages: list[list[float]] = []
+        returns: list[list[float]] = []
+        for sample, values in zip(rollout.samples, predictions, strict=True):
+            value_length = len(self._value_input(sample.token_ids))
+            if len(values) != value_length:
+                raise ValueError(
+                    f"value evaluator returned {len(values)} tokens for truncated value input of {value_length}"
+                )
+            sample_advantages, sample_returns = compute_gae(
+                reward=float(rollout.reward),
+                values=values,
+                mask=sample.mask[:value_length],
+                gamma=self.value_config.gamma,
+                gae_lambda=self.value_config.gae_lambda,
+            )
+            padding = len(sample.token_ids) - value_length
+            advantages.append(sample_advantages + [0.0] * padding)
+            returns.append(sample_returns + [0.0] * padding)
+        rollout.value_predictions = [
+            values + [0.0] * (len(sample.token_ids) - len(values))
+            for sample, values in zip(rollout.samples, predictions, strict=True)
+        ]
+        rollout.value_advantages = advantages
+        rollout.value_returns = returns
+        rollout.value_version = version

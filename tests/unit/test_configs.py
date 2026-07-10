@@ -1,3 +1,4 @@
+import subprocess
 import tomllib
 from pathlib import Path
 from typing import Annotated, Literal
@@ -11,8 +12,10 @@ from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.configs.rl import RLConfig
 from prime_rl.configs.sft import SFTConfig
+from prime_rl.configs.shared import SlurmConfig
 from prime_rl.configs.trainer import ModelConfig as TrainerModelConfig
 from prime_rl.configs.trainer import TrainerConfig
+from prime_rl.entrypoints.rl import validate_value_tokenizer_compatibility, write_slurm_script
 from prime_rl.utils.config import BaseConfig, cli
 
 # All config config classes
@@ -211,6 +214,98 @@ def test_single_node_auto_inference_client_dp_rank_count_matches_local_dp():
     assert config.orchestrator.model.client.dp_rank_count == 2
 
 
+def test_value_baseline_requires_value_function():
+    with pytest.raises(ValidationError, match="value-backed baselines require"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"algo": {"type": "grpo", "baseline": {"type": "value"}}},
+            }
+        )
+
+
+def test_value_function_resolves_separate_model_and_gpu_roles():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "group_size": 2,
+                "algo": {"type": "grpo", "baseline": {"type": "linear_mix"}},
+            },
+            "value_function": {},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.model is not None
+    assert config.value_function.model.name == config.trainer.model.name
+    assert config.orchestrator.value_function is not None
+    assert config.value_function.evaluator.dtype == "bfloat16"
+    assert config.deployment.type == "single_node"
+    assert config.deployment.num_value_train_gpus == 1
+    assert config.deployment.num_value_eval_gpus == 1
+
+
+def test_shared_observability_reaches_value_trainer():
+    config = RLConfig.model_validate(
+        {
+            "log": {"level": "debug", "json_logging": True},
+            "wandb": {"project": "critic-test", "name": "shared-run"},
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "grpo"}},
+            "value_function": {},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.log.level == "debug"
+    assert config.value_function.log.json_logging is True
+    assert config.value_function.wandb is not None
+    assert config.value_function.wandb.project == "critic-test"
+    assert config.value_function.wandb.name == "shared-run"
+
+
+def test_group_only_baseline_does_not_require_value_function():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "group_size": 2,
+                "algo": {"type": "grpo", "baseline": {"type": "leave_one_out"}},
+            },
+        }
+    )
+
+    assert config.value_function is None
+
+
+def test_leave_one_out_requires_siblings_without_value_function():
+    with pytest.raises(ValidationError, match="leave_one_out baseline requires group_size >= 2"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "group_size": 1,
+                    "algo": {"type": "grpo", "baseline": {"type": "leave_one_out"}},
+                },
+            }
+        )
+
+
+def test_value_warmup_cannot_outlive_value_trainer():
+    with pytest.raises(ValidationError, match="warmup_updates cannot exceed"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"algo": {"type": "grpo"}},
+                "value_function": {"warmup_updates": 3, "max_steps": 2},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+
 def test_multi_node_auto_inference_client_dp_rank_count_uses_router_url():
     config = RLConfig.model_validate(
         {
@@ -231,6 +326,158 @@ def test_multi_node_auto_inference_client_dp_rank_count_uses_router_url():
     assert config.inference.data_parallel_size_local == 2
     assert config.inference.parallel.dp == 2
     assert config.orchestrator.model.client.dp_rank_count == 1
+
+
+def test_value_trainer_supports_multiple_nodes_and_evaluator_replicas():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "group_size": 2,
+                "algo": {"type": "grpo", "baseline": {"type": "linear_mix"}},
+            },
+            "inference": {"parallel": {"tp": 4}},
+            "value_function": {
+                "evaluator": {
+                    "base_url": ["http://127.0.0.1:29612", "http://127.0.0.1:29614"],
+                },
+                "weight_broadcast": {"evaluator_world_size": 2},
+            },
+            "deployment": {
+                "type": "multi_node",
+                "gpus_per_node": 4,
+                "num_train_nodes": 1,
+                "num_infer_nodes": 1,
+                "num_value_train_nodes": 2,
+                "num_value_eval_nodes": 2,
+            },
+            "slurm": {},
+        }
+    )
+
+    assert config.deployment.type == "multi_node"
+    assert config.deployment.num_value_train_nodes == 2
+    assert config.deployment.num_value_eval_nodes == 2
+    assert config.value_function is not None
+    assert config.value_function.weight_broadcast.evaluator_world_size == 2
+
+
+def test_multi_node_value_evaluator_urls_render_as_one_cli_argument(tmp_path):
+    config = RLConfig.model_validate(
+        {
+            "output_dir": str(tmp_path / "output"),
+            "trainer": {},
+            "orchestrator": {
+                "group_size": 2,
+                "algo": {"type": "grpo", "baseline": {"type": "linear_mix"}},
+            },
+            "inference": {"parallel": {"tp": 4}},
+            "value_function": {
+                "evaluator": {
+                    "base_url": ["http://127.0.0.1:29612", "http://127.0.0.1:29614"],
+                },
+                "weight_broadcast": {"evaluator_world_size": 2},
+            },
+            "deployment": {
+                "type": "multi_node",
+                "gpus_per_node": 4,
+                "num_train_nodes": 1,
+                "num_infer_nodes": 1,
+                "num_value_train_nodes": 2,
+                "num_value_eval_nodes": 2,
+            },
+            "slurm": {},
+        }
+    )
+    script_path = tmp_path / "rl.sbatch"
+    write_slurm_script(config, tmp_path / "configs", script_path)
+    script = script_path.read_text()
+    assignment = next(line for line in script.splitlines() if line.startswith("VALUE_EVAL_URLS_JSON="))
+
+    subprocess.run(["bash", "-n", str(script_path)], check=True)
+    rendered = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f'export VALUE_EVAL_URLS="http://eval-0:29612 http://eval-1:29612"; {assignment}; printf %s "$VALUE_EVAL_URLS_JSON"',
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert rendered.stdout == '["http://eval-0:29612","http://eval-1:29612"]'
+
+
+def test_value_model_must_cover_orchestrator_sequence_length():
+    with pytest.raises(ValidationError, match="value_function.model.seq_len must be at least"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"seq_len": 4096, "algo": {"type": "grpo"}},
+                "value_function": {"model": {"seq_len": 2048}},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+
+def test_value_model_ep_must_fit_critic_world():
+    with pytest.raises(ValidationError, match="model.ep must divide"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"algo": {"type": "grpo"}},
+                "value_function": {"model": {"ep": 3}},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+
+def test_distinct_value_model_tokenizer_must_match_policy(monkeypatch):
+    from transformers import AutoTokenizer
+
+    class FakeTokenizer:
+        bos_token_id = 1
+        eos_token_id = 2
+        pad_token_id = 0
+        unk_token_id = 3
+
+        def __init__(self, vocab):
+            self.vocab = vocab
+
+        def get_vocab(self):
+            return self.vocab
+
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "grpo"}},
+            "value_function": {
+                "model": {"name": "example/value-model"},
+                "tokenizer_name": "example/value-tokenizer",
+            },
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+    tokenizers = iter([FakeTokenizer({"policy": 0}), FakeTokenizer({"critic": 0})])
+    monkeypatch.setattr(AutoTokenizer, "from_pretrained", lambda *args, **kwargs: next(tokenizers))
+
+    with pytest.raises(ValueError, match="tokenizer is incompatible"):
+        validate_value_tokenizer_compatibility(config)
+
+
+def test_slurm_scheduler_selection_fields_are_preserved():
+    config = SlurmConfig.model_validate(
+        {
+            "partition": "",
+            "constraint": "gpu&hbm80g",
+            "qos": "premium",
+        }
+    )
+
+    assert config.template_vars["partition"] == ""
+    assert config.template_vars["constraint"] == "gpu&hbm80g"
+    assert config.template_vars["qos"] == "premium"
 
 
 def test_orchestrator_vlm_requires_renderer():

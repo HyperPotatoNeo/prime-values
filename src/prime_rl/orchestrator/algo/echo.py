@@ -11,8 +11,10 @@ from prime_rl.utils.utils import import_object
 if TYPE_CHECKING:
     import verifiers.v1 as vf
 
+    from prime_rl.configs.value import ValueFunctionConfig
     from prime_rl.orchestrator.types import Rollout
     from prime_rl.utils.client import InferencePool
+    from prime_rl.value.client import ValueEvaluatorClient
 
 
 class EchoAlgorithm(GRPOAlgorithm):
@@ -23,8 +25,20 @@ class EchoAlgorithm(GRPOAlgorithm):
     mask and its denominator. An optional user filter narrows the selection
     per rollout (e.g. dropping tool-output warnings)."""
 
-    def __init__(self, config: EchoAlgoConfig, policy_pool: InferencePool):
-        super().__init__(config, policy_pool)
+    def __init__(
+        self,
+        config: EchoAlgoConfig,
+        policy_pool: InferencePool,
+        *,
+        value_evaluator: ValueEvaluatorClient | None = None,
+        value_config: ValueFunctionConfig | None = None,
+    ):
+        super().__init__(
+            config,
+            policy_pool,
+            value_evaluator=value_evaluator,
+            value_config=value_config,
+        )
         self.role_weights = {
             role: role_config.alpha
             for role in ("system", "user", "assistant", "tool")

@@ -42,6 +42,7 @@ RL_SBATCH = "rl.sbatch"
 TRAINER_TOML = "trainer.toml"
 ORCHESTRATOR_TOML = "orchestrator.toml"
 INFERENCE_TOML = "inference.toml"
+VALUE_TOML = "value.toml"
 
 
 def get_physical_gpu_ids() -> list[int]:
@@ -77,6 +78,10 @@ def write_subconfigs(config: RLConfig, output_dir: Path) -> None:
         with open(output_dir / INFERENCE_TOML, "wb") as f:
             tomli_w.dump(config.inference.model_dump(exclude=exclude_inference, exclude_none=True, mode="json"), f)
 
+    if config.value_function is not None:
+        with open(output_dir / VALUE_TOML, "wb") as f:
+            tomli_w.dump(config.value_function.model_dump(exclude_none=True, mode="json"), f)
+
 
 def rl_local(config: RLConfig):
     assert config.deployment.type == "single_node"
@@ -100,8 +105,16 @@ def rl_local(config: RLConfig):
     infer_local_gpu_ids = list(range(gpu_offset, gpu_offset + num_infer_gpus))
     gpu_offset += num_infer_gpus
     trainer_local_gpu_ids = list(range(gpu_offset, gpu_offset + config.deployment.num_train_gpus))
+    gpu_offset += config.deployment.num_train_gpus
+    num_value_train_gpus = config.deployment.num_value_train_gpus if config.value_function is not None else 0
+    value_trainer_local_gpu_ids = list(range(gpu_offset, gpu_offset + num_value_train_gpus))
+    gpu_offset += num_value_train_gpus
+    num_value_eval_gpus = config.deployment.num_value_eval_gpus if config.value_function is not None else 0
+    value_evaluator_local_gpu_ids = list(range(gpu_offset, gpu_offset + num_value_eval_gpus))
 
-    total_requested_gpus = num_infer_gpus + config.deployment.num_train_gpus
+    total_requested_gpus = (
+        num_infer_gpus + config.deployment.num_train_gpus + num_value_train_gpus + num_value_eval_gpus
+    )
     physical_gpu_ids = get_physical_gpu_ids()
     if total_requested_gpus > len(physical_gpu_ids):
         raise ValueError(
@@ -113,6 +126,8 @@ def rl_local(config: RLConfig):
 
     infer_gpu_ids = [physical_gpu_mapping[local_gpu_id] for local_gpu_id in infer_local_gpu_ids]
     trainer_gpu_ids = [physical_gpu_mapping[local_gpu_id] for local_gpu_id in trainer_local_gpu_ids]
+    value_trainer_gpu_ids = [physical_gpu_mapping[local_gpu_id] for local_gpu_id in value_trainer_local_gpu_ids]
+    value_evaluator_gpu_ids = [physical_gpu_mapping[local_gpu_id] for local_gpu_id in value_evaluator_local_gpu_ids]
 
     start_command = sys.argv
     logger.info("Starting RL run")
@@ -150,6 +165,8 @@ def rl_local(config: RLConfig):
     monitor_threads: list[Thread] = []
     error_queue: list[Exception] = []
     stop_events: dict[str, Event] = {}
+    run_done_file = (config.output_dir / f".rl_done_local_{os.getpid()}").resolve()
+    run_done_file.unlink(missing_ok=True)
 
     def sigterm_handler(signum, frame):
         logger.warning("Received SIGTERM, terminating all processes...")
@@ -200,6 +217,98 @@ def rl_local(config: RLConfig):
                 f"({', '.join(config.orchestrator.model.client.base_url)}), otherwise the orchestrator "
                 "will hang waiting for it."
             )
+
+        if config.value_function is not None:
+            from urllib.parse import urlparse
+
+            value_config_path = (config_dir / VALUE_TOML).as_posix()
+            for evaluator_rank, (gpu_id, base_url) in enumerate(
+                zip(value_evaluator_gpu_ids, config.value_function.evaluator.base_url, strict=True)
+            ):
+                evaluator_cmd = ["value-evaluator", "@", value_config_path]
+                evaluator_port = urlparse(base_url).port
+                if evaluator_port is None:
+                    raise ValueError(f"Value evaluator base_url has no port: {base_url}")
+                log_name = "value_evaluator.log" if evaluator_rank == 0 else f"value_evaluator_{evaluator_rank}.log"
+                logger.info(f"Starting value evaluator {evaluator_rank} on GPU {gpu_id}")
+                with open(log_dir / log_name, "w") as log_file:
+                    evaluator_process = Popen(
+                        evaluator_cmd,
+                        env={
+                            **os.environ,
+                            **DEFAULT_COMMON_ENV_VARS,
+                            **DEFAULT_TRAINER_ENV_VARS,
+                            **config.env_vars,
+                            **config.value_function.env_vars,
+                            "CUDA_VISIBLE_DEVICES": str(gpu_id),
+                            "VALUE_EVALUATOR_RANK": str(evaluator_rank),
+                            "VALUE_EVALUATOR_PORT": str(evaluator_port),
+                            "WANDB_SHARED_LABEL": f"value-evaluator-{evaluator_rank}",
+                        },
+                        stdout=log_file,
+                        stderr=log_file,
+                    )
+                processes.append(evaluator_process)
+                stop_event = Event()
+                stop_events[f"value-evaluator-{evaluator_rank}"] = stop_event
+                monitor_thread = Thread(
+                    target=monitor_process,
+                    args=(
+                        evaluator_process,
+                        stop_event,
+                        error_queue,
+                        f"value-evaluator-{evaluator_rank}",
+                    ),
+                    daemon=True,
+                )
+                monitor_thread.start()
+                monitor_threads.append(monitor_thread)
+
+            from prime_rl.utils.utils import get_free_port
+
+            value_trainer_cmd = [
+                "torchrun",
+                "--role=value-trainer",
+                f"--rdzv-endpoint=localhost:{get_free_port()}",
+                f"--rdzv-id={uuid.uuid4().hex}",
+                f"--log-dir={log_dir / 'value_trainer' / 'torchrun'}",
+                f"--local-ranks-filter={','.join(map(str, config.value_function.log.ranks_filter))}",
+                "--redirect=3",
+                "--tee=3",
+                f"--nproc-per-node={len(value_trainer_gpu_ids)}",
+                "-m",
+                "prime_rl.value.train",
+                "@",
+                value_config_path,
+            ]
+            logger.info(f"Starting value trainer on GPU(s) {' '.join(map(str, value_trainer_gpu_ids))}")
+            with open(log_dir / "value_trainer.log", "w") as log_file:
+                value_trainer_process = Popen(
+                    value_trainer_cmd,
+                    env={
+                        **os.environ,
+                        **DEFAULT_COMMON_ENV_VARS,
+                        **DEFAULT_TRAINER_ENV_VARS,
+                        **config.env_vars,
+                        **config.value_function.env_vars,
+                        **wandb_shared_env,
+                        "WANDB_SHARED_LABEL": "value-trainer",
+                        "CUDA_VISIBLE_DEVICES": ",".join(map(str, value_trainer_gpu_ids)),
+                        "PRIME_RL_RUN_DONE_FILE": str(run_done_file),
+                    },
+                    stdout=log_file,
+                    stderr=log_file,
+                )
+            processes.append(value_trainer_process)
+            stop_event = Event()
+            stop_events["value-trainer"] = stop_event
+            monitor_thread = Thread(
+                target=monitor_process,
+                args=(value_trainer_process, stop_event, error_queue, "value-trainer"),
+                daemon=True,
+            )
+            monitor_thread.start()
+            monitor_threads.append(monitor_thread)
 
         frozen_endpoints: list[str] = []
         for env in config.orchestrator.train.env:
@@ -337,9 +446,18 @@ def rl_local(config: RLConfig):
 
         logger.success("Training finished!")
 
+        if config.value_function is not None:
+            run_done_file.touch()
+            if value_trainer_process.poll() is None:
+                logger.info("Waiting for the value trainer to write its final checkpoint")
+                value_trainer_process.wait(timeout=config.value_function.dist_timeout_seconds)
+            if value_trainer_process.returncode != 0:
+                raise RuntimeError(f"Value trainer failed with exit code {value_trainer_process.returncode}")
+
         # Cleanup threads and processes
         cleanup_threads(monitor_threads)
         cleanup_processes(processes)
+        run_done_file.unlink(missing_ok=True)
 
     except KeyboardInterrupt:
         logger.warning("Received interrupt signal, terminating all processes...")
@@ -387,6 +505,28 @@ def write_slurm_script(config: RLConfig, config_dir: Path, script_path: Path) ->
         if config.inference
         else {}
     )
+    value_env_vars = (
+        {
+            **DEFAULT_COMMON_ENV_VARS,
+            **DEFAULT_TRAINER_ENV_VARS,
+            **config.env_vars,
+            **config.value_function.env_vars,
+        }
+        if config.value_function is not None
+        else {}
+    )
+    value_template_vars = dict(
+        value_enabled=config.value_function is not None,
+        num_value_train_nodes=(
+            config.deployment.num_value_train_nodes if config.deployment.type == "multi_node" else 0
+        ),
+        num_value_eval_nodes=(config.deployment.num_value_eval_nodes if config.deployment.type == "multi_node" else 0),
+        value_evaluator_port=(config.value_function.evaluator.port if config.value_function is not None else 29612),
+        value_ranks_filter=(
+            ",".join(map(str, config.value_function.log.ranks_filter)) if config.value_function is not None else "0"
+        ),
+        value_env_vars=value_env_vars,
+    )
 
     if config.deployment.type == "single_node":
         script = template.render(
@@ -433,6 +573,7 @@ def write_slurm_script(config: RLConfig, config_dir: Path, script_path: Path) ->
             use_nccl_broadcast=config.weight_broadcast is not None and config.weight_broadcast.type == "nccl",
             ranks_filter=",".join(map(str, config.trainer.log.ranks_filter)),
             orchestrator_on_inference=config.deployment.orchestrator_on_inference,
+            **value_template_vars,
         )
     else:
         script = template.render(
@@ -460,10 +601,45 @@ def write_slurm_script(config: RLConfig, config_dir: Path, script_path: Path) ->
             trainer_env_vars=trainer_env_vars,
             orchestrator_env_vars=orchestrator_env_vars,
             inference_env_vars=inference_env_vars,
+            **value_template_vars,
         )
 
     script_path.parent.mkdir(parents=True, exist_ok=True)
     script_path.write_text(script)
+
+
+def validate_value_tokenizer_compatibility(config: RLConfig) -> None:
+    """Fail before launch if a distinct critic would reinterpret policy token IDs."""
+    if config.value_function is None or config.value_function.model is None:
+        return
+    from transformers import AutoTokenizer
+
+    policy_config = config.orchestrator.tokenizer
+    policy_name = policy_config.name or config.orchestrator.model.name
+    policy_trust = (
+        policy_config.trust_remote_code
+        if policy_config.trust_remote_code is not None
+        else config.orchestrator.model.trust_remote_code
+    )
+    value_name = config.value_function.tokenizer_name or config.value_function.model.name
+    if value_name == policy_name:
+        return
+
+    policy_tokenizer = AutoTokenizer.from_pretrained(policy_name, trust_remote_code=policy_trust)
+    value_tokenizer = AutoTokenizer.from_pretrained(
+        value_name,
+        trust_remote_code=config.value_function.model.trust_remote_code,
+    )
+    special_id_fields = ("bos_token_id", "eos_token_id", "pad_token_id", "unk_token_id")
+    vocab_matches = policy_tokenizer.get_vocab() == value_tokenizer.get_vocab()
+    special_ids_match = all(
+        getattr(policy_tokenizer, field) == getattr(value_tokenizer, field) for field in special_id_fields
+    )
+    if not vocab_matches or not special_ids_match:
+        raise ValueError(
+            "value model tokenizer is incompatible with policy token IDs; choose a value model with the identical "
+            "vocabulary/ID mapping, or set value_function.tokenizer_name to the compatible tokenizer explicitly"
+        )
 
 
 def rl_slurm(config: RLConfig):
@@ -558,6 +734,10 @@ def rl(config: RLConfig):
         from prime_rl.trainer.model import pre_download_model
 
         pre_download_model(config.trainer.model.name)
+        if config.value_function is not None and config.value_function.model is not None:
+            if config.value_function.model.name != config.trainer.model.name:
+                pre_download_model(config.value_function.model.name)
+        validate_value_tokenizer_compatibility(config)
 
     if config.slurm is not None:
         rl_slurm(config)

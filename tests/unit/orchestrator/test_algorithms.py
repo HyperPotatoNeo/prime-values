@@ -8,7 +8,9 @@ from verifiers.v1.graph import MessageNode
 from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
+from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.orchestrator.algo import EchoAlgorithm, stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.algo.base import Algorithm
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.transport.types import TrainingSample
@@ -205,6 +207,29 @@ def test_assign_advantages_list_rejects_misaligned():
     rollout = _make_rollout([_make_sample()])
     with pytest.raises(ValueError, match="align"):
         rollout.assign_advantages([0.5])
+
+
+def test_value_result_truncates_critic_input_and_preserves_policy_alignment():
+    sample = _make_sample()
+    rollout = _make_rollout([sample])
+    algorithm = Algorithm(
+        _build(type="grpo"),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 3, "attn": "sdpa"}),
+    )
+
+    assert algorithm._value_input(sample.token_ids) == [1, 2, 3]
+    algorithm._assign_value_result(rollout, [[0.1, 0.2, 0.3]], version=4)
+
+    assert rollout.value_predictions == [[0.1, 0.2, 0.3, 0.0, 0.0, 0.0]]
+    assert rollout.value_advantages is not None
+    assert rollout.value_returns is not None
+    assert len(rollout.value_advantages[0]) == len(sample.token_ids)
+    assert len(rollout.value_returns[0]) == len(sample.token_ids)
+    assert rollout.value_advantages[0][3:] == [0.0, 0.0, 0.0]
+    assert rollout.value_returns[0][3:] == [0.0, 0.0, 0.0]
+    assert rollout.value_version == 4
 
 
 # --------------------------------------------------------------------------

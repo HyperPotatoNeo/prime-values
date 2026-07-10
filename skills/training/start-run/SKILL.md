@@ -41,6 +41,25 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
   import, add it to the root `pyproject.toml` env extra, workspace members, and
   `[tool.uv.sources]`, then run `uv sync --all-extras`.
 
+### Optional async value plane
+
+An RL config with `[value_function]` makes the `rl` launcher add two roles:
+`value-trainer` consumes a capacity-one latest-trajectory stream, and
+`value-evaluator` serves versioned token values used by the orchestrator. Do
+not add value loss or value-model state to the policy trainer.
+
+- Local runs reserve `deployment.num_value_train_gpus` and
+  `deployment.num_value_eval_gpus` after the policy GPUs.
+- Multi-node runs reserve `deployment.num_value_train_nodes` and
+  `deployment.num_value_eval_nodes`; use `examples/value_function/rl.toml` as
+  the local smoke and `configs/rg_mix/async_value.toml` as the four-node shape.
+- Check `logs/value_trainer.log`, `logs/value_evaluator.log`, evaluator
+  `/health` and `/version`, plus `value/batch_drop_rate`. Drops are expected
+  under overload; value work must not backpressure policy rollout generation.
+- Value checkpoints live under `<output_dir>/value` and have an independent
+  version. `warmup_updates` gates only policy-batch shipping while generation
+  and value training continue.
+
 ## `sft` — SFT training
 
 Launches torchrun internally — never call torchrun directly.
@@ -82,13 +101,15 @@ curl http://localhost:8000/v1/chat/completions \
 
 | Command | Purpose | Typical use |
 |---------|---------|-------------|
-| `rl` | Full RL pipeline | Production RL training |
+| `rl` | Full RL pipeline, optionally including the value plane | Production RL training |
 | `sft` | Supervised fine-tuning | SFT and hard-distill |
 | `inference` | vLLM server | Standalone serving / debugging |
+| `value-trainer` | Standalone FSDP critic trainer | Debugging a resolved `value.toml` |
+| `value-evaluator` | Standalone critic serving replica | Debugging a resolved `value.toml` |
 
 ## Key paths
 
-- `src/prime_rl/entrypoints/` — `rl`, `sft`, `inference` (+ `trainer`, `orchestrator` for direct launches)
+- `src/prime_rl/entrypoints/` — `rl`, `sft`, `inference` (+ `trainer`, `orchestrator`, `value-trainer`, and `value-evaluator` for direct launches)
 - `packages/prime-rl-configs/src/prime_rl/configs/` — all config classes
 - `configs/debug/` — minimal debug configs
 - `examples/` — full example configs (e.g. `reverse_text/`)

@@ -33,6 +33,7 @@ count; per-token component weights ship on the wire and the trainer just
 executes them.
 """
 
+import math
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, model_validator
@@ -107,6 +108,83 @@ class LinearLengthPenaltyConfig(BaseConfig):
 
 
 LengthPenaltyConfig: TypeAlias = LinearLengthPenaltyConfig
+
+
+# ---------------------------------------------------------------------------
+# GRPO baselines
+# ---------------------------------------------------------------------------
+
+
+class MeanBaselineConfig(BaseConfig):
+    type: Literal["mean"] = "mean"
+    """Standard GRPO group-mean baseline."""
+
+
+class LeaveOneOutBaselineConfig(BaseConfig):
+    type: Literal["leave_one_out"] = "leave_one_out"
+    """Mean reward of the other members of the rollout group."""
+
+
+class ValueBaselineConfig(BaseConfig):
+    type: Literal["value"] = "value"
+    """Use the value evaluator's per-token GAE directly."""
+
+
+class LinearMixBaselineConfig(BaseConfig):
+    type: Literal["linear_mix"] = "linear_mix"
+    """Convexly mix a group-relative advantage with per-token GAE."""
+
+    group: Literal["mean", "leave_one_out"] = "leave_one_out"
+    """Group baseline used by the non-value side of the mixture."""
+
+    rho: float = Field(0.5, ge=0, le=1)
+    """Value-advantage weight for a constant schedule."""
+
+    schedule: Literal["constant", "linear"] = "constant"
+    """Constant ``rho`` or a response-position ramp from ``rho_start`` to ``rho_end``."""
+
+    rho_start: float = Field(0.0, ge=0, le=1)
+    """Value weight at the first action token for a linear schedule."""
+
+    rho_end: float = Field(1.0, ge=0, le=1)
+    """Value weight at the final action token for a linear schedule."""
+
+
+class TetherBaselineConfig(BaseConfig):
+    type: Literal["tether"] = "tether"
+    """Clipped group-anchor plus value-progress correction."""
+
+    group: Literal["mean", "leave_one_out"] = "leave_one_out"
+    """Group anchor reconstructed from reward minus group advantage."""
+
+    alpha: float = Field(0.5, ge=0, le=1)
+    """Weight on the correction from the group anchor to the start value."""
+
+    rho: float = Field(0.5, ge=0, le=1)
+    """Weight on value progress from the start state to the current state."""
+
+    schedule: Literal["constant", "linear"] = "linear"
+    """Use ``rho`` everywhere or ramp the progress coefficient from zero to ``rho``."""
+
+    reward_range: tuple[float, float] = (0.0, 1.0)
+    """Closed interval used to clip the corrected baseline."""
+
+    @model_validator(mode="after")
+    def validate_reward_range(self):
+        low, high = self.reward_range
+        if not math.isfinite(low) or not math.isfinite(high) or high <= low:
+            raise ValueError("tether.reward_range must be increasing")
+        return self
+
+
+GRPOBaselineConfig: TypeAlias = Annotated[
+    MeanBaselineConfig
+    | LeaveOneOutBaselineConfig
+    | ValueBaselineConfig
+    | LinearMixBaselineConfig
+    | TetherBaselineConfig,
+    Field(discriminator="type"),
+]
 
 
 class EchoRoleConfig(BaseConfig):
@@ -191,13 +269,22 @@ class BaseAlgoConfig(BaseConfig):
 
 class GRPOAlgoConfig(BaseAlgoConfig):
     type: Literal["grpo"] = "grpo"
-    """GRPO: scalar advantage = reward minus the per-group mean baseline,
+    """GRPO with configurable group, value, mixed, or TETHER credit,
     consumed by the ``rl`` loss component on the rollout's action tokens."""
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
 
+    baseline: GRPOBaselineConfig = MeanBaselineConfig()
+    """Credit baseline. Value-backed variants require the top-level ``value_function`` service."""
+
     length_penalty: LengthPenaltyConfig | None = None
     """Linear length penalty subtracted from each reward before the GRPO baseline (see ``LinearLengthPenaltyConfig``): a ``pass_rate``-scaled sum of output-token, input-token, and turns terms, each normalized by the group's own max for that quantity. None disables it."""
+
+    @model_validator(mode="after")
+    def validate_value_baseline_length_penalty(self):
+        if self.length_penalty is not None and self.baseline.type in {"value", "linear_mix", "tether"}:
+            raise ValueError("value-backed GRPO baselines cannot be combined with length_penalty yet")
+        return self
 
 
 class EchoAlgoConfig(GRPOAlgoConfig):

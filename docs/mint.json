@@ -7,6 +7,7 @@
                 "overview",
                 "configuration",
                 "training",
+                "value-functions",
                 "inference",
                 "scaling",
                 "algorithms",

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from prime_rl.configs.algorithm import GRPOAlgoConfig
 from prime_rl.orchestrator.algo.base import Algorithm, connect_frozen_pool
 from prime_rl.orchestrator.algo.echo import EchoAlgorithm
 from prime_rl.orchestrator.algo.grpo import GRPOAlgorithm
@@ -40,7 +41,9 @@ from prime_rl.orchestrator.types import Rollout
 
 if TYPE_CHECKING:
     from prime_rl.configs.algorithm import AlgoConfig
+    from prime_rl.configs.value import ValueFunctionConfig
     from prime_rl.utils.client import InferencePool
+    from prime_rl.value.client import ValueEvaluatorClient
 
 # Runtime dispatch is keyed on ``algo.type`` — it names the algorithm, and
 # each config class's defaults are its vetted parameterization.
@@ -54,7 +57,13 @@ ALGORITHM_CLASSES: dict[str, type[Algorithm]] = {
 }
 
 
-def build_algorithm(config: AlgoConfig, policy_pool: InferencePool) -> Algorithm:
+def build_algorithm(
+    config: AlgoConfig,
+    policy_pool: InferencePool,
+    *,
+    value_evaluator: ValueEvaluatorClient | None = None,
+    value_config: ValueFunctionConfig | None = None,
+) -> Algorithm:
     cls = ALGORITHM_CLASSES[config.type]
     assert cls.action_loss_type == config.action_loss_type  # config and runtime declare in two places
     # The Algorithm is the runtime of the algorithm config's training signal
@@ -62,6 +71,13 @@ def build_algorithm(config: AlgoConfig, policy_pool: InferencePool) -> Algorithm
     # handed the live policy pool — opsd self-distills against it, others may
     # judge against it or ignore it. Other models (a frozen teacher, a hint
     # renderer) are built from the algorithm's own config in setup().
+    if isinstance(config, GRPOAlgoConfig):
+        return cls(
+            config,
+            policy_pool,
+            value_evaluator=value_evaluator,
+            value_config=value_config,
+        )
     return cls(config, policy_pool)
 
 

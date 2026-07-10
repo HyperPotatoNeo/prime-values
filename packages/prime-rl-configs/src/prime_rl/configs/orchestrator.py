@@ -22,6 +22,7 @@ from prime_rl.configs.shared import (
     WandbWithExtrasConfig,
 )
 from prime_rl.configs.trainer import TokenizerConfig
+from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.utils.config import BaseConfig
 
 
@@ -433,6 +434,9 @@ class OrchestratorConfig(BaseConfig):
     vLLM deployment (``[orchestrator.model] name = ...`` with
     ``[orchestrator.model.client]``). Algorithm components reference it as
     ``"policy"``."""
+
+    value_function: ValueFunctionConfig | None = None
+    """Independent value-plane client and trajectory publisher configuration."""
 
     train: TrainConfig = TrainConfig()
 

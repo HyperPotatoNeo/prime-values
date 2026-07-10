@@ -1,0 +1,48 @@
+# One-node, four-GPU functional smoke: one GPU for each runtime role.
+
+max_steps = 5
+seq_len = 256
+
+[model]
+name = "Qwen/Qwen3-0.6B"
+
+[orchestrator]
+batch_size = 8
+group_size = 2
+max_inflight_rollouts = 16
+
+[orchestrator.algo]
+type = "grpo"
+
+[orchestrator.algo.baseline]
+type = "linear_mix"
+group = "leave_one_out"
+rho = 0.5
+
+[orchestrator.train.sampling]
+max_completion_tokens = 64
+
+[[orchestrator.train.env]]
+id = "reverse-text"
+
+[trainer]
+
+[inference]
+
+[value_function]
+updates_per_batch = 2
+warmup_updates = 2
+
+[value_function.ckpt]
+interval = 2
+
+[value_function.evaluator]
+max_batch_tokens = 2048
+
+[deployment]
+type = "single_node"
+gpus_per_node = 4
+num_infer_gpus = 1
+num_train_gpus = 1
+num_value_train_gpus = 1
+num_value_eval_gpus = 1

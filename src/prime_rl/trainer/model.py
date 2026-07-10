@@ -13,7 +13,7 @@ import torch
 import torch._dynamo
 import torch.nn as nn
 from huggingface_hub import snapshot_download
-from jaxtyping import Int
+from jaxtyping import Float, Int
 from torch import Tensor
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import checkpoint_wrapper
 from torch.distributed.checkpoint.hf_storage import HuggingFaceStorageReader
@@ -469,6 +469,64 @@ def get_load_balance_stats(
     }
 
 
+class ValueFunctionModel(nn.Module):
+    """Text language-model backbone with its token logits replaced by a value head."""
+
+    def __init__(self, causal_lm: nn.Module, output_size: int):
+        super().__init__()
+        self.config = causal_lm.config
+        self._prime_conversion_cls = type(causal_lm) if isinstance(causal_lm, PreTrainedModelPrimeRL) else None
+        self._is_vlm = getattr(causal_lm, "_is_vlm", False)
+        self.model = get_language_model(causal_lm)
+        text_config = self.config.get_text_config() if hasattr(self.config, "get_text_config") else self.config
+        old_head = causal_lm.lm_head
+        self.value_head = nn.Linear(
+            text_config.hidden_size,
+            output_size,
+            device=old_head.weight.device,
+            dtype=old_head.weight.dtype,
+        )
+
+    def init_value_head(self) -> None:
+        self.value_head.reset_parameters()
+
+    @property
+    def supports_packed_sequences(self) -> bool:
+        """Whether reset position IDs create true varlen attention boundaries."""
+        return self._prime_conversion_cls is not None and self.config._attn_implementation in {
+            "flash_attention_2",
+            "flash_attention_3",
+            "fa4",
+        }
+
+    def init_buffers_post_meta(self) -> None:
+        if self._prime_conversion_cls is not None:
+            self._prime_conversion_cls.init_buffers_post_meta(self)
+        else:
+            fix_model_post_empty(self)
+
+    def forward(
+        self,
+        input_ids: Int[Tensor, "batch seq"],
+        position_ids: Int[Tensor, "batch seq"],
+    ) -> Float[Tensor, "batch seq output"]:
+        outputs = self.model(input_ids=input_ids, position_ids=position_ids)
+        hidden_states = outputs.last_hidden_state if hasattr(outputs, "last_hidden_state") else outputs[0]
+        return self.value_head(hidden_states).float()
+
+
+def get_value_model(
+    config: ModelConfig,
+    output_size: int,
+    *,
+    device: torch.device,
+    dtype: torch.dtype,
+) -> ValueFunctionModel:
+    model = ValueFunctionModel(get_model(config, device=device, dtype=dtype), output_size)
+    model.init_value_head()
+    return model
+
+
 def get_model(
     config: ModelConfig, device: torch.device = torch.device("cpu"), dtype: torch.dtype = torch.bfloat16
 ) -> nn.Module:
@@ -606,36 +664,43 @@ def get_model(
     else:
         impl_to_use = config.impl
 
-    with device:
-        if impl_to_use == "custom" and custom_vlm_cls is not None:
-            model_cls = custom_vlm_cls
-        elif is_vlm_arch:
-            from transformers import AutoModelForImageTextToText
+    if impl_to_use == "custom" and custom_vlm_cls is not None:
+        model_cls = custom_vlm_cls
+    elif is_vlm_arch:
+        from transformers import AutoModelForImageTextToText
 
-            model_cls = AutoModelForImageTextToText
-        else:
-            match impl_to_use:
-                case "hf":
-                    model_cls = AutoModelForCausalLM
-                case "custom":
-                    model_cls = AutoModelForCausalLMPrimeRL
+        model_cls = AutoModelForImageTextToText
+    else:
+        match impl_to_use:
+            case "hf":
+                model_cls = AutoModelForCausalLM
+            case "custom":
+                model_cls = AutoModelForCausalLMPrimeRL
 
-        load_model_start_time = time.perf_counter()
-        # HF VLM models require torch_dtype; custom PrimeRL models and text Auto models use dtype
-        use_torch_dtype = is_vlm_arch and model_cls is not custom_vlm_cls
-        dtype_kwarg = {"torch_dtype": dtype} if use_torch_dtype else {"dtype": dtype}
-        if device == torch.device("meta"):
+    load_model_start_time = time.perf_counter()
+    # HF VLM models require torch_dtype; custom PrimeRL models and text Auto models use dtype
+    use_torch_dtype = is_vlm_arch and model_cls is not custom_vlm_cls
+    dtype_kwarg = {"torch_dtype": dtype} if use_torch_dtype else {"dtype": dtype}
+    if device == torch.device("meta"):
+        with device:
             logger.info(f"Loading model {config.name} using {model_cls.__name__} to meta device")
             model = model_cls.from_config(model_config, trust_remote_code=config.trust_remote_code, **dtype_kwarg)
-        else:
-            logger.info(f"Loading model {config.name} using {model_cls.__name__} to CPU")
-            model = model_cls.from_pretrained(
-                pretrained_model_name_or_path=config.name,
-                config=model_config,
-                trust_remote_code=config.trust_remote_code,
-                **dtype_kwarg,
-            )
-        logger.debug(f"Loaded model {config.name} in {time.perf_counter() - load_model_start_time:.2f} seconds")
+    else:
+        # A torch.device context asks Transformers to use its device-map path,
+        # which requires the optional ``accelerate`` package. Load once on CPU
+        # and move explicitly for standalone serving copies such as the value
+        # evaluator; distributed trainers continue to use the meta/DCP path.
+        logger.info(f"Loading model {config.name} using {model_cls.__name__} to CPU")
+        model = model_cls.from_pretrained(
+            pretrained_model_name_or_path=config.name,
+            config=model_config,
+            trust_remote_code=config.trust_remote_code,
+            **dtype_kwarg,
+        )
+        if device.type != "cpu":
+            logger.info(f"Moving model {config.name} to {device}")
+            model.to(device)
+    logger.debug(f"Loaded model {config.name} in {time.perf_counter() - load_model_start_time:.2f} seconds")
 
     # For VLM models, optionally freeze the vision encoder
     if is_vlm_training and config.vlm.freeze_vision_encoder:
@@ -721,9 +786,12 @@ def setup_fsdp(model: nn.Module, config: ModelConfig, parallel_dims: ParallelDim
             **fsdp_config,
         )
 
-    shard_norm_and_lm_head = hasattr(model, "config") and not model.config.tie_word_embeddings
+    head_module = getattr(model, "value_head", getattr(model, "lm_head", None))
+    shard_norm_and_head = isinstance(model, ValueFunctionModel) or (
+        hasattr(model, "config") and not model.config.tie_word_embeddings
+    )
 
-    if shard_norm_and_lm_head:
+    if shard_norm_and_head:
         # This optimization breaks weight tying
         embed_module = getattr(language_model, "embed_tokens", None) or getattr(language_model, "embeddings", None)
         fully_shard(
@@ -733,7 +801,7 @@ def setup_fsdp(model: nn.Module, config: ModelConfig, parallel_dims: ParallelDim
         )
         norm_module = getattr(language_model, "norm", None) or language_model.norm_f
         fully_shard(
-            [model.lm_head, norm_module],
+            [head_module, norm_module],
             mesh=hsdp_mesh,
             mp_policy=mp_policy,
             offload_policy=offload_policy,
@@ -761,7 +829,7 @@ def setup_fsdp(model: nn.Module, config: ModelConfig, parallel_dims: ParallelDim
 
     embed_module = getattr(language_model, "embed_tokens", None) or getattr(language_model, "embeddings", None)
     if embed_module is not None and len(language_model.layers) > 0:
-        if shard_norm_and_lm_head:
+        if shard_norm_and_head:
             embed_module.set_modules_to_forward_prefetch([transformer_blocks[0]])
 
     for transformer_block, next_transformer_block in zip(transformer_blocks, next_transformer_blocks):
@@ -775,17 +843,17 @@ def setup_fsdp(model: nn.Module, config: ModelConfig, parallel_dims: ParallelDim
                 transformer_block.set_modules_to_forward_prefetch(prefetch_modules)
             else:
                 transformer_block.set_modules_to_forward_prefetch([next_transformer_block])
-        elif language_model.norm is not None and model.lm_head is not None:
-            if shard_norm_and_lm_head:
-                transformer_block.set_modules_to_forward_prefetch([language_model.norm, model.lm_head])
+        elif language_model.norm is not None and head_module is not None:
+            if shard_norm_and_head:
+                transformer_block.set_modules_to_forward_prefetch([language_model.norm, head_module])
 
     # backward
     reversed_transformer_blocks = list(reversed(language_model.layers))
     prev_transformer_blocks = reversed_transformer_blocks[1:] + [None]
 
-    if language_model.norm is not None and model.lm_head is not None and len(language_model.layers) > 0:
-        if shard_norm_and_lm_head:
-            model.lm_head.set_modules_to_backward_prefetch([reversed_transformer_blocks[0]])
+    if language_model.norm is not None and head_module is not None and len(language_model.layers) > 0:
+        if shard_norm_and_head:
+            head_module.set_modules_to_backward_prefetch([reversed_transformer_blocks[0]])
         else:
             model.set_modules_to_backward_prefetch([reversed_transformer_blocks[0]])
 
@@ -800,7 +868,7 @@ def setup_fsdp(model: nn.Module, config: ModelConfig, parallel_dims: ParallelDim
             else:
                 transformer_block.set_modules_to_backward_prefetch([prev_transformer_block])
         elif embed_module is not None:
-            if shard_norm_and_lm_head:
+            if shard_norm_and_head:
                 transformer_block.set_modules_to_backward_prefetch([embed_module])
 
 
@@ -810,7 +878,10 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
     torch.distributed.barrier()
 
     def _init_buffers_post_meta():
-        if isinstance(model, PreTrainedModelPrimeRL):
+        if isinstance(model, ValueFunctionModel):
+            model.init_buffers_post_meta()
+            model.init_value_head()
+        elif isinstance(model, PreTrainedModelPrimeRL):
             model.init_buffers_post_meta()
         else:
             fix_model_post_empty(model)
@@ -833,11 +904,19 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
     # Dynamically convert between different weight formats if needed.
     # All ranks read just the key names (cheap) to determine the path independently.
     # Only master loads the full state dict when conversion is actually needed.
+    prime_conversion_cls = None
     if isinstance(model, PreTrainedModelPrimeRL):
-        snapshot_keys = dict.fromkeys(load_state_dict_keys(snapshot_path))
-        model_keys = dict.fromkeys(model.state_dict().keys())
+        prime_conversion_cls = type(model)
+    elif isinstance(model, ValueFunctionModel):
+        prime_conversion_cls = model._prime_conversion_cls
 
-        if model.is_hf_state_dict(snapshot_keys) and model.is_prime_state_dict(model_keys):
+    if prime_conversion_cls is not None:
+        snapshot_keys = dict.fromkeys(load_state_dict_keys(snapshot_path))
+        model_keys = dict.fromkeys(key for key in model.state_dict() if not key.startswith("value_head."))
+
+        if prime_conversion_cls.is_hf_state_dict(snapshot_keys) and prime_conversion_cls.is_prime_state_dict(
+            model_keys
+        ):
             logger.warning(
                 "Found HF weight format in snapshot state dict and PrimeRL weight format in model state dict. Trying to auto-convert..."
             )
@@ -847,11 +926,13 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
                     f"Converting snapshot state dict to PrimeRL format and saving to {snapshot_path} on master rank. This is a one-time operation."
                 )
                 snapshot_state_dict = load_state_dict(snapshot_path.parent)
-                model.convert_to_prime(snapshot_state_dict)
+                prime_conversion_cls.convert_to_prime(snapshot_state_dict)
                 save_state_dict(snapshot_state_dict, snapshot_path)
                 del snapshot_state_dict
 
-        elif model.is_prime_state_dict(snapshot_keys) and model.is_hf_state_dict(model_keys):
+        elif prime_conversion_cls.is_prime_state_dict(snapshot_keys) and prime_conversion_cls.is_hf_state_dict(
+            model_keys
+        ):
             logger.warning(
                 "Found PrimeRL weight format in snapshot state dict and HF weight format in model state dict. Trying to auto-convert..."
             )
@@ -861,7 +942,7 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
                     f"Converting snapshot state dict to HF format and saving to {snapshot_path} on master rank. This is a one-time operation."
                 )
                 snapshot_state_dict = load_state_dict(snapshot_path.parent)
-                model.convert_to_hf(snapshot_state_dict)
+                prime_conversion_cls.convert_to_hf(snapshot_state_dict)
                 save_state_dict(snapshot_state_dict, snapshot_path)
                 del snapshot_state_dict
 
@@ -872,14 +953,16 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
     load_dcp_start_time = time.perf_counter()
     state_dict = model.state_dict()
     state_dict = strip_lora_from_state_dict(state_dict)
-    if model.config.tie_word_embeddings:
+    if isinstance(model, ValueFunctionModel):
+        state_dict = {key: value for key, value in state_dict.items() if not key.startswith("value_head.")}
+    if model.config.tie_word_embeddings and "lm_head.weight" in state_dict:
         del state_dict["lm_head.weight"]
     dcp_load(
         state_dict,
         storage_reader=HuggingFaceStorageReader(path=snapshot_path.as_posix()),
     )
     # Restore weight tying broken by to_empty() for HF models
-    if not isinstance(model, PreTrainedModelPrimeRL) and model.config.tie_word_embeddings:
+    if not isinstance(model, (PreTrainedModelPrimeRL, ValueFunctionModel)) and model.config.tie_word_embeddings:
         model.tie_weights()
     _init_buffers_post_meta()
 
@@ -908,7 +991,9 @@ def can_reinit_empty_buffers(model: nn.Module):
     This is usually any non-persistent buffers.
     """
     # Custom PrimeRL models handle buffer reinit via init_buffers_post_meta
-    if isinstance(model, PreTrainedModelPrimeRL):
+    if isinstance(model, PreTrainedModelPrimeRL) or (
+        isinstance(model, ValueFunctionModel) and model._prime_conversion_cls is not None
+    ):
         return True
 
     buffer_names = [name for name, _ in model.named_buffers()]
@@ -1107,7 +1192,10 @@ def setup_model(
     parallel_dims: ParallelDims,
     loading_from_checkpoint_later: bool = False,
     fused_cross_entropy: bool | str = False,
+    value_head_output_size: int | None = None,
 ) -> nn.Module:
+    if value_head_output_size is not None and config.lora is not None:
+        raise ValueError("value functions do not support LoRA yet")
     if config.attn == "flash_attention_3" and not is_flash_attn_3_available():
         raise ValueError(
             "Flash attention 3 is only supported if the flash_attn_3 package is installed. Install with `uv pip install 'flash-attn-3 @ git+https://github.com/Dao-AILab/flash-attention.git@main#subdirectory=hopper' --no-build-isolation`"
@@ -1121,6 +1209,8 @@ def setup_model(
 
     # 1. We load to meta device by default
     model = get_model(config, device=torch.device("meta"), dtype=DTYPE_MAP[config.optimization_dtype])
+    if value_head_output_size is not None:
+        model = ValueFunctionModel(model, value_head_output_size)
     configure_moe_ep_backend(model, config)
 
     possible_to_load_to_meta = can_reinit_empty_buffers(model)
@@ -1134,19 +1224,22 @@ def setup_model(
     if not possible_to_load_to_meta:
         logger.warning("Cannot load model to meta device only, loading to CPU instead.")
         model = get_model(config, device=torch.device("cpu"), dtype=DTYPE_MAP[config.optimization_dtype])
+        if value_head_output_size is not None:
+            model = ValueFunctionModel(model, value_head_output_size)
         configure_moe_ep_backend(model, config)
 
     lm_head_chunk_size: int | None = None
     if isinstance(config.fused_lm_head_token_chunk_size, int):
         lm_head_chunk_size = config.fused_lm_head_token_chunk_size
 
-    inject_prime_lm_head(model, chunk_size=lm_head_chunk_size, fused_cross_entropy=fused_cross_entropy)
+    if value_head_output_size is None:
+        inject_prime_lm_head(model, chunk_size=lm_head_chunk_size, fused_cross_entropy=fused_cross_entropy)
 
     if config.fp8:
         replace_linear_with_fp8_blockwise_linear(model)
 
     # Apply LoRA before FSDP setup
-    if config.lora is not None:
+    if config.lora is not None and value_head_output_size is None:
         apply_lora_to_model(model, config.lora)
 
     if config.freeze_moe_router:
@@ -1193,6 +1286,9 @@ def setup_model(
             torch.distributed.barrier()
             if isinstance(model, PreTrainedModelPrimeRL):
                 model.init_buffers_post_meta()
+            elif isinstance(model, ValueFunctionModel):
+                model.init_buffers_post_meta()
+                model.init_value_head()
             else:
                 fix_model_post_empty(model)
                 # Restore weight tying broken by to_empty() for HF models
@@ -1206,6 +1302,37 @@ def setup_model(
 
     _reset_runtime_moe_buffers(model)
     return model
+
+
+def setup_value_model(
+    config: ModelConfig,
+    parallel_dims: ParallelDims,
+    *,
+    output_size: int,
+    loading_from_checkpoint_later: bool = False,
+) -> nn.Module:
+    return setup_model(
+        config,
+        parallel_dims,
+        loading_from_checkpoint_later=loading_from_checkpoint_later,
+        value_head_output_size=output_size,
+    )
+
+
+def predict_value(
+    model: nn.Module,
+    input_ids: Int[Tensor, "batch seq"],
+    position_ids: Int[Tensor, "batch seq"],
+) -> Float[Tensor, "batch seq output"]:
+    if not isinstance(model, ValueFunctionModel):
+        raise TypeError(f"expected ValueFunctionModel, got {type(model).__name__}")
+    return model(input_ids=input_ids, position_ids=position_ids)
+
+
+def value_model_supports_packing(model: nn.Module) -> bool:
+    if not isinstance(model, ValueFunctionModel):
+        raise TypeError(f"expected ValueFunctionModel, got {type(model).__name__}")
+    return model.supports_packed_sequences
 
 
 def forward(

@@ -79,12 +79,19 @@ def propagate_shared_fields(data: Any) -> Any:
     )
 
     # [log]
-    propagate("log.level", "trainer.log.level", "orchestrator.log.level", "inference.log.level")
+    propagate(
+        "log.level",
+        "trainer.log.level",
+        "orchestrator.log.level",
+        "inference.log.level",
+        "value_function.log.level",
+    )
     propagate(
         "log.json_logging",
         "trainer.log.json_logging",
         "orchestrator.log.json_logging",
         "inference.log.json_logging",
+        "value_function.log.json_logging",
     )
 
     # [ckpt] leaves. (Bare empty ``[ckpt]`` block enablement is at the end.)
@@ -99,12 +106,22 @@ def propagate_shared_fields(data: Any) -> Any:
     # ``wandb.name`` flows verbatim to both sub-configs — shared W&B mode is
     # always on for the rl entrypoint, so the legacy ``-trainer`` /
     # ``-orchestrator`` suffix split is gone.
-    propagate("wandb.project", "trainer.wandb.project", "orchestrator.wandb.project")
-    propagate("wandb.entity", "trainer.wandb.entity", "orchestrator.wandb.entity")
-    propagate("wandb.name", "trainer.wandb.name", "orchestrator.wandb.name")
-    propagate("wandb.group", "trainer.wandb.group", "orchestrator.wandb.group")
-    propagate("wandb.tags", "trainer.wandb.tags", "orchestrator.wandb.tags")
-    propagate("wandb.offline", "trainer.wandb.offline", "orchestrator.wandb.offline")
+    propagate(
+        "wandb.project",
+        "trainer.wandb.project",
+        "orchestrator.wandb.project",
+        "value_function.wandb.project",
+    )
+    propagate("wandb.entity", "trainer.wandb.entity", "orchestrator.wandb.entity", "value_function.wandb.entity")
+    propagate("wandb.name", "trainer.wandb.name", "orchestrator.wandb.name", "value_function.wandb.name")
+    propagate("wandb.group", "trainer.wandb.group", "orchestrator.wandb.group", "value_function.wandb.group")
+    propagate("wandb.tags", "trainer.wandb.tags", "orchestrator.wandb.tags", "value_function.wandb.tags")
+    propagate(
+        "wandb.offline",
+        "trainer.wandb.offline",
+        "orchestrator.wandb.offline",
+        "value_function.wandb.offline",
+    )
 
     # [tokenizer]. ``chat_template`` also flows to ``inference.model`` (vLLM's
     # ``--chat-template``); ``name`` and ``trust_remote_code`` can legitimately
@@ -176,6 +193,8 @@ def propagate_shared_fields(data: Any) -> Any:
         if isinstance(get(key), dict):
             fill(f"trainer.{key}", {})
             fill(f"orchestrator.{key}", {})
+            if key == "wandb":
+                fill("value_function.wandb", {})
 
     if conflicts:
         lines = [

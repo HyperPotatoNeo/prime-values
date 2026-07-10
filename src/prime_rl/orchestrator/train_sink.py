@@ -27,7 +27,10 @@ from prime_rl.orchestrator.metrics import TrainRollouts
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout, TrainBatch
 from prime_rl.transport import TrainingSample
+from prime_rl.utils.async_utils import safe_cancel_all
 from prime_rl.utils.logger import get_logger
+from prime_rl.value.transport import LatestValueBatchPublisher
+from prime_rl.value.types import ValueTrainingBatch, ValueTrainingSample
 
 
 class TrainSink:
@@ -44,6 +47,7 @@ class TrainSink:
         token_batch_size: int | None,
         pre_filters: list[RolloutFilter],
         post_filters: list[RolloutFilter],
+        value_publisher: LatestValueBatchPublisher | None = None,
     ) -> None:
         assert (batch_size is None) != (token_batch_size is None), (
             "Exactly one of batch_size / token_batch_size must be set"
@@ -56,6 +60,8 @@ class TrainSink:
         self.token_batch_size = token_batch_size
         self.pre_filters = pre_filters
         self.post_filters = post_filters
+        self.value_publisher = value_publisher
+        self.value_batch_id = 0
 
         # Keyed by the dispatcher's group UUID. ``(env_name, task_idx)``
         # isn't unique — the same task can be re-sampled while an
@@ -67,6 +73,7 @@ class TrainSink:
         # sync on append/pop so the readiness check never re-walks the uncached
         # ``Trace.num_total_tokens`` graph property per arrival.
         self.pending_tokens: int = 0
+        self.scoring_tasks: dict[int, asyncio.Task] = {}
 
         # Reset by the orchestrator after each ship via ``reset_pre_filter_stats``
         self.pre_filter_seen = 0
@@ -150,7 +157,10 @@ class TrainSink:
         # Arrival phase: rollout-local scoring (raw reward, echo observation
         # weighting, opd/opsd reference logprobs) runs as soon as the rollout is
         # tokenized — before its group is complete.
-        await self.train_envs.get(rollout.env_name).algorithm.finalize_rollout(rollout)
+        self.scoring_tasks[id(rollout)] = asyncio.create_task(
+            self.train_envs.get(rollout.env_name).algorithm.finalize_rollout(rollout),
+            name=f"score-{rollout.env_name}-{rollout.group_id}",
+        )
 
     async def process_group(self, group_id: uuid.UUID) -> None:
         """Finalize one GRPO group: drop errored rollouts (the whole group
@@ -163,6 +173,8 @@ class TrainSink:
         task_idx = group[0].task.idx
         survivors = [r for r in group if not r.has_error]
         num_errored = len(group) - len(survivors)
+        scoring_tasks = [self.scoring_tasks.pop(id(rollout), None) for rollout in group]
+        await asyncio.gather(*(task for task in scoring_tasks if task is not None))
 
         # Group-scoring envs: any failure makes survivors' rewards unsafe
         # (computed relative to the missing ones)
@@ -184,6 +196,7 @@ class TrainSink:
         # routing) are the algorithm's job (finalize_group); the sink only
         # owns the grouping mechanics.
         await env.algorithm.finalize_group(survivors)
+        self.publish_value_batch(survivors)
 
         # The env has a single sampling temperature; fan it out per token
         # (context tokens are masked out, so their temperature is don't-care).
@@ -223,6 +236,43 @@ class TrainSink:
             f"rollouts={len(group)} (errored={num_errored}, filtered={num_filtered}) | "
             f"reward={avg_reward:.4f} | filters: {filter_str}"
         )
+
+    def publish_value_batch(self, rollouts: list[Rollout]) -> None:
+        if self.value_publisher is None:
+            return
+        if not any(rollout.value_returns is not None for rollout in rollouts):
+            return
+        versions = {rollout.value_version for rollout in rollouts}
+        if None in versions or len(versions) != 1:
+            raise RuntimeError(f"value batch needs one concrete evaluator version, got {versions}")
+        samples: list[ValueTrainingSample] = []
+        for rollout in rollouts:
+            if rollout.value_returns is None:
+                raise RuntimeError("value evaluator did not attach lambda-return targets")
+            for sample, targets in zip(rollout.samples, rollout.value_returns, strict=True):
+                assert self.config.value_function is not None and self.config.value_function.model is not None
+                value_length = min(len(sample.token_ids), self.config.value_function.model.seq_len)
+                samples.append(
+                    ValueTrainingSample(
+                        token_ids=sample.token_ids[:value_length],
+                        mask=sample.mask[:value_length],
+                        targets=targets[:value_length],
+                    )
+                )
+        policy_versions = {rollout.policy_version for rollout in rollouts}
+        if len(policy_versions) != 1:
+            raise RuntimeError(f"rollout group spans policy versions: {policy_versions}")
+        batch = ValueTrainingBatch(
+            samples=samples,
+            batch_id=self.value_batch_id,
+            policy_version=policy_versions.pop(),
+            value_version=versions.pop(),  # type: ignore[arg-type]
+        )
+        published = self.value_publisher.publish(batch)
+        get_logger().debug(
+            f"Value batch {self.value_batch_id} {'published' if published else 'dropped'} ({len(samples)} samples)"
+        )
+        self.value_batch_id += 1
 
     def process_batch(self) -> TrainBatch:
         """Pop a cohort off ``pending_batch`` (by rollout count when
@@ -267,3 +317,15 @@ class TrainSink:
         self.pre_filter_seen = 0
         self.pre_filter_dropped = 0
         self.pre_filter_dropped_by_name.clear()
+
+    async def stop(self) -> None:
+        """Cancel rollout-local scoring left behind by partial groups.
+
+        Once the final policy batch has shipped, some already-tokenized
+        rollouts can still be waiting for siblings. Their scoring tasks are
+        owned by this sink (not the dispatcher), so drain them explicitly
+        before clients and evaluator endpoints are closed.
+        """
+        tasks = list(self.scoring_tasks.values())
+        self.scoring_tasks.clear()
+        await safe_cancel_all(tasks)

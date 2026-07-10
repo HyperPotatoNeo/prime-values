@@ -94,6 +94,12 @@ class Rollout(vf.Trace[TaskT], Generic[TaskT]):
     # non-trainable positions. None = no credit assigned (advantage-based
     # filters skip it; the wire ships no advantage stream).
     advantages: list[float] | None = Field(default=None, exclude=True)
+    # Value-plane fields are nested per TrainingSample. They never ship to the
+    # policy trainer; TrainSink publishes them on the independent value wire.
+    value_predictions: list[list[float]] | None = Field(default=None, exclude=True)
+    value_advantages: list[list[float]] | None = Field(default=None, exclude=True)
+    value_returns: list[list[float]] | None = Field(default=None, exclude=True)
+    value_version: int | None = Field(default=None, exclude=True)
     is_filtered: bool = Field(default=False, exclude=True)
     filter_results: dict[str, bool] = Field(default_factory=dict, exclude=True)
     eval_step: int | None = Field(default=None, exclude=True)

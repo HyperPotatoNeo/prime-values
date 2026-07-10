@@ -213,6 +213,7 @@ The shipped end-to-end examples in [`examples/`](https://github.com/PrimeIntelle
 - [**Alphabet Sort**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/alphabet_sort) — `Qwen3-4B-Instruct-2507` sorting names alphabetically. Multi-turn LoRA RL without SFT warmup; one H100.
 - [**Wiki Search**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/wiki_search) — `Qwen3-4B-Instruct-2507` answering trivia by web-searching Wikipedia. Multi-turn with tool use.
 - [**Hendrycks Sanity**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/hendrycks_sanity) — `DeepSeek-R1-Distill-Qwen-1.5B` on a filtered MATH subset. Useful for algorithm ablations.
+- [**Async Value Function**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/value_function) — four-role Qwen3-0.6B smoke with an independently trained critic and mixed group/value advantages.
 
 **Advanced** (32–2048 GPUs, SLURM):
 
@@ -238,7 +239,7 @@ Then inspect the resolved config:
 
 ```bash
 ls /tmp/reverse-dry/configs/
-# rl.toml  trainer.toml  orchestrator.toml  inference.toml
+# rl.toml  trainer.toml  orchestrator.toml  inference.toml  [value.toml]
 ```
 
 Each per-process TOML reflects the final, validated configuration that the actual run would consume — exactly what each process sees when started standalone (`uv run trainer @ /tmp/reverse-dry/configs/trainer.toml`, etc.). This is the easiest way to bisect a misbehaving config: dry-run a known-good base, dry-run your overlay, diff the two.
