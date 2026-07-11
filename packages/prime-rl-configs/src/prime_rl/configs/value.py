@@ -141,7 +141,7 @@ class ValueFunctionConfig(BaseConfig):
     """Rollouts per critic optimizer batch. None inherits the orchestrator rollout batch size."""
 
     updates_per_batch: int = Field(1, ge=1)
-    """Optimizer updates on one recent full rollout batch before it is discarded."""
+    """Optimizer updates on each post-warmup rollout batch before it is discarded."""
 
     warmup_updates: int = Field(0, ge=0)
     """Evaluator value version required before the first policy batch ships."""
