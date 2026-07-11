@@ -65,7 +65,8 @@ not add value loss or value-model state to the policy trainer.
   backpressure policy rollout generation.
 - Value checkpoints live under `<output_dir>/value` and have an independent
   version. `warmup_updates` gates only policy-batch shipping while generation
-  and value training continue.
+  and value training continue. Warmup uses exactly one optimizer update per
+  incoming critic batch; `updates_per_batch` applies after the warmup barrier.
 - TETHER can fit its two coefficients online by adding an empty
   `[orchestrator.algo.baseline.adaptive]` table. Adaptive mode requires the
   leave-one-out anchor, starts from alpha/rho zero, inherits the critic rollout

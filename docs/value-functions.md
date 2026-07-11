@@ -42,9 +42,10 @@ Enabling `[value_function]` adds two roles:
 
 1. The orchestrator accumulates completed trajectories into full critic
    rollout batches before filtering. The **value trainer** receives those
-   batches on a bounded, latest-only queue, runs `updates_per_batch` optimizer
-   updates on the newest available batch, discards it, and publishes a
-   monotonically increasing value version after every optimizer update.
+   batches on a bounded, latest-only queue, runs one optimizer update per batch
+   during value warmup and `updates_per_batch` updates afterward, discards the
+   batch, and publishes a monotonically increasing value version after every
+   optimizer update.
 2. The **value evaluator** serves per-token values to the orchestrator. It
    adopts value-trainer weights independently of policy versions. By default,
    it loads each update into an inactive model and atomically swaps serving
@@ -170,8 +171,8 @@ than being silently clipped.
 | `value_function.value_target_lambda` | `1.0` | Independent lambda for critic targets. |
 | `value_function.batch_size` | `orchestrator.batch_size` | Rollouts per critic optimizer batch. Required explicitly when the policy uses token-based batching. |
 | `value_function.optim.lr` | `1e-5` | Critic AdamW learning rate. Other optimizer fields use normal trainer defaults. |
-| `value_function.updates_per_batch` | `1` | Optimizer updates made on one recent full rollout batch before discarding it. |
-| `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Generation continues during warmup. |
+| `value_function.updates_per_batch` | `1` | Optimizer updates made on each post-warmup rollout batch before discarding it. Warmup always uses one update per batch. |
+| `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Every warmup batch receives one optimizer update. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
 | `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context. |
 | `value_function.evaluator.dtype` | `bfloat16` | Evaluator serving-copy parameter dtype; outputs and advantage math stay FP32. |
@@ -413,12 +414,14 @@ are also logged by the orchestrator.
 
 ## Warmup
 
-`warmup_updates` is a value-version barrier, not a fixed number of rollout
-batches. During warmup the dispatcher and policy inference keep generating and
-publishing full critic batches, while policy batches are withheld. As soon as the
-evaluator has adopted `warmup_updates`, normal policy shipping begins. Loading
-a value checkpoint may set the initial version and satisfy some or all of the
-barrier.
+`warmup_updates` remains a value-version barrier, not a fixed number of rollout
+batches. Before the trainer reaches that version, every successfully trained
+incoming critic batch receives exactly one optimizer update, regardless of
+`updates_per_batch`. The dispatcher and policy inference keep generating and
+publishing full critic batches while policy batches are withheld. Once the
+trainer reaches the barrier, subsequent critic batches use `updates_per_batch`;
+normal policy shipping begins as soon as the evaluator adopts that version.
+Loading a value checkpoint may satisfy some or all of the barrier.
 
 ## Initialization and checkpoints
 

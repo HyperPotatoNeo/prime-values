@@ -30,6 +30,7 @@ from prime_rl.value.batch import ValueMicroBatch, pack_value_samples
 from prime_rl.value.math import align_value_logits, compute_value_loss, value_head_output_size
 from prime_rl.value.transport import LatestValueBatchReceiver
 from prime_rl.value.types import ValueTrainingBatch
+from prime_rl.value.update_schedule import updates_for_batch
 from prime_rl.value.weights import ValueWeightPublisher
 
 
@@ -161,7 +162,12 @@ def train_value(config: ValueFunctionConfig) -> None:
                 logger.warning(f"Skipping value batch {batch.batch_id} with no trainable tokens")
             continue
 
-        for reuse_step in range(config.updates_per_batch):
+        updates_this_batch = updates_for_batch(
+            value_version=value_version,
+            warmup_updates=config.warmup_updates,
+            updates_per_batch=config.updates_per_batch,
+        )
+        for reuse_step in range(updates_this_batch):
             if config.max_steps is not None and value_version >= config.max_steps:
                 break
             update_started_at = time.perf_counter()
@@ -335,7 +341,7 @@ def train_value(config: ValueFunctionConfig) -> None:
                 monitor.log(payload, step=value_version)
                 logger.info(
                     f"Value version {value_version} | batch {batch.batch_id} | "
-                    f"rollouts {batch.num_rollouts} | reuse {reuse_step + 1}/{config.updates_per_batch} | "
+                    f"rollouts {batch.num_rollouts} | reuse {reuse_step + 1}/{updates_this_batch} | "
                     f"loss {metric_totals[0].item():.5f} | mae {payload['value/mae']:.5f} | "
                     f"explained variance {payload['value/explained_variance']:.3f}"
                 )
