@@ -5,8 +5,9 @@ algorithm: it owns the algorithm's two scoring hooks directly —
 ``score_rollout`` (per arrival) and ``score_group`` (per group) — and declares
 which loss component its action tokens feed (``action_loss_type``). Reading a
 module top to bottom reads the algorithm; writing your own is subclassing
-:class:`Algorithm` and overriding the hooks its signal needs. Shared math (group
-normalization, prefill alignment) lives as plain functions in ``advantage.py``;
+:class:`Algorithm` and overriding the hooks its signal needs. Shared rollout-credit
+math (group baselines, GAE, and group/value mixing) lives as plain functions in
+``advantage.py``;
 duplication of orchestration between similar algorithms (e.g. OPD and OPSD) is
 accepted so each module stays self-contained.
 
@@ -44,9 +45,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from prime_rl.configs.algorithm import ActionLossType, AlgoConfig, FrozenModelConfig
 from prime_rl.configs.value import ValueFunctionConfig
+from prime_rl.orchestrator.algo.advantage import compute_gae
 from prime_rl.orchestrator.algo.routing import stamp_advantages, stamp_loss_routing
 from prime_rl.utils.logger import get_logger
-from prime_rl.value.math import compute_gae
 
 if TYPE_CHECKING:
     from renderers import RendererConfig

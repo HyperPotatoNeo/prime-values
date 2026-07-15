@@ -8,14 +8,84 @@ from prime_rl.configs.algorithm import (
     AdaptiveTetherConfig,
     GRPOAlgoConfig,
     LinearLengthPenaltyConfig,
+    LinearMixBaselineConfig,
     MaxRLAlgoConfig,
     TetherBaselineConfig,
 )
 from prime_rl.configs.value import ValueFunctionConfig
+from prime_rl.orchestrator.algo.advantage import (
+    compute_gae,
+    group_advantages,
+    group_baselines,
+    linear_mix_advantages,
+)
 from prime_rl.orchestrator.algo.grpo import GRPOAlgorithm
 from prime_rl.orchestrator.algo.max_rl import MaxRLAlgorithm
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout
+
+
+def test_gae_monte_carlo_terminal_reward_ignores_context_tokens():
+    advantages, returns = compute_gae(
+        reward=1.0,
+        values=[9.0, 0.2, 8.0, 0.6],
+        mask=[False, True, False, True],
+        gamma=1.0,
+        gae_lambda=1.0,
+        value_target_lambda=1.0,
+    )
+
+    assert advantages == pytest.approx([0.0, 0.8, 0.0, 0.4])
+    assert returns == pytest.approx([0.0, 1.0, 0.0, 1.0])
+
+
+def test_gae_nontrivial_gamma_and_lambda():
+    advantages, returns = compute_gae(
+        reward=1.0,
+        values=[9.0, 0.2, 8.0, 0.4],
+        mask=[False, True, False, True],
+        gamma=0.9,
+        gae_lambda=0.5,
+        value_target_lambda=0.5,
+    )
+
+    assert advantages == pytest.approx([0.0, 0.43, 0.0, 0.6])
+    assert returns == pytest.approx([0.0, 0.63, 0.0, 1.0])
+
+
+def test_policy_gae_and_value_target_use_independent_lambdas():
+    advantages, returns = compute_gae(
+        reward=1.0,
+        values=[9.0, 0.2, 8.0, 0.4],
+        mask=[False, True, False, True],
+        gamma=1.0,
+        gae_lambda=0.0,
+        value_target_lambda=1.0,
+    )
+
+    assert advantages == pytest.approx([0.0, 0.2, 0.0, 0.6])
+    assert returns == pytest.approx([0.0, 1.0, 0.0, 1.0])
+
+
+def test_leave_one_out_group_advantage_excludes_own_reward():
+    assert group_advantages([0.0, 1.0, 1.0], "leave_one_out") == pytest.approx([-1.0, 0.5, 0.5])
+    assert group_baselines([0.0, 1.0, 1.0], "leave_one_out") == pytest.approx([1.0, 0.5, 0.5])
+
+
+def test_leave_one_out_requires_siblings():
+    with pytest.raises(ValueError, match="group_size"):
+        group_advantages([1.0], "leave_one_out")
+
+
+def test_linear_mix_uses_static_unbounded_coefficient_on_actions():
+    output = linear_mix_advantages(
+        group_advantage=1.0,
+        value_advantages=[0.0, 0.0, 0.0, -1.0],
+        mask=[False, True, False, True],
+        config=LinearMixBaselineConfig(rho=2.0),
+    )
+
+    assert output == pytest.approx([0.0, -1.0, 0.0, -3.0])
 
 
 def _build_rollout(

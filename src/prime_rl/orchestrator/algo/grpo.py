@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from prime_rl.configs.algorithm import GRPOAlgoConfig
+from prime_rl.orchestrator.algo.advantage import group_advantages, linear_mix_advantages
 from prime_rl.orchestrator.algo.base import Algorithm
 from prime_rl.orchestrator.algo.tether import AdaptiveTetherCoefficients, TetherRuntime
-from prime_rl.value.math import group_advantages, linear_mix_advantages
 
 if TYPE_CHECKING:
     from prime_rl.configs.value import ValueFunctionConfig

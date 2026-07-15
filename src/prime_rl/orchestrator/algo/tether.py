@@ -7,9 +7,9 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 from prime_rl.configs.algorithm import MAX_TETHER_POSITION_BINS, AdaptiveTetherConfig, TetherBaselineConfig
+from prime_rl.orchestrator.algo.advantage import group_baselines
 from prime_rl.orchestrator.trajectories import iter_trainable_branches
 from prime_rl.utils.logger import get_logger
-from prime_rl.value.math import group_baselines
 
 if TYPE_CHECKING:
     from prime_rl.orchestrator.types import Rollout
