@@ -124,6 +124,15 @@ class ValueCheckpointConfig(BaseConfig):
     keep_last: int | None = Field(2, ge=1)
 
 
+def validate_value_model_capabilities(model: ModelConfig) -> None:
+    if model.lora is not None:
+        raise ValueError("value functions do not support LoRA yet")
+    if model.vlm is not None:
+        raise ValueError("value functions do not support VLM training yet")
+    if model.cp != 1:
+        raise ValueError("value functions do not support context parallelism yet")
+
+
 class ValueFunctionConfig(BaseConfig):
     model: ModelConfig | None = None
     """Value backbone. None copies the policy trainer model configuration."""
@@ -216,10 +225,5 @@ class ValueFunctionConfig(BaseConfig):
                 raise ValueError("trainer-placed value evaluation supports exactly one evaluator endpoint")
         if self.model is None:
             return self
-        if self.model.lora is not None:
-            raise ValueError("value functions do not support LoRA yet")
-        if self.model.vlm is not None:
-            raise ValueError("value functions do not support VLM training yet")
-        if self.model.cp != 1:
-            raise ValueError("value functions do not support context parallelism yet")
+        validate_value_model_capabilities(self.model)
         return self
