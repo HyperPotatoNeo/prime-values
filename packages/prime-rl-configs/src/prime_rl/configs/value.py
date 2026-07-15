@@ -75,10 +75,13 @@ class NCCLValueWeightBroadcastConfig(BaseConfig):
     timeout: int = Field(1200, ge=1)
 
     evaluator_world_size: int = Field(1, ge=1)
-    """Number of independent value-evaluator GPU replicas receiving each update."""
+    """Number of dedicated evaluator replicas receiving each update; trainer placement requires one endpoint."""
 
 
 class ValueEvaluatorConfig(BaseConfig):
+    placement: Literal["dedicated", "trainer"] = "dedicated"
+    """Run a dedicated serving copy or serve between updates on the value trainer."""
+
     base_url: list[str] = ["http://127.0.0.1:29612"]
     """Evaluator HTTP endpoints used round-robin by the orchestrator."""
 
@@ -88,7 +91,7 @@ class ValueEvaluatorConfig(BaseConfig):
     port: int = Field(29612, ge=1, le=65535)
 
     max_batch_tokens: int = Field(32768, ge=1)
-    """Maximum packed tokens in one dynamic evaluator batch."""
+    """FIFO coalescing ceiling. A larger single request is served alone."""
 
     batch_wait_ms: float = Field(2.0, ge=0)
     """Small collection window used to merge concurrent rollout requests."""
@@ -96,13 +99,19 @@ class ValueEvaluatorConfig(BaseConfig):
     max_concurrency: int = Field(64, ge=1)
     """Maximum in-flight HTTP requests issued by the orchestrator."""
 
+    max_pending_requests: int = Field(64, ge=1)
+    """Maximum queued plus running requests accepted by one evaluator endpoint."""
+
+    max_pending_tokens: int = Field(1_048_576, ge=1)
+    """Maximum unpadded tokens across queued plus running requests."""
+
     request_timeout: float = Field(600.0, gt=0)
 
     dtype: Literal["bfloat16", "float32"] = "bfloat16"
-    """Serving-copy parameter dtype. Value outputs and advantage math remain float32."""
+    """Dedicated serving-copy dtype. Trainer placement uses the live trainer dtype."""
 
     double_buffer_weights: bool = True
-    """Load updates into an inactive model and atomically swap, so weight transfer does not block evaluation."""
+    """Dedicated placement only: load updates into an inactive model and atomically swap."""
 
 
 class ValueCheckpointConfig(BaseConfig):
@@ -173,20 +182,18 @@ class ValueFunctionConfig(BaseConfig):
     def validate_initial_scope(self):
         if self.max_steps is not None and self.warmup_updates > self.max_steps:
             raise ValueError("value_function.warmup_updates cannot exceed value_function.max_steps")
-        ports = {
-            self.transport.port,
-            self.weight_broadcast.port,
-            self.weight_broadcast.control_port,
-            self.evaluator.port,
-        }
-        if len(ports) != 4:
-            raise ValueError("value transport, weight, weight-control, and evaluator ports must be distinct")
+        dedicated = self.evaluator.placement == "dedicated"
+        ports = [self.transport.port, self.evaluator.port]
+        if dedicated:
+            ports.extend([self.weight_broadcast.port, self.weight_broadcast.control_port])
+        if len(set(ports)) != len(ports):
+            if dedicated:
+                raise ValueError("value transport, weight, weight-control, and evaluator ports must be distinct")
+            raise ValueError("value transport and evaluator ports must be distinct")
         endpoint_keys: set[tuple[str, int]] = set()
-        reserved_local_ports = {
-            self.transport.port,
-            self.weight_broadcast.port,
-            self.weight_broadcast.control_port,
-        }
+        reserved_local_ports = {self.transport.port}
+        if dedicated:
+            reserved_local_ports.update([self.weight_broadcast.port, self.weight_broadcast.control_port])
         local_hosts = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
         for endpoint in self.evaluator.base_url:
             parsed = urlparse(endpoint)
@@ -197,9 +204,16 @@ class ValueFunctionConfig(BaseConfig):
                 raise ValueError(f"duplicate value evaluator endpoint: {endpoint}")
             endpoint_keys.add(key)
             if parsed.hostname in local_hosts and parsed.port in reserved_local_ports:
-                raise ValueError(
-                    f"local value evaluator port {parsed.port} conflicts with value transport or weight broadcast"
-                )
+                reserved_by = "value transport or weight broadcast" if dedicated else "value transport"
+                raise ValueError(f"local value evaluator port {parsed.port} conflicts with {reserved_by}")
+        if not dedicated:
+            if len(self.evaluator.base_url) != 1:
+                raise ValueError("trainer-placed value evaluation requires exactly one evaluator base_url")
+            endpoint_port = urlparse(self.evaluator.base_url[0]).port
+            if endpoint_port != self.evaluator.port:
+                raise ValueError("trainer-placed evaluator base_url port must equal value_function.evaluator.port")
+            if self.weight_broadcast.evaluator_world_size != 1:
+                raise ValueError("trainer-placed value evaluation supports exactly one evaluator endpoint")
         if self.model is None:
             return self
         if self.model.lora is not None:

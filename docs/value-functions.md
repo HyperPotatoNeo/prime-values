@@ -36,9 +36,23 @@ uv run rl @ examples/value_function/rl.toml
 Use `uv run rl @ <config> --dry-run` to inspect the fully resolved value,
 orchestrator, trainer, evaluator, and Slurm configs before allocating GPUs.
 
+By default, value evaluation uses a dedicated model and GPU. To serve requests
+from the live value trainer instead, add:
+
+```toml
+[value_function.evaluator]
+placement = "trainer"
+```
+
+Trainer placement allocates no evaluator GPU or node. Requests queue while the
+value trainer is updating, and training pauses while all trainer ranks evaluate
+one queued batch. This is useful when GPU capacity matters more than independent
+training and serving throughput.
+
 ## Runtime topology
 
-Enabling `[value_function]` adds two roles:
+With the default `evaluator.placement = "dedicated"`, enabling
+`[value_function]` adds two roles:
 
 1. The orchestrator accumulates completed trajectories into full critic
    rollout batches before filtering. The **value trainer** receives those
@@ -46,7 +60,7 @@ Enabling `[value_function]` adds two roles:
    during value warmup and `updates_per_batch` updates afterward, discards the
    batch, and publishes a monotonically increasing value version after every
    optimizer update.
-2. The **value evaluator** serves per-token values to the orchestrator. It
+2. The dedicated **value evaluator** serves per-token values to the orchestrator. It
    adopts value-trainer weights independently of policy versions. By default,
    it loads each update into an inactive model and atomically swaps serving
    copies, so weight transfer does not hold up evaluation. A response always
@@ -56,10 +70,18 @@ Enabling `[value_function]` adds two roles:
    evaluator GPU. Set `evaluator.double_buffer_weights = false` to use one copy;
    in that mode, evaluation pauses while an in-place update is applied.
 
-Weight updates use a CPU control notification followed by layerwise NCCL.
-Evaluator replicas block on the CPU notification while idle and enter NCCL
-only when a version is imminent, so the receive path never leaves a persistent
-GPU communication kernel ahead of value inference.
+With `evaluator.placement = "trainer"`, the value trainer's global rank 0 also
+hosts the same HTTP service. HTTP threads only enqueue requests; the distributed
+trainer loop alternates complete optimizer steps with complete inference
+batches. Every FSDP rank participates, and a response is produced from one
+coherent value version. There is no evaluator model copy or value-weight
+broadcast in this placement. Optimizer steps and checkpoints are not
+preemptible, so queued requests can time out behind long trainer work.
+
+In dedicated placement, weight updates use a CPU control notification followed
+by layerwise NCCL. Evaluator replicas block on the CPU notification while idle
+and enter NCCL only when a version is imminent, so the receive path never leaves
+a persistent GPU communication kernel ahead of value inference.
 
 The policy and value planes are deliberately independent:
 
@@ -68,10 +90,11 @@ policy inference --> orchestrator ----------------------> policy trainer
                           |                                  |
                           | latest-only value batches        | policy weights
                           v                                  v
-                    value trainer --> value weights    policy inference
-                          |
-                          v
-                    value evaluator --> values --> orchestrator advantages
+                    value trainer                      policy inference
+                     |          |
+        live values  |          | value weights (dedicated)
+                     v          v
+               orchestrator   value evaluator --> orchestrator
 ```
 
 Policy inference never waits for the value trainer. If the trainer cannot keep
@@ -80,10 +103,11 @@ policy trajectory does need one evaluator result before its final advantage is
 known; those requests start per rollout and overlap sibling rollout generation.
 The dispatcher continues filling its bounded rollout window while this happens.
 As with any bounded pipeline, an evaluator that remains slower than generation
-can eventually fill that window; it never waits for value-training updates or
-blocks policy weight synchronization.
+can eventually fill that window. Dedicated evaluation never waits for value
+training; trainer placement queues behind its indivisible work. Neither blocks
+policy weight synchronization.
 
-The evaluator serving copy uses BF16 parameters by default even when the
+The dedicated evaluator serving copy uses BF16 parameters by default even when the
 trainer keeps FP32 master weights; state loading performs the cast, while value
 outputs, targets, loss reductions, and advantage math remain FP32.
 
@@ -175,13 +199,16 @@ than being silently clipped.
 | `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Every warmup batch receives one optimizer update. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
 | `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context. |
-| `value_function.evaluator.dtype` | `bfloat16` | Evaluator serving-copy parameter dtype; outputs and advantage math stay FP32. |
-| `value_function.evaluator.double_buffer_weights` | `true` | Atomically swap weight versions without pausing inference; needs roughly two model copies of GPU memory. |
-| `value_function.evaluator.max_batch_tokens` | `32768` | Dynamic evaluator batch token ceiling. |
+| `value_function.evaluator.placement` | `dedicated` | `dedicated` uses a separate serving model; `trainer` queues inference on the value-trainer GPUs. |
+| `value_function.evaluator.dtype` | `bfloat16` | Dedicated serving-copy parameter dtype; inactive in trainer placement. |
+| `value_function.evaluator.double_buffer_weights` | `true` | Dedicated placement only: atomically swap weight versions without pausing inference; needs roughly two model copies of GPU memory. |
+| `value_function.evaluator.max_batch_tokens` | `32768` | FIFO coalescing ceiling. A larger single request is served alone. |
+| `value_function.evaluator.max_pending_requests` | `64` | Maximum queued plus running requests accepted by one endpoint. |
+| `value_function.evaluator.max_pending_tokens` | `1048576` | Maximum unpadded tokens across queued plus running requests. |
 | `value_function.max_steps` | unset | Optional independent cap on critic updates. |
 | `value_function.ckpt.interval` | unset | Optional periodic value checkpoint interval; normal completion always writes the latest version. |
 | `deployment.num_value_train_gpus` / `num_value_train_nodes` | `1` | Single-node GPU count or multi-node critic-trainer node count. |
-| `deployment.num_value_eval_gpus` / `num_value_eval_nodes` | `1` | Evaluator replica capacity; multi-node currently launches one single-GPU replica per node. |
+| `deployment.num_value_eval_gpus` / `num_value_eval_nodes` | placement-dependent | Defaults to one evaluator per configured replica in dedicated placement and zero in trainer placement. |
 
 Every field is also available as a dotted CLI override, for example:
 
@@ -402,6 +429,9 @@ are also logged by the orchestrator.
 | `value/source_policy_version_{min,max,spread}`, `value/batch_id`, `value/source_batches_skipped` | Policy provenance range and latest-only transport replacement pressure. |
 | `value/batch_{tokens,rollouts,samples}`, `value/total_{tokens,samples}` | Per-update and cumulative critic data volume. Samples count branches; rollouts count episodes used to trigger the batch. |
 | `value/update_seconds`, `value/tokens_per_second` | Value optimizer performance. |
+| `value/service_pending_{requests,tokens}`, `value/service_{oldest,max}_wait_seconds` | Trainer-placement queue pressure, including selected work until completion. |
+| `value/service_{admitted,rejected_full,expired,abandoned,completed,failed}` | Trainer-placement request outcomes and overload behavior. |
+| `value/checkpoint_seconds`, `value/service_{inference,training,idle}_seconds`, `value/service_inference_{batches,tokens}`, `value/service_stale_training_batches` | Trainer-placement checkpoint/scheduling time, inference volume, and stale input pressure. |
 | `optim/lr`, `optim/grad_norm`, `optim/zero_grad_ratio` | Critic optimizer health. |
 | `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
@@ -436,11 +466,12 @@ tokenizer a critic expects when it is not stored with the critic model. Its
 restores the value model, optimizer, scheduler, and independent value version.
 
 Policy and value checkpoints have separate directories and progress counters.
-Resuming one never rewrites the other's step. Value evaluator weights are a
-serving copy and are reconstructed from the value checkpoint plus subsequent
-trainer publications. On normal policy completion, an unlimited value trainer
-stops at its next transport poll and writes a final value checkpoint before the
-launcher tears down the value plane.
+Resuming one never rewrites the other's step. Dedicated evaluator weights are a
+serving copy reconstructed from the value checkpoint plus subsequent trainer
+publications; trainer placement serves directly from the restored live model.
+On normal policy completion, the value trainer finishes its selected operation
+and writes a final value checkpoint before the launcher tears down the value
+plane.
 
 ## Multi-node layout
 
@@ -471,11 +502,30 @@ Each evaluator replica is currently an unsharded, single-GPU model and must fit
 on one GPU (twice with double buffering); the launcher starts one replica per
 evaluator node, so remaining GPUs on that dedicated node are presently unused.
 
-## Initial scope
+Trainer placement needs no evaluator nodes:
 
-The first implementation supports text models, one RL run, and direct NCCL
-value-weight publication. LoRA, VLM inputs, expert-router replay, and
-multi-run value sharing fail validation rather than silently behaving
-incorrectly. The transport, evaluator client, baseline, and value-model APIs
-are separate modules so those capabilities can be added without changing the
-policy trainer contract.
+```toml
+[value_function.evaluator]
+placement = "trainer"
+
+[deployment]
+num_value_eval_nodes = 0 # optional; this is the resolved default
+```
+
+The launcher routes the orchestrator to the value-trainer master and omits the
+evaluator process and weight broadcast. The value trainer stays alive after its
+own `max_steps` in serve-only mode until the policy run finishes.
+
+## Scope
+
+Value functions support text models and one RL run. LoRA, VLM inputs,
+expert-router replay, and multi-run value sharing fail validation rather than
+silently behaving incorrectly. Trainer placement supports dense FSDP
+with one data-parallel replica and no context/expert parallelism, FSDP parameter
+CPU offload, DeepEP, or FP8. Dedicated placement retains the broader existing
+value-model topology. The transport, evaluator client, baseline, and value-model
+APIs remain separate from the policy trainer contract.
+
+A distributed-rank failure is fatal rather than recoverable. Rank 0 marks the
+HTTP service failed when it observes the error; a request already executing on
+a failed peer can remain pending until the process-group or request timeout.

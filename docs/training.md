@@ -37,7 +37,7 @@ This page covers everything you need to launch, observe, checkpoint, and recover
 | `uv run inference` | vLLM server. | Always use this entrypoint over `vllm serve` — it adds `/update_weights`, `/load_lora_adapter`, and `/init_broadcaster`. |
 | `uv run trainer` | Standalone trainer process group. | Use only when launching the trainer separately from the orchestrator (e.g. multi-node RL without the `rl` wrapper). |
 | `uv run orchestrator` | Standalone orchestrator process. | Pair with a separately-launched trainer + inference. |
-| `uv run value-trainer` / `uv run value-evaluator` | Standalone value-plane roles. | Normally launched automatically by `uv run rl` when `[value_function]` is present. |
+| `uv run value-trainer` / `uv run value-evaluator` | Standalone value-plane roles. | Dedicated evaluation can be debugged directly. Trainer-placed evaluation must use `uv run rl`, which owns its serve-only shutdown. |
 
 ## RL Trainer
 

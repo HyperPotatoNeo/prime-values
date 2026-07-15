@@ -9,6 +9,19 @@ from prime_rl.value.client import ValueEvaluatorClient
 from prime_rl.value.types import ValueEvaluationResponse, ValueVersionResponse
 
 
+def test_client_adds_response_grace_only_to_the_read_timeout():
+    async def run_test() -> None:
+        client = ValueEvaluatorClient(ValueEvaluatorConfig(request_timeout=12.0))
+
+        assert client._client.timeout.read == 17.0
+        assert client._client.timeout.connect == 12.0
+        assert client._client.timeout.pool == 12.0
+        assert client._client.timeout.write == 12.0
+        await client.close()
+
+    asyncio.run(run_test())
+
+
 def test_version_uses_minimum_replica_watermark_during_update_skew():
     async def run_test() -> None:
         client = ValueEvaluatorClient(ValueEvaluatorConfig(base_url=["http://eval-0:1", "http://eval-1:2"]))

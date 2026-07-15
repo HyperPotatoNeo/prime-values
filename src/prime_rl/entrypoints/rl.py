@@ -14,7 +14,7 @@ import tomli_w
 
 from prime_rl.configs.algorithm import FrozenModelConfig
 from prime_rl.configs.inference import VllmRouterConfig
-from prime_rl.configs.rl import RLConfig
+from prime_rl.configs.rl import VALUE_TRAIN_RDZV_PORT, RLConfig
 from prime_rl.entrypoints.inference import vllm_overrides_fragment
 from prime_rl.utils.config import cli
 from prime_rl.utils.logger import get_logger, setup_logger
@@ -222,9 +222,12 @@ def rl_local(config: RLConfig):
             from urllib.parse import urlparse
 
             value_config_path = (config_dir / VALUE_TOML).as_posix()
-            for evaluator_rank, (gpu_id, base_url) in enumerate(
+            evaluator_assignments = (
                 zip(value_evaluator_gpu_ids, config.value_function.evaluator.base_url, strict=True)
-            ):
+                if config.value_function.evaluator.placement == "dedicated"
+                else ()
+            )
+            for evaluator_rank, (gpu_id, base_url) in enumerate(evaluator_assignments):
                 evaluator_cmd = ["value-evaluator", "@", value_config_path]
                 evaluator_port = urlparse(base_url).port
                 if evaluator_port is None:
@@ -517,11 +520,15 @@ def write_slurm_script(config: RLConfig, config_dir: Path, script_path: Path) ->
     )
     value_template_vars = dict(
         value_enabled=config.value_function is not None,
+        value_evaluator_dedicated=(
+            config.value_function is not None and config.value_function.evaluator.placement == "dedicated"
+        ),
         num_value_train_nodes=(
             config.deployment.num_value_train_nodes if config.deployment.type == "multi_node" else 0
         ),
         num_value_eval_nodes=(config.deployment.num_value_eval_nodes if config.deployment.type == "multi_node" else 0),
         value_evaluator_port=(config.value_function.evaluator.port if config.value_function is not None else 29612),
+        value_train_rdzv_port=VALUE_TRAIN_RDZV_PORT,
         value_ranks_filter=(
             ",".join(map(str, config.value_function.log.ranks_filter)) if config.value_function is not None else "0"
         ),

@@ -198,7 +198,7 @@ The `rl` launcher applies these the same way in both single-node and multi-node 
 1. The launcher's own defaults — **your `env_vars` override these**.
 2. Your top-level `[env_vars]`.
 3. Your `[component.env_vars]`.
-4. Orchestration-critical vars the launcher always sets last — `CUDA_VISIBLE_DEVICES` (GPU partitioning) and `WANDB_SHARED_*` (the single shared W&B run) — **these cannot be overridden** from `env_vars`.
+4. Launcher-owned orchestration vars — `CUDA_VISIBLE_DEVICES`, `WANDB_SHARED_*`, and value-plane lifecycle/network wiring (`PRIME_RL_RUN_DONE_FILE`, `VALUE_EVALUATOR_PORT`, `VALUE_TRAIN_MASTER`, `VALUE_TRAIN_MASTER_PORT`) — **cannot be overridden** from `env_vars`.
 
 For standalone `sft` and `inference` configs, `[env_vars]` applies to that entrypoint's process(es). For disaggregated P/D inference, the role-specific [`deployment.{prefill,decode}_env_vars`](inference.md) layer on top of any shared inference env vars.
 
@@ -213,7 +213,7 @@ The shipped end-to-end examples in [`examples/`](https://github.com/PrimeIntelle
 - [**Alphabet Sort**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/alphabet_sort) — `Qwen3-4B-Instruct-2507` sorting names alphabetically. Multi-turn LoRA RL without SFT warmup; one H100.
 - [**Wiki Search**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/wiki_search) — `Qwen3-4B-Instruct-2507` answering trivia by web-searching Wikipedia. Multi-turn with tool use.
 - [**Hendrycks Sanity**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/hendrycks_sanity) — `DeepSeek-R1-Distill-Qwen-1.5B` on a filtered MATH subset. Useful for algorithm ablations.
-- [**Async Value Function**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/value_function) — four-role Qwen3-0.6B smoke with an independently trained critic and mixed group/value advantages.
+- [**Async Value Function**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/value_function) — Qwen3-0.6B smoke with an independently trained critic, dedicated or trainer-placed evaluation, and mixed group/value advantages.
 
 **Advanced** (32–2048 GPUs, SLURM):
 
