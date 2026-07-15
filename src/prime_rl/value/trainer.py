@@ -42,6 +42,96 @@ class _ActiveBatch:
     reuse_step: int = 0
 
 
+@dataclass
+class _ValueMetricState:
+    loss_sum: torch.Tensor
+    abs_error_sum: torch.Tensor
+    squared_error_sum: torch.Tensor
+    error_sum: torch.Tensor
+    prediction_sum: torch.Tensor
+    prediction_squared_sum: torch.Tensor
+    target_sum: torch.Tensor
+    target_squared_sum: torch.Tensor
+    prediction_min: torch.Tensor
+    prediction_max: torch.Tensor
+    target_min: torch.Tensor
+    target_max: torch.Tensor
+    metric_count: torch.Tensor
+    accuracy_sum: torch.Tensor
+    accuracy_count: torch.Tensor
+    entropy_sum: torch.Tensor
+    confidence_sum: torch.Tensor
+    classification_count: torch.Tensor
+
+    @classmethod
+    def empty(cls) -> _ValueMetricState:
+        return cls(
+            loss_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            abs_error_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            squared_error_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            error_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            prediction_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            prediction_squared_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            target_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            target_squared_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            prediction_min=torch.full((), torch.inf, dtype=torch.float32, device="cuda"),
+            prediction_max=torch.full((), -torch.inf, dtype=torch.float32, device="cuda"),
+            target_min=torch.full((), torch.inf, dtype=torch.float32, device="cuda"),
+            target_max=torch.full((), -torch.inf, dtype=torch.float32, device="cuda"),
+            metric_count=torch.zeros((), dtype=torch.float32, device="cuda"),
+            accuracy_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            accuracy_count=torch.zeros((), dtype=torch.float32, device="cuda"),
+            entropy_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            confidence_sum=torch.zeros((), dtype=torch.float32, device="cuda"),
+            classification_count=torch.zeros((), dtype=torch.float32, device="cuda"),
+        )
+
+    def reduced(self, group: dist.ProcessGroup) -> _ValueMetricState:
+        totals = torch.stack(
+            [
+                self.loss_sum,
+                self.abs_error_sum,
+                self.squared_error_sum,
+                self.error_sum,
+                self.prediction_sum,
+                self.prediction_squared_sum,
+                self.target_sum,
+                self.target_squared_sum,
+                self.metric_count,
+                self.accuracy_sum,
+                self.accuracy_count,
+                self.entropy_sum,
+                self.confidence_sum,
+                self.classification_count,
+            ]
+        )
+        dist.all_reduce(totals, op=dist.ReduceOp.SUM, group=group)
+        mins = torch.stack([self.prediction_min, self.target_min])
+        maxes = torch.stack([self.prediction_max, self.target_max])
+        dist.all_reduce(mins, op=dist.ReduceOp.MIN, group=group)
+        dist.all_reduce(maxes, op=dist.ReduceOp.MAX, group=group)
+        return _ValueMetricState(
+            loss_sum=totals[0],
+            abs_error_sum=totals[1],
+            squared_error_sum=totals[2],
+            error_sum=totals[3],
+            prediction_sum=totals[4],
+            prediction_squared_sum=totals[5],
+            target_sum=totals[6],
+            target_squared_sum=totals[7],
+            metric_count=totals[8],
+            accuracy_sum=totals[9],
+            accuracy_count=totals[10],
+            entropy_sum=totals[11],
+            confidence_sum=totals[12],
+            classification_count=totals[13],
+            prediction_min=mins[0],
+            prediction_max=maxes[0],
+            target_min=mins[1],
+            target_max=maxes[1],
+        )
+
+
 def _to_tensors(micro_batch: ValueMicroBatch) -> tuple[torch.Tensor, ...]:
     device = torch.device("cuda", torch.cuda.current_device())
     return (
@@ -173,24 +263,7 @@ class ValueTrainerRuntime:
         update_started_at = time.perf_counter()
         source_value_lag_min = max(self.version - batch.value_version_max, 0)
         source_value_lag_max = max(self.version - batch.value_version_min, 0)
-        loss_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        abs_error_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        squared_error_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        error_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        prediction_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        prediction_squared_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        target_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        target_squared_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        prediction_min = torch.full((), torch.inf, dtype=torch.float32, device="cuda")
-        prediction_max = torch.full((), -torch.inf, dtype=torch.float32, device="cuda")
-        target_min = torch.full((), torch.inf, dtype=torch.float32, device="cuda")
-        target_max = torch.full((), -torch.inf, dtype=torch.float32, device="cuda")
-        metric_count = torch.zeros((), dtype=torch.float32, device="cuda")
-        accuracy_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        accuracy_count = torch.zeros((), dtype=torch.float32, device="cuda")
-        entropy_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        confidence_sum = torch.zeros((), dtype=torch.float32, device="cuda")
-        classification_count = torch.zeros((), dtype=torch.float32, device="cuda")
+        metric_state = _ValueMetricState.empty()
         for micro_batch in active.micro_batches:
             input_ids, position_ids, mask, targets = _to_tensors(micro_batch)
             with maybe_activation_offloading(self.config.model.ac_offloading):
@@ -198,28 +271,28 @@ class ValueTrainerRuntime:
                 logits = align_value_logits(logits, micro_batch.sequence_lengths)
                 loss, metrics = compute_value_loss(logits, targets, mask, self.config.loss, active.scale)
             loss.backward()
-            loss_sum += loss.detach()
-            abs_error_sum += metrics["value/abs_error"].sum().to("cuda")
-            squared_error_sum += metrics["value/squared_error"].sum().to("cuda")
-            error_sum += metrics["value/error"].sum().to("cuda")
+            metric_state.loss_sum += loss.detach()
+            metric_state.abs_error_sum += metrics["value/abs_error"].sum().to("cuda")
+            metric_state.squared_error_sum += metrics["value/squared_error"].sum().to("cuda")
+            metric_state.error_sum += metrics["value/error"].sum().to("cuda")
             predictions = metrics["value/prediction"].to("cuda")
             targets = metrics["value/target"].to("cuda")
-            prediction_sum += predictions.sum()
-            prediction_squared_sum += predictions.square().sum()
-            target_sum += targets.sum()
-            target_squared_sum += targets.square().sum()
+            metric_state.prediction_sum += predictions.sum()
+            metric_state.prediction_squared_sum += predictions.square().sum()
+            metric_state.target_sum += targets.sum()
+            metric_state.target_squared_sum += targets.square().sum()
             if predictions.numel() > 0:
-                prediction_min = torch.minimum(prediction_min, predictions.min())
-                prediction_max = torch.maximum(prediction_max, predictions.max())
-                target_min = torch.minimum(target_min, targets.min())
-                target_max = torch.maximum(target_max, targets.max())
-            metric_count += predictions.numel()
+                metric_state.prediction_min = torch.minimum(metric_state.prediction_min, predictions.min())
+                metric_state.prediction_max = torch.maximum(metric_state.prediction_max, predictions.max())
+                metric_state.target_min = torch.minimum(metric_state.target_min, targets.min())
+                metric_state.target_max = torch.maximum(metric_state.target_max, targets.max())
+            metric_state.metric_count += predictions.numel()
             if "value/accuracy" in metrics:
-                accuracy_sum += metrics["value/accuracy"].sum().to("cuda")
-                accuracy_count += metrics["value/accuracy"].numel()
-                entropy_sum += metrics["value/entropy"].sum().to("cuda")
-                confidence_sum += metrics["value/confidence"].sum().to("cuda")
-                classification_count += metrics["value/entropy"].numel()
+                metric_state.accuracy_sum += metrics["value/accuracy"].sum().to("cuda")
+                metric_state.accuracy_count += metrics["value/accuracy"].numel()
+                metric_state.entropy_sum += metrics["value/entropy"].sum().to("cuda")
+                metric_state.confidence_sum += metrics["value/confidence"].sum().to("cuda")
+                metric_state.classification_count += metrics["value/entropy"].numel()
 
         for parameter in self.model.parameters():
             if parameter.grad is not None:
@@ -247,29 +320,7 @@ class ValueTrainerRuntime:
         checkpoint_seconds = self._checkpoint_if_due()
 
         update_seconds = time.perf_counter() - update_started_at
-        metric_totals = torch.stack(
-            [
-                loss_sum,
-                abs_error_sum,
-                squared_error_sum,
-                error_sum,
-                prediction_sum,
-                prediction_squared_sum,
-                target_sum,
-                target_squared_sum,
-                metric_count,
-                accuracy_sum,
-                accuracy_count,
-                entropy_sum,
-                confidence_sum,
-                classification_count,
-            ]
-        )
-        dist.all_reduce(metric_totals, op=dist.ReduceOp.SUM, group=self._dp_group)
-        metric_mins = torch.stack([prediction_min, target_min])
-        metric_maxes = torch.stack([prediction_max, target_max])
-        dist.all_reduce(metric_mins, op=dist.ReduceOp.MIN, group=self._dp_group)
-        dist.all_reduce(metric_maxes, op=dist.ReduceOp.MAX, group=self._dp_group)
+        metric_state = metric_state.reduced(self._dp_group)
         if self.world.is_master:
             self._log_step(
                 active,
@@ -278,9 +329,7 @@ class ValueTrainerRuntime:
                 source_value_lag_max,
                 update_seconds,
                 checkpoint_seconds,
-                metric_totals,
-                metric_mins,
-                metric_maxes,
+                metric_state,
                 grad_norm,
                 zero_grad_ratio,
             )
@@ -289,6 +338,13 @@ class ValueTrainerRuntime:
         if active.reuse_step == active.updates or self.max_steps_reached:
             self._active = None
         return self.version
+
+    def _save_checkpoint(self) -> None:
+        assert self.ckpt_manager is not None
+        self.ckpt_manager.save(self.version, self.model, [self.optimizer], self.scheduler, self.progress)
+        self.ckpt_manager.mark_stable(self.version)
+        self.ckpt_manager.maybe_clean()
+        self._last_checkpoint_version = self.version
 
     def _checkpoint_if_due(self) -> float:
         if self.ckpt_manager is None:
@@ -301,10 +357,7 @@ class ValueTrainerRuntime:
         if not interval_due and not self.max_steps_reached:
             return 0.0
         started_at = time.perf_counter()
-        self.ckpt_manager.save(self.version, self.model, [self.optimizer], self.scheduler, self.progress)
-        self.ckpt_manager.mark_stable(self.version)
-        self.ckpt_manager.maybe_clean()
-        self._last_checkpoint_version = self.version
+        self._save_checkpoint()
         return time.perf_counter() - started_at
 
     def _log_step(
@@ -315,37 +368,35 @@ class ValueTrainerRuntime:
         source_value_lag_max: int,
         update_seconds: float,
         checkpoint_seconds: float,
-        metric_totals: torch.Tensor,
-        metric_mins: torch.Tensor,
-        metric_maxes: torch.Tensor,
+        metric_state: _ValueMetricState,
         grad_norm: torch.Tensor | None,
         zero_grad_ratio: float,
     ) -> None:
         batch = active.batch
-        count = max(metric_totals[8].item(), 1.0)
-        prediction_mean = metric_totals[4].item() / count
-        target_mean = metric_totals[6].item() / count
-        bias = metric_totals[3].item() / count
-        mse = metric_totals[2].item() / count
-        prediction_variance = max(metric_totals[5].item() / count - prediction_mean**2, 0.0)
-        target_variance = max(metric_totals[7].item() / count - target_mean**2, 0.0)
+        count = max(metric_state.metric_count.item(), 1.0)
+        prediction_mean = metric_state.prediction_sum.item() / count
+        target_mean = metric_state.target_sum.item() / count
+        bias = metric_state.error_sum.item() / count
+        mse = metric_state.squared_error_sum.item() / count
+        prediction_variance = max(metric_state.prediction_squared_sum.item() / count - prediction_mean**2, 0.0)
+        target_variance = max(metric_state.target_squared_sum.item() / count - target_mean**2, 0.0)
         error_variance = max(mse - bias**2, 0.0)
         payload = {
-            "value/loss": metric_totals[0].item(),
-            "value/abs_error": metric_totals[1].item() / count,
-            "value/mae": metric_totals[1].item() / count,
+            "value/loss": metric_state.loss_sum.item(),
+            "value/abs_error": metric_state.abs_error_sum.item() / count,
+            "value/mae": metric_state.abs_error_sum.item() / count,
             "value/mse": mse,
             "value/rmse": mse**0.5,
             "value/bias": bias,
             "value/explained_variance": (1.0 - error_variance / target_variance if target_variance > 1e-12 else 0.0),
             "value/prediction_mean": prediction_mean,
             "value/prediction_std": prediction_variance**0.5,
-            "value/prediction_min": metric_mins[0].item(),
-            "value/prediction_max": metric_maxes[0].item(),
+            "value/prediction_min": metric_state.prediction_min.item(),
+            "value/prediction_max": metric_state.prediction_max.item(),
             "value/target_mean": target_mean,
             "value/target_std": target_variance**0.5,
-            "value/target_min": metric_mins[1].item(),
-            "value/target_max": metric_maxes[1].item(),
+            "value/target_min": metric_state.target_min.item(),
+            "value/target_max": metric_state.target_max.item(),
             "value/version": float(self.version),
             "value/source_policy_version": float(batch.policy_version_max),
             "value/source_policy_version_min": float(batch.policy_version_min),
@@ -374,16 +425,16 @@ class ValueTrainerRuntime:
         }
         if self.config.evaluator.placement == "trainer":
             payload["value/checkpoint_seconds"] = checkpoint_seconds
-        if metric_totals[10].item() > 0:
-            payload["value/accuracy"] = metric_totals[9].item() / metric_totals[10].item()
-        if metric_totals[13].item() > 0:
-            payload["value/entropy"] = metric_totals[11].item() / metric_totals[13].item()
-            payload["value/confidence"] = metric_totals[12].item() / metric_totals[13].item()
+        if metric_state.accuracy_count.item() > 0:
+            payload["value/accuracy"] = metric_state.accuracy_sum.item() / metric_state.accuracy_count.item()
+        if metric_state.classification_count.item() > 0:
+            payload["value/entropy"] = metric_state.entropy_sum.item() / metric_state.classification_count.item()
+            payload["value/confidence"] = metric_state.confidence_sum.item() / metric_state.classification_count.item()
         self.monitor.log(payload, step=self.version)
         get_logger().info(
             f"Value version {self.version} | batch {batch.batch_id} | "
             f"rollouts {batch.num_rollouts} | reuse {reuse_step + 1}/{active.updates} | "
-            f"loss {metric_totals[0].item():.5f} | mae {payload['value/mae']:.5f} | "
+            f"loss {metric_state.loss_sum.item():.5f} | mae {payload['value/mae']:.5f} | "
             f"explained variance {payload['value/explained_variance']:.3f}"
         )
 
@@ -394,10 +445,7 @@ class ValueTrainerRuntime:
         if self.ckpt_manager is not None and self.version > 0 and self._last_checkpoint_version != self.version:
             get_logger().info(f"Writing final value checkpoint at version {self.version}")
             started_at = time.perf_counter()
-            self.ckpt_manager.save(self.version, self.model, [self.optimizer], self.scheduler, self.progress)
-            self.ckpt_manager.mark_stable(self.version)
-            self.ckpt_manager.maybe_clean()
-            self._last_checkpoint_version = self.version
+            self._save_checkpoint()
             if self.world.is_master and self.config.evaluator.placement == "trainer":
                 self.monitor.log(
                     {
