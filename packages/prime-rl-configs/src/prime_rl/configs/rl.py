@@ -48,6 +48,8 @@ from prime_rl.utils.validation import (
     validate_shared_weight_broadcast,
 )
 
+VALUE_TRAIN_RDZV_PORT = 29510
+
 
 class SharedLogConfig(BaseConfig):
     level: str | None = None
@@ -339,9 +341,21 @@ class RLConfig(BaseConfig):
             raise ValueError("value functions do not support context parallelism yet")
         if value.model.seq_len < self.orchestrator.seq_len:
             raise ValueError("value_function.model.seq_len must be at least orchestrator.seq_len")
-        if value.evaluator.max_batch_tokens < value.model.seq_len:
-            raise ValueError("value_function.evaluator.max_batch_tokens must be at least value_function.model.seq_len")
-        if len(value.evaluator.base_url) != value.weight_broadcast.evaluator_world_size:
+        trainer_placed_evaluator = value.evaluator.placement == "trainer"
+        if trainer_placed_evaluator and value.model.dp_replicate != 1:
+            raise ValueError("trainer-placed value evaluation requires value_function.model.dp_replicate=1")
+        if trainer_placed_evaluator and value.model.fsdp_cpu_offload:
+            raise ValueError("trainer-placed value evaluation does not support FSDP CPU offload")
+        if trainer_placed_evaluator and value.model.fp8:
+            raise ValueError("trainer-placed value evaluation does not support FP8")
+        if trainer_placed_evaluator and isinstance(value.model.ep, int) and value.model.ep != 1:
+            raise ValueError("trainer-placed value evaluation does not support expert parallelism")
+        if trainer_placed_evaluator and value.model.ep_comm_backend != "torch":
+            raise ValueError("trainer-placed value evaluation does not support DeepEP")
+        if (
+            not trainer_placed_evaluator
+            and len(value.evaluator.base_url) != value.weight_broadcast.evaluator_world_size
+        ):
             raise ValueError(
                 "value_function.evaluator.base_url count must equal "
                 "value_function.weight_broadcast.evaluator_world_size"
@@ -354,13 +368,21 @@ class RLConfig(BaseConfig):
             if "num_value_train_gpus" not in self.deployment.model_fields_set:
                 self.deployment.num_value_train_gpus = 1
             if "num_value_eval_gpus" not in self.deployment.model_fields_set:
-                self.deployment.num_value_eval_gpus = value.weight_broadcast.evaluator_world_size
-            if self.deployment.num_value_train_gpus < 1 or self.deployment.num_value_eval_gpus < 1:
-                raise ValueError("value functions need at least one value-trainer and one value-evaluator GPU")
-            if self.deployment.num_value_eval_gpus != value.weight_broadcast.evaluator_world_size:
-                raise ValueError(
-                    "deployment.num_value_eval_gpus must equal value_function.weight_broadcast.evaluator_world_size"
+                self.deployment.num_value_eval_gpus = (
+                    0 if trainer_placed_evaluator else value.weight_broadcast.evaluator_world_size
                 )
+            if trainer_placed_evaluator:
+                if self.deployment.num_value_train_gpus < 1:
+                    raise ValueError("trainer-placed value evaluation needs at least one value-trainer GPU")
+                if self.deployment.num_value_eval_gpus != 0:
+                    raise ValueError("trainer-placed value evaluation requires deployment.num_value_eval_gpus=0")
+            else:
+                if self.deployment.num_value_train_gpus < 1 or self.deployment.num_value_eval_gpus < 1:
+                    raise ValueError("value functions need at least one value-trainer and one value-evaluator GPU")
+                if self.deployment.num_value_eval_gpus != value.weight_broadcast.evaluator_world_size:
+                    raise ValueError(
+                        "deployment.num_value_eval_gpus must equal value_function.weight_broadcast.evaluator_world_size"
+                    )
             if value.model.dp_replicate < 1 or self.deployment.num_value_train_gpus % value.model.dp_replicate != 0:
                 raise ValueError(
                     "deployment.num_value_train_gpus must be divisible by value_function.model.dp_replicate"
@@ -369,31 +391,54 @@ class RLConfig(BaseConfig):
                 value_island_size = self.deployment.num_value_train_gpus // value.model.dp_replicate
                 if value.model.ep < 1 or value.model.ep > value_island_size or value_island_size % value.model.ep != 0:
                     raise ValueError("value_function.model.ep must divide the value trainer FSDP island")
-            endpoint_ports = [urlparse(endpoint).port for endpoint in value.evaluator.base_url]
-            if len(endpoint_ports) != len(set(endpoint_ports)):
-                raise ValueError("single-node value evaluator replicas must use distinct ports")
-            reserved_ports = {
-                value.transport.port,
-                value.weight_broadcast.port,
-                value.weight_broadcast.control_port,
-            }
-            if any(port in reserved_ports for port in endpoint_ports):
-                raise ValueError("single-node value evaluator port conflicts with value transport or weights")
+            if not trainer_placed_evaluator:
+                endpoint_ports = [urlparse(endpoint).port for endpoint in value.evaluator.base_url]
+                if len(endpoint_ports) != len(set(endpoint_ports)):
+                    raise ValueError("single-node value evaluator replicas must use distinct ports")
+                reserved_ports = {
+                    value.transport.port,
+                    value.weight_broadcast.port,
+                    value.weight_broadcast.control_port,
+                }
+                if any(port in reserved_ports for port in endpoint_ports):
+                    raise ValueError("single-node value evaluator port conflicts with value transport or weights")
             self.deployment.validate_gpu_count()
         else:
             if "num_value_train_nodes" not in self.deployment.model_fields_set:
                 self.deployment.num_value_train_nodes = 1
             if "num_value_eval_nodes" not in self.deployment.model_fields_set:
-                self.deployment.num_value_eval_nodes = 1
-            if self.deployment.num_value_train_nodes < 1 or self.deployment.num_value_eval_nodes < 1:
-                raise ValueError("value functions need at least one value-trainer and one value-evaluator node")
-            # Evaluator nodes host one replica by default; value training may
-            # still use every GPU on its dedicated nodes.
-            expected_evaluators = self.deployment.num_value_eval_nodes
-            if expected_evaluators != value.weight_broadcast.evaluator_world_size:
-                raise ValueError(
-                    "multi-node value evaluator GPUs must equal value_function.weight_broadcast.evaluator_world_size"
+                self.deployment.num_value_eval_nodes = 0 if trainer_placed_evaluator else 1
+            if trainer_placed_evaluator:
+                if self.deployment.num_value_train_nodes < 1:
+                    raise ValueError("trainer-placed value evaluation needs at least one value-trainer node")
+                if self.deployment.num_value_eval_nodes != 0:
+                    raise ValueError("trainer-placed value evaluation requires deployment.num_value_eval_nodes=0")
+            else:
+                if self.deployment.num_value_train_nodes < 1 or self.deployment.num_value_eval_nodes < 1:
+                    raise ValueError("value functions need at least one value-trainer and one value-evaluator node")
+                # Evaluator nodes host one replica by default; value training may
+                # still use every GPU on its dedicated nodes.
+                expected_evaluators = self.deployment.num_value_eval_nodes
+                if expected_evaluators != value.weight_broadcast.evaluator_world_size:
+                    raise ValueError(
+                        "multi-node value evaluator GPUs must equal value_function.weight_broadcast.evaluator_world_size"
+                    )
+            value_trainer_ports = [("value_function.transport.port", value.transport.port)]
+            if trainer_placed_evaluator:
+                value_trainer_ports.append(("value_function.evaluator.port", value.evaluator.port))
+            else:
+                value_trainer_ports.extend(
+                    [
+                        ("value_function.weight_broadcast.port", value.weight_broadcast.port),
+                        ("value_function.weight_broadcast.control_port", value.weight_broadcast.control_port),
+                    ]
                 )
+            for field, port in value_trainer_ports:
+                if port == VALUE_TRAIN_RDZV_PORT:
+                    raise ValueError(
+                        f"{field} conflicts with reserved multi-node value-trainer rendezvous port "
+                        f"{VALUE_TRAIN_RDZV_PORT}"
+                    )
             value_world_size = self.deployment.num_value_train_nodes * self.deployment.gpus_per_node
             if value.model.dp_replicate < 1 or value_world_size % value.model.dp_replicate != 0:
                 raise ValueError("value trainer world size must be divisible by value_function.model.dp_replicate")

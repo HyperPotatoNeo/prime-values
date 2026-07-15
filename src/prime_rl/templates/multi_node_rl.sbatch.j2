@@ -93,7 +93,9 @@ VALUE_EVAL_OFFSET=$((VALUE_TRAIN_OFFSET + NUM_VALUE_TRAIN_NODES))
 export VALUE_TRAIN_OFFSET
 export VALUE_EVAL_OFFSET
 VALUE_TRAIN_HOSTS=( ${HOSTNAMES[@]:$VALUE_TRAIN_OFFSET:$NUM_VALUE_TRAIN_NODES} )
+{% if value_evaluator_dedicated -%}
 VALUE_EVAL_HOSTS=( ${HOSTNAMES[@]:$VALUE_EVAL_OFFSET:$NUM_VALUE_EVAL_NODES} )
+{%- endif %}
 export HOSTNAMES_STR="${HOSTNAMES[*]}"
 
 {% if num_infer_nodes > 0 -%}
@@ -159,7 +161,9 @@ echo "ADMIN_URLS=${ADMIN_URLS}"
 echo "HOSTNAMES=${HOSTNAMES[*]}"
 echo "TRAIN_HOSTS=${TRAIN_HOSTS[*]}"
 echo "VALUE_TRAIN_HOSTS=${VALUE_TRAIN_HOSTS[*]}"
+{% if value_evaluator_dedicated -%}
 echo "VALUE_EVAL_HOSTS=${VALUE_EVAL_HOSTS[*]}"
+{%- endif %}
 
 export MASTER_ADDR="${HOSTNAMES[$NUM_INFER_NODES]}"
 export MASTER_PORT=29500
@@ -167,11 +171,15 @@ echo "MASTER_ADDR=${MASTER_ADDR}"
 echo "MASTER_PORT=${MASTER_PORT}"
 {% if value_enabled -%}
 export VALUE_TRAIN_MASTER="${HOSTNAMES[$VALUE_TRAIN_OFFSET]}"
-export VALUE_TRAIN_MASTER_PORT=29510
+export VALUE_TRAIN_MASTER_PORT={{ value_train_rdzv_port }}
+{% if value_evaluator_dedicated -%}
 VALUE_EVAL_URLS=""
 for host in "${VALUE_EVAL_HOSTS[@]}"; do
     VALUE_EVAL_URLS="${VALUE_EVAL_URLS:+$VALUE_EVAL_URLS }http://${host}:${VALUE_EVALUATOR_PORT}"
 done
+{%- else %}
+VALUE_EVAL_URLS="http://${VALUE_TRAIN_MASTER}:${VALUE_EVALUATOR_PORT}"
+{%- endif %}
 export VALUE_EVAL_URLS
 VALUE_EVAL_URLS_JSON=$(python3 -c 'import json, os; print(json.dumps(os.environ["VALUE_EVAL_URLS"].split(), separators=(",", ":")))')
 export VALUE_EVAL_URLS_JSON
@@ -475,7 +483,9 @@ elif [ "$SLURM_PROCID" -lt "$VALUE_EVAL_OFFSET" ]; then
             --local-ranks-filter={{ value_ranks_filter }} \
             -m prime_rl.value.train \
             @ $CONFIG_DIR/value.toml \
+{%- if value_evaluator_dedicated %}
             --weight-broadcast.host $VALUE_TRAIN_MASTER \
+{%- endif %}
             --transport.bind-host 0.0.0.0 \
             2>&1 | sed -u 's/^\[[a-zA-Z]*[0-9]*\]://' | tee -a $OUTPUT_DIR/logs/value_trainer/node_${VALUE_TRAIN_NODE_RANK}.log
         COMPONENT_EXIT=$?
@@ -484,6 +494,7 @@ elif [ "$SLURM_PROCID" -lt "$VALUE_EVAL_OFFSET" ]; then
         fi
         exit "$COMPONENT_EXIT"
     ) &
+{% if value_evaluator_dedicated -%}
 else
     VALUE_EVALUATOR_RANK=$((SLURM_PROCID - VALUE_EVAL_OFFSET))
 {%- for key, value in value_env_vars.items() %}
@@ -496,6 +507,7 @@ else
         @ $CONFIG_DIR/value.toml \
         --weight-broadcast.host $VALUE_TRAIN_MASTER \
         2>&1 | tee -a $OUTPUT_DIR/logs/value_evaluator/node_${VALUE_EVALUATOR_RANK}.log &
+{%- endif %}
 {%- endif %}
 fi
 {% if num_infer_nodes > 0 %}    fi{% endif %}
@@ -535,7 +547,7 @@ fi
 
 # A clean exit cannot trigger --kill-on-bad-exit. Wait for both policy
 # components, then fan completion out through the shared output directory so
-# long-lived inference/evaluator tasks terminate too. An independently
+# long-lived service tasks terminate too. An independently
 # completed value trainer never ends the policy run.
 (
 {% if num_infer_nodes > 0 -%}
@@ -544,8 +556,8 @@ fi
     while [ ! -f "$TRAINER_DONE_FILE" ]; do sleep 2; done
 {% endif -%}
     touch "$RUN_DONE_FILE"
-    # Keep evaluator peers alive until the value trainer has left any in-flight
-    # NCCL publication and written its final checkpoint.
+    # Keep value-plane tasks alive until the value trainer has finished any
+    # in-flight work and written its final checkpoint.
     if [ "$SLURM_PROCID" -ge "$VALUE_TRAIN_OFFSET" ]; then
         while [ ! -f "$VALUE_TRAINER_DONE_FILE" ]; do sleep 2; done
     fi

@@ -1,10 +1,19 @@
 # Async value-function smoke
 
-`rl.toml` runs all four roles on one four-GPU host with Qwen3-0.6B:
+`rl.toml` runs the default four-role topology on one four-GPU host with
+Qwen3-0.6B:
 
 ```bash
 uv run rl @ examples/value_function/rl.toml --dry-run
 uv run rl @ examples/value_function/rl.toml
+```
+
+To serve values from the value trainer and reserve three GPUs instead, add one
+override:
+
+```bash
+uv run rl @ examples/value_function/rl.toml \
+  --value-function.evaluator.placement trainer
 ```
 
 The critic warms for two adopted evaluator versions while inference continues

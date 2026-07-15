@@ -1,6 +1,6 @@
 import pytest
 
-from prime_rl.value.batch import pack_value_samples
+from prime_rl.value.batch import pack_value_inputs, pack_value_samples
 from prime_rl.value.types import ValueTrainingSample
 
 
@@ -37,3 +37,34 @@ def test_value_packing_can_keep_attention_unsafe_models_unpacked():
 
     assert len(grid[0]) == 2
     assert [batch.sequence_lengths for batch in grid[0]] == [[2], [2]]
+
+
+@pytest.mark.parametrize("pack_sequences", [True, False])
+def test_inference_packing_matches_training_layout_including_dummy_ranks(pack_sequences):
+    samples = [_sample(4), _sample(3, 10), _sample(2, 20)]
+    token_ids = [sample.token_ids for sample in samples]
+
+    training = pack_value_samples(
+        samples,
+        seq_len=5,
+        world_size=4,
+        pad_token_id=99,
+        pack_sequences=pack_sequences,
+    )
+    inference = pack_value_inputs(
+        token_ids,
+        seq_len=5,
+        world_size=4,
+        pad_token_id=99,
+        pack_sequences=pack_sequences,
+    )
+
+    assert len(training) == len(inference) == 4
+    assert [len(rank) for rank in training] == [len(rank) for rank in inference]
+    for training_rank, inference_rank in zip(training, inference, strict=True):
+        for training_batch, inference_batch in zip(training_rank, inference_rank, strict=True):
+            assert inference_batch.input_ids == training_batch.input_ids
+            assert inference_batch.position_ids == training_batch.position_ids
+            assert inference_batch.sequence_lengths == training_batch.sequence_lengths
+            assert inference_batch.sample_indices == training_batch.sample_indices
+    assert any(batch.sample_indices == [-1] for rank in inference for batch in rank)

@@ -43,22 +43,29 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
 
 ### Optional async value plane
 
-An RL config with `[value_function]` makes the `rl` launcher add two roles:
-`value-trainer` consumes a capacity-one stream of full rollout batches, and
-`value-evaluator` serves versioned token values used by the orchestrator. Do
-not add value loss or value-model state to the policy trainer.
+An RL config with `[value_function]` always adds a `value-trainer`, which
+consumes a capacity-one stream of full rollout batches. Dedicated evaluation is
+the default and adds a `value-evaluator` serving copy. Setting
+`value_function.evaluator.placement = "trainer"` instead queues evaluation on
+the live value trainer between updates. Do not add value loss or value-model
+state to the policy trainer.
 
-- Local runs reserve `deployment.num_value_train_gpus` and
-  `deployment.num_value_eval_gpus` after the policy GPUs.
-- Multi-node runs reserve `deployment.num_value_train_nodes` and
-  `deployment.num_value_eval_nodes`; use `examples/value_function/rl.toml` as
-  the local smoke and `configs/rg_mix/async_value.toml` as the four-node shape.
+- Local runs reserve `deployment.num_value_train_gpus` after the policy GPUs.
+  Dedicated placement also reserves `num_value_eval_gpus`; trainer placement
+  requires it to resolve to zero.
+- Multi-node runs similarly reserve value-trainer nodes and reserve evaluator
+  nodes only in dedicated placement. Use `examples/value_function/rl.toml` as
+  the local smoke and `configs/rg_mix/async_value.toml` as the dedicated
+  four-node shape.
+- Launch trainer placement through `rl`, not the standalone `value-trainer`
+  command; the managed run-done file owns serve-only shutdown.
 - Before a local GPU smoke on Perlmutter, point compiler and package caches at
   scratch (`UV_CACHE_DIR`, `XDG_CACHE_HOME`, `HF_HOME`, `TRITON_CACHE_DIR`,
   `TORCHINDUCTOR_CACHE_DIR`, `CUDA_CACHE_PATH`, and `TMPDIR`). Triton otherwise
   defaults to the quota-limited home filesystem and can fail during vLLM startup.
-- Check `logs/value_trainer.log`, `logs/value_evaluator.log`, evaluator
-  `/health` and `/version`, plus `value/batch_pending_rollouts` and
+- Check `logs/value_trainer.log`, evaluator `/health` and `/version`, plus
+  `logs/value_evaluator.log` in dedicated placement and
+  `value/batch_pending_rollouts` and
   `value/batch_drop_rate`. `value_function.batch_size` inherits the policy
   rollout batch size unless set explicitly; token-batched policy runs must set
   it explicitly. Drops are expected under overload; value work must not
@@ -124,7 +131,7 @@ curl http://localhost:8000/v1/chat/completions \
 | `sft` | Supervised fine-tuning | SFT and hard-distill |
 | `inference` | vLLM server | Standalone serving / debugging |
 | `value-trainer` | Standalone FSDP critic trainer | Debugging a resolved `value.toml` |
-| `value-evaluator` | Standalone critic serving replica | Debugging a resolved `value.toml` |
+| `value-evaluator` | Standalone dedicated critic serving replica | Debugging a resolved `value.toml` |
 
 ## Key paths
 

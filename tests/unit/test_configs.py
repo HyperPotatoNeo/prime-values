@@ -243,10 +243,159 @@ def test_value_function_resolves_separate_model_and_gpu_roles():
     assert config.value_function.model.name == config.trainer.model.name
     assert config.orchestrator.value_function is not None
     assert config.value_function.batch_size == config.orchestrator.batch_size == 128
+    assert config.value_function.evaluator.placement == "dedicated"
     assert config.value_function.evaluator.dtype == "bfloat16"
     assert config.deployment.type == "single_node"
     assert config.deployment.num_value_train_gpus == 1
     assert config.deployment.num_value_eval_gpus == 1
+
+
+def test_trainer_placed_value_evaluator_uses_no_extra_gpu():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "grpo"}},
+            "value_function": {"evaluator": {"placement": "trainer"}},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.evaluator.base_url == ["http://127.0.0.1:29612"]
+    assert config.orchestrator.value_function is not None
+    assert config.orchestrator.value_function.evaluator.placement == "trainer"
+    assert config.deployment.type == "single_node"
+    assert config.deployment.num_value_train_gpus == 1
+    assert config.deployment.num_value_eval_gpus == 0
+
+
+def test_trainer_placed_value_evaluator_rejects_dedicated_gpu():
+    with pytest.raises(ValidationError, match="requires deployment.num_value_eval_gpus=0"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"algo": {"type": "grpo"}},
+                "value_function": {"evaluator": {"placement": "trainer"}},
+                "deployment": {
+                    "type": "single_node",
+                    "gpus_per_node": 4,
+                    "num_value_eval_gpus": 1,
+                },
+            }
+        )
+
+
+def test_multi_node_trainer_placed_value_evaluator_rejects_dedicated_node():
+    with pytest.raises(ValidationError, match="requires deployment.num_value_eval_nodes=0"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"algo": {"type": "grpo"}},
+                "value_function": {"evaluator": {"placement": "trainer"}},
+                "deployment": {
+                    "type": "multi_node",
+                    "gpus_per_node": 4,
+                    "num_train_nodes": 1,
+                    "num_value_eval_nodes": 1,
+                },
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("evaluator", "weight_broadcast", "message"),
+    [
+        (
+            {
+                "placement": "trainer",
+                "base_url": ["http://127.0.0.1:29612", "http://127.0.0.1:29614"],
+            },
+            {},
+            "exactly one evaluator base_url",
+        ),
+        (
+            {"placement": "trainer", "base_url": ["http://127.0.0.1:29614"]},
+            {},
+            "base_url port must equal",
+        ),
+        (
+            {"placement": "trainer"},
+            {"evaluator_world_size": 2},
+            "exactly one evaluator endpoint",
+        ),
+    ],
+)
+def test_trainer_placed_value_evaluator_requires_one_endpoint(evaluator, weight_broadcast, message):
+    with pytest.raises(ValidationError, match=message):
+        ValueFunctionConfig.model_validate(
+            {
+                "evaluator": evaluator,
+                "weight_broadcast": weight_broadcast,
+            }
+        )
+
+
+def test_trainer_placed_value_evaluator_ignores_unused_weight_ports():
+    config = ValueFunctionConfig.model_validate(
+        {
+            "evaluator": {"placement": "trainer"},
+            "weight_broadcast": {
+                "port": 29610,
+                "control_port": 29612,
+            },
+        }
+    )
+
+    assert config.evaluator.placement == "trainer"
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["PRIME_RL_RUN_DONE_FILE", "VALUE_EVALUATOR_PORT", "VALUE_TRAIN_MASTER", "VALUE_TRAIN_MASTER_PORT"],
+)
+def test_value_function_rejects_launcher_managed_env_vars(name):
+    with pytest.raises(ValidationError, match="launcher-managed"):
+        ValueFunctionConfig.model_validate({"env_vars": {name: "invalid"}})
+
+
+@pytest.mark.parametrize(
+    ("model", "message"),
+    [
+        ({"dp_replicate": 2}, "dp_replicate"),
+        ({"fsdp_cpu_offload": True, "optim_cpu_offload": False}, "FSDP CPU offload"),
+        ({"fp8": True}, "FP8"),
+        ({"ep": 2}, "expert parallelism"),
+        ({"ep": "auto", "ep_comm_backend": "deepep"}, "DeepEP"),
+    ],
+)
+def test_trainer_placed_value_evaluator_rejects_unsupported_topology(model, message):
+    with pytest.raises(ValidationError, match=message):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"algo": {"type": "grpo"}},
+                "value_function": {
+                    "model": model,
+                    "evaluator": {"placement": "trainer"},
+                },
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+
+def test_value_evaluator_batch_ceiling_may_be_smaller_than_sequence_length():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "grpo"}},
+            "value_function": {"evaluator": {"max_batch_tokens": 128}},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.model is not None
+    assert config.value_function.evaluator.max_batch_tokens < config.value_function.model.seq_len
 
 
 def test_adaptive_tether_inherits_the_critic_rollout_batch_size():
@@ -529,6 +678,8 @@ def test_multi_node_value_evaluator_urls_render_as_one_cli_argument(tmp_path):
     script = script_path.read_text()
     assignment = next(line for line in script.splitlines() if line.startswith("VALUE_EVAL_URLS_JSON="))
 
+    assert "uv run value-evaluator" in script
+    assert "--weight-broadcast.host $VALUE_TRAIN_MASTER" in script
     subprocess.run(["bash", "-n", str(script_path)], check=True)
     rendered = subprocess.run(
         [
@@ -542,6 +693,83 @@ def test_multi_node_value_evaluator_urls_render_as_one_cli_argument(tmp_path):
     )
 
     assert rendered.stdout == '["http://eval-0:29612","http://eval-1:29612"]'
+
+
+def test_multi_node_trainer_placed_evaluator_renders_without_evaluator_node(tmp_path):
+    config = RLConfig.model_validate(
+        {
+            "output_dir": str(tmp_path / "output"),
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "grpo"}},
+            "inference": {"parallel": {"tp": 4}},
+            "value_function": {"evaluator": {"placement": "trainer"}},
+            "deployment": {
+                "type": "multi_node",
+                "gpus_per_node": 4,
+                "num_train_nodes": 1,
+                "num_infer_nodes": 1,
+                "num_value_train_nodes": 1,
+            },
+            "slurm": {},
+        }
+    )
+    script_path = tmp_path / "rl.sbatch"
+    write_slurm_script(config, tmp_path / "configs", script_path)
+    script = script_path.read_text()
+
+    assert config.deployment.type == "multi_node"
+    assert config.deployment.num_value_eval_nodes == 0
+    assert "#SBATCH --nodes=3" in script
+    assert 'VALUE_EVAL_URLS="http://${VALUE_TRAIN_MASTER}:${VALUE_EVALUATOR_PORT}"' in script
+    assert "VALUE_EVAL_HOSTS" not in script
+    assert "uv run value-evaluator" not in script
+    assert "--weight-broadcast.host $VALUE_TRAIN_MASTER" not in script
+    subprocess.run(["bash", "-n", str(script_path)], check=True)
+
+
+@pytest.mark.parametrize(
+    ("value_function", "field"),
+    [
+        (
+            {
+                "evaluator": {
+                    "placement": "trainer",
+                    "port": 29510,
+                    "base_url": ["http://127.0.0.1:29510"],
+                }
+            },
+            "value_function.evaluator.port",
+        ),
+        (
+            {"evaluator": {"placement": "trainer"}, "transport": {"port": 29510}},
+            "value_function.transport.port",
+        ),
+        ({"transport": {"port": 29510}}, "value_function.transport.port"),
+        ({"weight_broadcast": {"port": 29510}}, "value_function.weight_broadcast.port"),
+        (
+            {"weight_broadcast": {"control_port": 29510}},
+            "value_function.weight_broadcast.control_port",
+        ),
+    ],
+)
+def test_multi_node_value_services_reject_the_value_trainer_rendezvous_port(value_function, field):
+    with pytest.raises(ValidationError, match=field):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"algo": {"type": "grpo"}},
+                "inference": {"parallel": {"tp": 4}},
+                "value_function": value_function,
+                "deployment": {
+                    "type": "multi_node",
+                    "gpus_per_node": 4,
+                    "num_train_nodes": 1,
+                    "num_infer_nodes": 1,
+                    "num_value_train_nodes": 1,
+                },
+                "slurm": {},
+            }
+        )
 
 
 def test_value_model_must_cover_orchestrator_sequence_length():

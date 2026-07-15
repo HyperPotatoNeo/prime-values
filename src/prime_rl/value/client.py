@@ -10,12 +10,21 @@ import msgspec
 from prime_rl.configs.value import ValueEvaluatorConfig
 from prime_rl.value.types import ValueEvaluationRequest, ValueEvaluationResponse, ValueVersionResponse
 
+_RESPONSE_GRACE_SECONDS = 5.0
+
 
 class ValueEvaluatorClient:
     def __init__(self, config: ValueEvaluatorConfig):
         self.config = config
         self._urls = cycle(url.rstrip("/") for url in config.base_url)
-        self._client = httpx.AsyncClient(timeout=httpx.Timeout(config.request_timeout))
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(
+                config.request_timeout + _RESPONSE_GRACE_SECONDS,
+                connect=config.request_timeout,
+                pool=config.request_timeout,
+                write=config.request_timeout,
+            )
+        )
         self._semaphore = asyncio.Semaphore(config.max_concurrency)
         self._request_encoder = msgspec.msgpack.Encoder()
         self._evaluation_decoder = msgspec.msgpack.Decoder(type=ValueEvaluationResponse)

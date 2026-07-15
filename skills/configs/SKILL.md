@@ -28,6 +28,12 @@ uv run rl --help                                  # all fields and defaults
 uv run rl @ rl.toml --dry-run --output-dir /tmp/x # write resolved TOML to /tmp/x/configs
 ```
 
+The component TOMLs written by `rl` are fully resolved and include defaults.
+When a component reparses one, Pydantic's `model_fields_set` no longer tells you
+which fields the user originally wrote. Use it only while resolving the
+top-level config; runtime validation should check semantic contradictions, not
+apparent explicitness.
+
 ## Validators
 
 Incompatible combinations (e.g. CP requires flash attention) must raise in a `model_validator` at resolve time, not at runtime. When renaming a field, emit a deprecation warning with a migration hint — never silently drop.

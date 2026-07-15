@@ -1,4 +1,4 @@
-# One-node, four-GPU functional smoke: one GPU for each runtime role.
+# One-node functional smoke. Dedicated evaluation uses one GPU per runtime role.
 
 max_steps = 5
 seq_len = 256
@@ -45,4 +45,3 @@ gpus_per_node = 4
 num_infer_gpus = 1
 num_train_gpus = 1
 num_value_train_gpus = 1
-num_value_eval_gpus = 1

@@ -56,8 +56,14 @@ class LatestValueBatchReceiver:
         get_logger().info(f"Value trainer listening for latest trajectories on {self.endpoint}")
 
     def receive(self) -> ValueTrainingBatch | None:
+        return self._receive()
+
+    def try_receive(self) -> ValueTrainingBatch | None:
+        return self._receive(zmq.DONTWAIT)
+
+    def _receive(self, flags: int = 0) -> ValueTrainingBatch | None:
         try:
-            payload = self.socket.recv(copy=False)
+            payload = self.socket.recv(flags=flags, copy=False)
         except zmq.Again:
             return None
         return self.decoder.decode(payload)
