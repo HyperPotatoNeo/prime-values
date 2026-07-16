@@ -436,11 +436,7 @@ class Orchestrator:
                     if self.value_evaluator is not None
                     else []
                 ),
-                *[
-                    f"algorithm/{env.name}/{key}"
-                    for env in self.train_envs
-                    for key in env.algorithm.metric_keys()
-                ],
+                *[f"algorithm/{env.name}/{key}" for env in self.train_envs for key in env.algorithm.metric_keys()],
             ],
             interval=log_interval,
             wandb_enabled=wandb_enabled,
@@ -933,11 +929,7 @@ class Orchestrator:
 
     def _algorithm_states(self) -> dict[str, dict[str, Any]]:
         """Snapshot small per-env algorithm state on the event-loop thread."""
-        return {
-            env.name: state
-            for env in self.train_envs
-            if (state := env.algorithm.state_dict())
-        }
+        return {env.name: state for env in self.train_envs if (state := env.algorithm.state_dict())}
 
     def _restore_algorithm_states(self, states: dict[str, dict[str, Any]]) -> None:
         """Restore matching environments while tolerating legacy checkpoints."""

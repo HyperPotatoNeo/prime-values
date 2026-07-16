@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 
-from prime_rl.configs.algorithm import MAX_TETHER_POSITION_BINS, GRPOAlgoConfig
+from prime_rl.configs.algorithm import MAX_TETHER_POSITION_BINS, AlgoConfig, GRPOAlgoConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.inference import WeightBroadcastConfig as InferenceWeightBroadcastConfig
 from prime_rl.configs.orchestrator import (
@@ -34,7 +34,7 @@ from prime_rl.configs.trainer import (
 from prime_rl.configs.trainer import (
     NCCLWeightBroadcastConfig as TrainerNCCLWeightBroadcastConfig,
 )
-from prime_rl.configs.value import ValueFunctionConfig
+from prime_rl.configs.value import ValueFunctionConfig, validate_value_model_capabilities
 from prime_rl.utils.config import BaseConfig, find_package_resource
 from prime_rl.utils.validation import (
     propagate_shared_fields,
@@ -295,6 +295,16 @@ class RLConfig(BaseConfig):
             return self
 
         value = self.value_function
+        self._resolve_value_algorithm_config(value, effective_algorithms)
+        trainer_placed_evaluator = self._resolve_value_model_config(value)
+        self._resolve_value_deployment(value, trainer_placed_evaluator)
+        return self
+
+    def _resolve_value_algorithm_config(
+        self,
+        value: ValueFunctionConfig,
+        effective_algorithms: list[tuple[str, AlgoConfig]],
+    ) -> None:
         if not any(isinstance(algo, GRPOAlgoConfig) for _, algo in effective_algorithms):
             raise ValueError("[value_function] needs at least one GRPO-family training environment")
         if value.batch_size is None:
@@ -324,21 +334,16 @@ class RLConfig(BaseConfig):
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
 
+    def _resolve_value_model_config(self, value: ValueFunctionConfig) -> bool:
         if value.model is None:
             value.model = self.trainer.model.model_copy(deep=True)
-            # This validator runs before the shared-field propagation pass;
-            # apply the two shared model fields here as well so the copied
-            # critic sees the same resolved base/sequence length.
+            # Shared-field propagation descends into dict inputs only, so
+            # already-built subconfigs still need these top-level overrides.
             if self.model is not None and "name" not in self.trainer.model.model_fields_set:
                 value.model.name = self.model.name
             if self.seq_len is not None and "seq_len" not in self.trainer.model.model_fields_set:
                 value.model.seq_len = self.seq_len
-        if value.model.lora is not None:
-            raise ValueError("value functions do not support LoRA yet")
-        if value.model.vlm is not None:
-            raise ValueError("value functions do not support VLM training yet")
-        if value.model.cp != 1:
-            raise ValueError("value functions do not support context parallelism yet")
+        validate_value_model_capabilities(value.model)
         if value.model.seq_len < self.orchestrator.seq_len:
             raise ValueError("value_function.model.seq_len must be at least orchestrator.seq_len")
         trainer_placed_evaluator = value.evaluator.placement == "trainer"
@@ -363,7 +368,13 @@ class RLConfig(BaseConfig):
         if "output_dir" not in value.model_fields_set:
             value.output_dir = self.output_dir / "value"
         self.orchestrator.value_function = value.model_copy(deep=True)
+        return trainer_placed_evaluator
 
+    def _resolve_value_deployment(
+        self,
+        value: ValueFunctionConfig,
+        trainer_placed_evaluator: bool,
+    ) -> None:
         if self.deployment.type == "single_node":
             if "num_value_train_gpus" not in self.deployment.model_fields_set:
                 self.deployment.num_value_train_gpus = 1
@@ -446,7 +457,6 @@ class RLConfig(BaseConfig):
                 value_island_size = value_world_size // value.model.dp_replicate
                 if value.model.ep < 1 or value.model.ep > value_island_size or value_island_size % value.model.ep != 0:
                     raise ValueError("value_function.model.ep must divide the value trainer FSDP island")
-        return self
 
     @model_validator(mode="after")
     def auto_setup_infer_nodes(self):

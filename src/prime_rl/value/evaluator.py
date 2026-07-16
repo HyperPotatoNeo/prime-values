@@ -10,6 +10,7 @@ from prime_rl.trainer.model import DTYPE_MAP, get_value_model, value_model_suppo
 from prime_rl.utils.logger import get_logger
 from prime_rl.value.batch import pack_value_inputs
 from prime_rl.value.inference import predict_value_microbatches, reassemble_value_outputs
+from prime_rl.value.math import value_head_output_size
 from prime_rl.value.service import ValueHTTPServer, ValueRequestService
 from prime_rl.value.types import ValueEvaluationResponse
 from prime_rl.value.weights import ValueWeightReceiver
@@ -27,7 +28,7 @@ class ValueEvaluatorRuntime:
         self.device = torch.device("cuda", torch.cuda.current_device())
         self.model = get_value_model(
             config.model,
-            output_size=(config.loss.num_bins if config.loss.type == "classification" else 1),
+            output_size=value_head_output_size(config.loss),
             device=self.device,
             dtype=DTYPE_MAP[config.evaluator.dtype],
         )

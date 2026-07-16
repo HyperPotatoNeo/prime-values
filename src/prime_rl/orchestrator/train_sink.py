@@ -41,6 +41,83 @@ class _PendingValueRollout:
     value_version: int
 
 
+class _ValueBatchAccumulator:
+    """Accumulate finalized rollouts into exact-size critic batches."""
+
+    def __init__(
+        self,
+        publisher: LatestValueBatchPublisher,
+        *,
+        batch_size: int,
+        seq_len: int,
+    ) -> None:
+        self._publisher = publisher
+        self._batch_size = batch_size
+        self._seq_len = seq_len
+        self._next_batch_id = 0
+        self._pending_rollouts: list[_PendingValueRollout] = []
+
+    def progress(self) -> tuple[int, int]:
+        return len(self._pending_rollouts), self._batch_size
+
+    def add(self, rollouts: list[Rollout]) -> None:
+        trainable_rollouts = [rollout for rollout in rollouts if rollout.samples]
+        if not any(rollout.value_returns is not None for rollout in trainable_rollouts):
+            return
+        if not all(
+            rollout.value_returns is not None and rollout.value_version is not None for rollout in trainable_rollouts
+        ):
+            raise RuntimeError("value evaluator did not attach concrete lambda-return targets")
+        for rollout in trainable_rollouts:
+            assert rollout.value_returns is not None and rollout.value_version is not None
+            samples: list[ValueTrainingSample] = []
+            for sample, targets in zip(rollout.samples, rollout.value_returns, strict=True):
+                value_length = min(len(sample.token_ids), self._seq_len)
+                samples.append(
+                    ValueTrainingSample(
+                        token_ids=sample.token_ids[:value_length],
+                        mask=sample.mask[:value_length],
+                        targets=targets[:value_length],
+                    )
+                )
+            self._pending_rollouts.append(
+                _PendingValueRollout(
+                    samples=samples,
+                    policy_version=rollout.policy_version,
+                    value_version=rollout.value_version,
+                )
+            )
+        while len(self._pending_rollouts) >= self._batch_size:
+            batch_rollouts = self._pending_rollouts[: self._batch_size]
+            del self._pending_rollouts[: self._batch_size]
+            self._publish(batch_rollouts)
+
+    def discard_pending(self) -> None:
+        if self._pending_rollouts:
+            get_logger().info(f"Discarding incomplete value batch with {len(self._pending_rollouts)} rollout(s)")
+            self._pending_rollouts.clear()
+
+    def _publish(self, rollouts: list[_PendingValueRollout]) -> None:
+        samples = [sample for rollout in rollouts for sample in rollout.samples]
+        policy_versions = [rollout.policy_version for rollout in rollouts]
+        value_versions = [rollout.value_version for rollout in rollouts]
+        batch = ValueTrainingBatch(
+            samples=samples,
+            batch_id=self._next_batch_id,
+            num_rollouts=len(rollouts),
+            policy_version_min=min(policy_versions),
+            policy_version_max=max(policy_versions),
+            value_version_min=min(value_versions),
+            value_version_max=max(value_versions),
+        )
+        published = self._publisher.publish(batch)
+        get_logger().debug(
+            f"Value batch {self._next_batch_id} {'published' if published else 'dropped'} "
+            f"({len(rollouts)} rollouts, {len(samples)} samples)"
+        )
+        self._next_batch_id += 1
+
+
 class TrainSink:
     """Three-level train sink. Constructed once, fed via ``add(rollout)``."""
 
@@ -60,7 +137,6 @@ class TrainSink:
         assert (batch_size is None) != (token_batch_size is None), (
             "Exactly one of batch_size / token_batch_size must be set"
         )
-        self.config = config
         self.tokenizer = tokenizer
         self.train_envs = train_envs
         self.mm_token_type_ids_mapping = mm_token_type_ids_mapping
@@ -68,9 +144,16 @@ class TrainSink:
         self.token_batch_size = token_batch_size
         self.pre_filters = pre_filters
         self.post_filters = post_filters
-        self.value_publisher = value_publisher
-        self.value_batch_id = 0
-        self.pending_value_rollouts: list[_PendingValueRollout] = []
+        self._value_batch_accumulator: _ValueBatchAccumulator | None = None
+        if value_publisher is not None:
+            assert config.value_function is not None
+            assert config.value_function.batch_size is not None
+            assert config.value_function.model is not None
+            self._value_batch_accumulator = _ValueBatchAccumulator(
+                value_publisher,
+                batch_size=config.value_function.batch_size,
+                seq_len=config.value_function.model.seq_len,
+            )
 
         # Keyed by the dispatcher's group UUID. ``(env_name, task_idx)``
         # isn't unique — the same task can be re-sampled while an
@@ -133,11 +216,9 @@ class TrainSink:
 
     def value_batch_progress(self) -> tuple[int, int] | None:
         """Current and target rollout counts for the independent critic batch."""
-        if self.value_publisher is None:
+        if self._value_batch_accumulator is None:
             return None
-        assert self.config.value_function is not None
-        assert self.config.value_function.batch_size is not None
-        return len(self.pending_value_rollouts), self.config.value_function.batch_size
+        return self._value_batch_accumulator.progress()
 
     async def add(self, rollout: Rollout) -> TrainBatch | None:
         """Process one arrival; finalize the group on the ``group_size``-th
@@ -222,7 +303,8 @@ class TrainSink:
         # routing) are the algorithm's job (finalize_group); the sink only
         # owns the grouping mechanics.
         await env.algorithm.finalize_group(survivors)
-        self.enqueue_value_rollouts(survivors)
+        if self._value_batch_accumulator is not None:
+            self._value_batch_accumulator.add(survivors)
 
         # The env has a single sampling temperature; fan it out per token
         # (context tokens are masked out, so their temperature is don't-care).
@@ -263,67 +345,6 @@ class TrainSink:
             f"filtered={num_filtered}) | "
             f"reward={avg_reward:.4f} | filters: {filter_str}"
         )
-
-    def enqueue_value_rollouts(self, rollouts: list[Rollout]) -> None:
-        """Accumulate finalized rollouts and publish exact-size critic batches."""
-        if self.value_publisher is None:
-            return
-        assert self.config.value_function is not None
-        assert self.config.value_function.batch_size is not None
-        assert self.config.value_function.model is not None
-        trainable_rollouts = [rollout for rollout in rollouts if rollout.samples]
-        if not any(rollout.value_returns is not None for rollout in trainable_rollouts):
-            return
-        if not all(
-            rollout.value_returns is not None and rollout.value_version is not None for rollout in trainable_rollouts
-        ):
-            raise RuntimeError("value evaluator did not attach concrete lambda-return targets")
-        for rollout in trainable_rollouts:
-            assert rollout.value_returns is not None and rollout.value_version is not None
-            samples: list[ValueTrainingSample] = []
-            for sample, targets in zip(rollout.samples, rollout.value_returns, strict=True):
-                value_length = min(len(sample.token_ids), self.config.value_function.model.seq_len)
-                samples.append(
-                    ValueTrainingSample(
-                        token_ids=sample.token_ids[:value_length],
-                        mask=sample.mask[:value_length],
-                        targets=targets[:value_length],
-                    )
-                )
-            self.pending_value_rollouts.append(
-                _PendingValueRollout(
-                    samples=samples,
-                    policy_version=rollout.policy_version,
-                    value_version=rollout.value_version,
-                )
-            )
-        batch_size = self.config.value_function.batch_size
-        while len(self.pending_value_rollouts) >= batch_size:
-            batch_rollouts = self.pending_value_rollouts[:batch_size]
-            del self.pending_value_rollouts[:batch_size]
-            self.publish_value_batch(batch_rollouts)
-
-    def publish_value_batch(self, rollouts: list[_PendingValueRollout]) -> None:
-        if self.value_publisher is None:
-            return
-        samples = [sample for rollout in rollouts for sample in rollout.samples]
-        policy_versions = [rollout.policy_version for rollout in rollouts]
-        value_versions = [rollout.value_version for rollout in rollouts]
-        batch = ValueTrainingBatch(
-            samples=samples,
-            batch_id=self.value_batch_id,
-            num_rollouts=len(rollouts),
-            policy_version_min=min(policy_versions),
-            policy_version_max=max(policy_versions),
-            value_version_min=min(value_versions),
-            value_version_max=max(value_versions),
-        )
-        published = self.value_publisher.publish(batch)
-        get_logger().debug(
-            f"Value batch {self.value_batch_id} {'published' if published else 'dropped'} "
-            f"({len(rollouts)} rollouts, {len(samples)} samples)"
-        )
-        self.value_batch_id += 1
 
     def process_batch(self) -> TrainBatch:
         """Pop a cohort off ``pending_batch`` (by rollout count when
@@ -377,9 +398,8 @@ class TrainSink:
         owned by this sink (not the dispatcher), so drain them explicitly
         before clients and evaluator endpoints are closed.
         """
-        if self.pending_value_rollouts:
-            get_logger().info(f"Discarding incomplete value batch with {len(self.pending_value_rollouts)} rollout(s)")
-            self.pending_value_rollouts.clear()
+        if self._value_batch_accumulator is not None:
+            self._value_batch_accumulator.discard_pending()
         tasks = list(self.scoring_tasks.values())
         self.scoring_tasks.clear()
         await safe_cancel_all(tasks)
