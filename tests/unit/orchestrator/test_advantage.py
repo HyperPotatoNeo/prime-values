@@ -339,9 +339,7 @@ def test_linear_turns_term_penalizes_more_turns():
 
 
 def test_adaptive_tether_applies_each_fit_only_to_later_groups():
-    baseline = TetherBaselineConfig(
-        adaptive=AdaptiveTetherConfig(batch_size=2, ridge=1e-6, ema_decay=0.0)
-    )
+    baseline = TetherBaselineConfig(adaptive=AdaptiveTetherConfig(batch_size=2, ridge=1e-6, ema_decay=0.0))
     algo = GRPOAlgorithm(
         GRPOAlgoConfig(baseline=baseline),
         policy_pool=None,
@@ -353,8 +351,7 @@ def test_adaptive_tether_applies_each_fit_only_to_later_groups():
         group = _make_group([1.0, 0.0])
         for rollout, start_value in zip(group, [1.0, 0.0], strict=True):
             rollout.value_predictions = [
-                [start_value if trainable else 0.0 for trainable in sample.mask]
-                for sample in rollout.samples
+                [start_value if trainable else 0.0 for trainable in sample.mask] for sample in rollout.samples
             ]
         return group
 
@@ -394,8 +391,7 @@ def test_static_and_adaptive_initial_tether_coefficients_score_end_to_end(baseli
     group = _make_group([1.0, 0.0])
     for rollout, start_value in zip(group, [1.0, 0.0], strict=True):
         rollout.value_predictions = [
-            [start_value if trainable else 0.0 for trainable in sample.mask]
-            for sample in rollout.samples
+            [start_value if trainable else 0.0 for trainable in sample.mask] for sample in rollout.samples
         ]
 
     asyncio.run(algo.score_group(group))
