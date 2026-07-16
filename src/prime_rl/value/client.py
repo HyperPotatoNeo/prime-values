@@ -44,8 +44,12 @@ class ValueEvaluatorClient:
                     response = await self._client.get(f"{url}/health")
                     response.raise_for_status()
                     return
+                except httpx.HTTPStatusError as error:
+                    if not error.response.is_server_error:
+                        raise
                 except (httpx.HTTPError, OSError):
-                    await asyncio.sleep(1.0)
+                    pass
+                await asyncio.sleep(1.0)
 
         await asyncio.gather(*(wait(url.rstrip("/")) for url in self.config.base_url))
 

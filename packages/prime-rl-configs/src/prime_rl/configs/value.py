@@ -215,7 +215,13 @@ class ValueFunctionConfig(BaseConfig):
             if parsed.hostname in local_hosts and parsed.port in reserved_local_ports:
                 reserved_by = "value transport or weight broadcast" if dedicated else "value transport"
                 raise ValueError(f"local value evaluator port {parsed.port} conflicts with {reserved_by}")
-        if not dedicated:
+        if dedicated:
+            if len(self.evaluator.base_url) != self.weight_broadcast.evaluator_world_size:
+                raise ValueError(
+                    "value_function.evaluator.base_url count must equal "
+                    "value_function.weight_broadcast.evaluator_world_size"
+                )
+        else:
             if len(self.evaluator.base_url) != 1:
                 raise ValueError("trainer-placed value evaluation requires exactly one evaluator base_url")
             endpoint_port = urlparse(self.evaluator.base_url[0]).port

@@ -1,8 +1,9 @@
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import msgspec
+import pytest
 
 from prime_rl.configs.value import ValueEvaluatorConfig
 from prime_rl.value.client import ValueEvaluatorClient
@@ -17,6 +18,45 @@ def test_client_adds_response_grace_only_to_the_read_timeout():
         assert client._client.timeout.connect == 12.0
         assert client._client.timeout.pool == 12.0
         assert client._client.timeout.write == 12.0
+        await client.close()
+
+    asyncio.run(run_test())
+
+
+def test_wait_for_ready_retries_server_errors():
+    async def run_test() -> None:
+        client = ValueEvaluatorClient(ValueEvaluatorConfig(base_url=["http://eval:1"]))
+        client._client.get = AsyncMock(
+            side_effect=[
+                httpx.Response(503, request=httpx.Request("GET", "http://eval:1/health")),
+                httpx.Response(200, request=httpx.Request("GET", "http://eval:1/health")),
+            ]
+        )
+
+        with patch("prime_rl.value.client.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            await client.wait_for_ready()
+
+        sleep.assert_awaited_once_with(1.0)
+        assert client._client.get.await_count == 2
+        await client.close()
+
+    asyncio.run(run_test())
+
+
+def test_wait_for_ready_rejects_client_errors():
+    async def run_test() -> None:
+        client = ValueEvaluatorClient(ValueEvaluatorConfig(base_url=["http://eval:1"]))
+        client._client.get = AsyncMock(
+            return_value=httpx.Response(404, request=httpx.Request("GET", "http://eval:1/health"))
+        )
+
+        with patch("prime_rl.value.client.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            sleep.side_effect = AssertionError("client errors must not be retried")
+            with pytest.raises(httpx.HTTPStatusError):
+                await client.wait_for_ready()
+
+        sleep.assert_not_awaited()
+        assert client._client.get.await_count == 1
         await client.close()
 
     asyncio.run(run_test())

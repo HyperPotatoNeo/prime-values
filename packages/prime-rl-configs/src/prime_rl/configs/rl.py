@@ -357,14 +357,6 @@ class RLConfig(BaseConfig):
             raise ValueError("trainer-placed value evaluation does not support expert parallelism")
         if trainer_placed_evaluator and value.model.ep_comm_backend != "torch":
             raise ValueError("trainer-placed value evaluation does not support DeepEP")
-        if (
-            not trainer_placed_evaluator
-            and len(value.evaluator.base_url) != value.weight_broadcast.evaluator_world_size
-        ):
-            raise ValueError(
-                "value_function.evaluator.base_url count must equal "
-                "value_function.weight_broadcast.evaluator_world_size"
-            )
         if "output_dir" not in value.model_fields_set:
             value.output_dir = self.output_dir / "value"
         self.orchestrator.value_function = value.model_copy(deep=True)

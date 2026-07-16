@@ -335,6 +335,16 @@ def test_trainer_placed_value_evaluator_requires_one_endpoint(evaluator, weight_
         )
 
 
+def test_dedicated_value_evaluator_requires_one_url_per_replica():
+    with pytest.raises(ValidationError, match="base_url count"):
+        ValueFunctionConfig.model_validate(
+            {
+                "evaluator": {"base_url": ["http://127.0.0.1:29612"]},
+                "weight_broadcast": {"evaluator_world_size": 2},
+            }
+        )
+
+
 def test_trainer_placed_value_evaluator_ignores_unused_weight_ports():
     config = ValueFunctionConfig.model_validate(
         {
