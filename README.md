@@ -14,16 +14,9 @@ adopt those weights without coupling critic progress to policy versions. Value
 evaluation can run on dedicated GPUs for independent throughput or queue on the
 value trainer's GPUs when a smaller deployment matters more.
 
-```mermaid
-flowchart LR
-    P["🎲 Policy inference"] --> O["🧭 Orchestrator"]
-    O -->|"trajectories"| E["🔎 Value evaluator"]
-    E -->|"values + version"| O
-    O -->|"pure-value GAE"| T["🚂 Policy trainer"]
-    O -->|"targets via bounded FIFO"| R["🫙 Replay buffer"]
-    R --> V["🧠 Value trainer"]
-    V -->|"versioned weights"| E
-```
+<p align="center">
+  <img src="docs/assets/prime-values-flow.svg" alt="Prime Values asynchronous value-function pipeline" width="100%">
+</p>
 
 See [Value Functions](docs/value-functions.md) for topology, replay semantics,
 configuration, and monitoring.

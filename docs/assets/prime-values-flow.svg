@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 420" role="img" aria-labelledby="title desc">
+  <title id="title">Prime Values asynchronous value-function pipeline</title>
+  <desc id="desc">Policy inference sends trajectories through the orchestrator. The value evaluator returns versioned values, the policy trainer receives pure-value GAE, and value targets pass through replay to the value trainer.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .node { fill: #f6f8fa; stroke: #8c959f; stroke-width: 1.5; }
+    .title { fill: #24292f; font-size: 17px; font-weight: 600; }
+    .badge { fill: #8250df; }
+    .badge-text { fill: #ffffff; font-size: 13px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+    .edge { fill: none; stroke: #57606a; stroke-width: 1.8; marker-end: url(#arrow); }
+    .arrowhead { fill: #57606a; }
+    .label-bg { fill: #ffffff; stroke: #d0d7de; stroke-width: 1; }
+    .label { fill: #57606a; font-size: 13px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+    @media (prefers-color-scheme: dark) {
+      .node { fill: #161b22; stroke: #6e7681; }
+      .title { fill: #f0f6fc; }
+      .edge { stroke: #8b949e; }
+      .arrowhead { fill: #8b949e; }
+      .label-bg { fill: #0d1117; stroke: #30363d; }
+      .label { fill: #c9d1d9; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path class="arrowhead" d="M0,0 L8,4 L0,8 Z" />
+    </marker>
+  </defs>
+
+  <path class="edge" d="M260 77 C315 77 320 171 365 198" />
+  <path class="edge" d="M365 225 C315 249 310 342 260 342" />
+  <path class="edge" d="M625 193 C710 151 760 77 860 77" />
+  <path class="edge" d="M860 96 C770 126 720 219 625 230" />
+  <path class="edge" d="M625 211 L850 211" />
+  <path class="edge" d="M980 247 L980 310" />
+  <path class="edge" d="M1110 342 C1136 342 1136 77 1110 77" />
+
+  <g transform="translate(279 266)">
+    <rect class="label-bg" width="138" height="25" rx="7" />
+    <text class="label" x="69" y="13">pure-value GAE</text>
+  </g>
+  <g transform="translate(710 115)">
+    <rect class="label-bg" width="91" height="25" rx="7" />
+    <text class="label" x="45.5" y="13">trajectories</text>
+  </g>
+  <g transform="translate(690 164)">
+    <rect class="label-bg" width="119" height="25" rx="7" />
+    <text class="label" x="59.5" y="13">values + version</text>
+  </g>
+  <g transform="translate(700 198)">
+    <rect class="label-bg" width="105" height="25" rx="7" />
+    <text class="label" x="52.5" y="13">targets via FIFO</text>
+  </g>
+  <text class="label" x="1132" y="210" transform="rotate(-90 1132 210)">versioned weights</text>
+
+  <g>
+    <rect class="node" x="40" y="45" width="220" height="64" rx="12" />
+    <circle class="badge" cx="72" cy="77" r="16" />
+    <text class="badge-text" x="72" y="77">P</text>
+    <text class="title" x="100" y="83">Policy inference</text>
+  </g>
+  <g>
+    <rect class="node" x="365" y="175" width="260" height="72" rx="12" />
+    <circle class="badge" cx="401" cy="211" r="16" />
+    <text class="badge-text" x="401" y="211">O</text>
+    <text class="title" x="431" y="217">Orchestrator</text>
+  </g>
+  <g>
+    <rect class="node" x="40" y="310" width="220" height="64" rx="12" />
+    <circle class="badge" cx="72" cy="342" r="16" />
+    <text class="badge-text" x="72" y="342">P</text>
+    <text class="title" x="100" y="348">Policy trainer</text>
+  </g>
+  <g>
+    <rect class="node" x="860" y="45" width="250" height="64" rx="12" />
+    <circle class="badge" cx="892" cy="77" r="16" />
+    <text class="badge-text" x="892" y="77">E</text>
+    <text class="title" x="920" y="83">Value evaluator</text>
+  </g>
+  <g>
+    <rect class="node" x="850" y="175" width="260" height="72" rx="12" />
+    <circle class="badge" cx="886" cy="211" r="16" />
+    <text class="badge-text" x="886" y="211">R</text>
+    <text class="title" x="916" y="217">Replay buffer</text>
+  </g>
+  <g>
+    <rect class="node" x="850" y="310" width="260" height="64" rx="12" />
+    <circle class="badge" cx="882" cy="342" r="16" />
+    <text class="badge-text" x="882" y="342">V</text>
+    <text class="title" x="910" y="348">Value trainer</text>
+  </g>
+</svg>
