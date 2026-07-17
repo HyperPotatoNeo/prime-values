@@ -7,7 +7,7 @@ seq_len = 8192
 
 [wandb]
 project = "rgmix-async-value"
-name = "tether-perlmutter-smoke"
+name = "pure-value-perlmutter-smoke"
 
 [slurm]
 job_name = "rgmix-value-smoke"

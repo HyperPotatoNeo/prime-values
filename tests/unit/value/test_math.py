@@ -3,7 +3,6 @@ import math
 import pytest
 import torch
 
-from prime_rl.configs.algorithm import AdaptiveTetherConfig, LinearMixBaselineConfig, TetherBaselineConfig
 from prime_rl.configs.value import ClassificationValueLossConfig, MSEValueLossConfig
 from prime_rl.value.math import (
     align_value_logits,
@@ -88,82 +87,6 @@ def test_value_loss_masks_context_tokens():
     assert metrics["value/squared_error"].tolist() == [1.0]
 
 
-def test_mixed_baselines_default_to_leave_one_out_and_allow_mean():
-    assert LinearMixBaselineConfig().group == "leave_one_out"
-    assert TetherBaselineConfig().group == "leave_one_out"
-    assert LinearMixBaselineConfig(group="mean").group == "mean"
-    assert TetherBaselineConfig(group="mean").group == "mean"
-
-
-def test_mixed_baseline_coefficients_allow_any_finite_value():
-    assert LinearMixBaselineConfig(rho=-0.25).rho == -0.25
-    tether = TetherBaselineConfig(alpha=-1.5, rho=2.0)
-    assert tether.alpha == -1.5
-    assert tether.rho == 2.0
-
-
-def test_adaptive_tether_defaults_to_zero_initialized_slow_ema():
-    adaptive = AdaptiveTetherConfig()
-    assert adaptive.initial_alpha == 0.0
-    assert adaptive.initial_rho == 0.0
-    assert adaptive.ema_decay == 0.9
-    assert adaptive.ridge == 1e-6
-    assert adaptive.batch_size is None
-    assert adaptive.min_bin_rollouts is None
-
-    position = TetherBaselineConfig(position={}).position
-    assert position is not None
-    assert position.bin_size == 1024
-    assert position.max_action_tokens is None
-
-
-def test_adaptive_tether_requires_leave_one_out():
-    with pytest.raises(ValueError, match="leave_one_out"):
-        TetherBaselineConfig(group="mean", adaptive={})
-
-
-def test_adaptive_tether_resolved_config_round_trips_static_defaults():
-    baseline = TetherBaselineConfig(alpha=0.2, rho=0.3, adaptive={})
-    reloaded = TetherBaselineConfig.model_validate(baseline.model_dump())
-
-    assert reloaded.adaptive is not None
-    assert reloaded.adaptive.initial_alpha == 0.0
-    assert reloaded.adaptive.initial_rho == 0.0
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        {"ema_decay": -0.1},
-        {"ema_decay": 1.0},
-        {"ridge": -1e-6},
-        {"min_bin_rollouts": 0},
-        {"initial_alpha": float("nan")},
-        {"initial_rho": float("inf")},
-    ],
-)
-def test_adaptive_tether_rejects_invalid_fit_parameters(kwargs):
-    with pytest.raises(ValueError):
-        AdaptiveTetherConfig(**kwargs)
-
-
-@pytest.mark.parametrize(
-    ("config_type", "kwargs"),
-    [
-        (LinearMixBaselineConfig, {"rho": float("inf")}),
-        (TetherBaselineConfig, {"alpha": float("nan")}),
-        (TetherBaselineConfig, {"rho": float("-inf")}),
-    ],
-)
-def test_mixed_baseline_coefficients_reject_nonfinite_values(config_type, kwargs):
-    with pytest.raises(ValueError):
-        config_type(**kwargs)
-
-
 def test_bounded_value_configs_reject_nonfinite_reward_ranges():
     with pytest.raises(ValueError, match="reward_range"):
         ClassificationValueLossConfig(reward_range=(float("nan"), 1.0))
-    with pytest.raises(ValueError, match="reward_range"):
-        TetherBaselineConfig(reward_range=(0.0, float("inf")))
-    with pytest.raises(ValueError, match="reward_range"):
-        TetherBaselineConfig(reward_range=(-1e308, 1e308))

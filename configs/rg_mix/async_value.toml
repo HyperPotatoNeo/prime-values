@@ -10,7 +10,7 @@ name = "Qwen/Qwen3-4B-Instruct-2507"
 
 [wandb]
 project = "rgmix-async-value"
-name = "tether-k8"
+name = "pure-value-k8"
 
 [slurm]
 job_name = "rgmix-async-value"
@@ -27,11 +27,7 @@ max_inflight_rollouts = 256
 type = "grpo"
 
 [orchestrator.algo.baseline]
-type = "tether"
-group = "leave_one_out"
-alpha = 0.5
-rho = 0.8
-reward_range = [0.0, 1.0]
+type = "value"
 
 [orchestrator.train.sampling]
 temperature = 1.0

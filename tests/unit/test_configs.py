@@ -306,7 +306,7 @@ def test_value_function_resolves_separate_model_and_gpu_roles():
             "trainer": {},
             "orchestrator": {
                 "group_size": 2,
-                "algo": {"type": "grpo", "baseline": {"type": "linear_mix"}},
+                "algo": {"type": "grpo", "baseline": {"type": "value"}},
             },
             "value_function": {},
             "deployment": {"type": "single_node", "gpus_per_node": 4},
@@ -317,7 +317,7 @@ def test_value_function_resolves_separate_model_and_gpu_roles():
     assert config.value_function.model is not None
     assert config.value_function.model.name == config.trainer.model.name
     assert config.orchestrator.value_function is not None
-    assert config.orchestrator.algo.baseline.type == "linear_mix"
+    assert config.orchestrator.algo.baseline.type == "value"
     assert config.value_function.batch_size == config.orchestrator.batch_size == 128
     assert config.value_function.evaluator.placement == "dedicated"
     assert config.value_function.evaluator.dtype == "bfloat16"
@@ -482,96 +482,6 @@ def test_value_evaluator_batch_ceiling_may_be_smaller_than_sequence_length():
     assert config.value_function is not None
     assert config.value_function.model is not None
     assert config.value_function.evaluator.max_batch_tokens < config.value_function.model.seq_len
-
-
-def test_adaptive_tether_inherits_the_critic_rollout_batch_size():
-    config = RLConfig.model_validate(
-        {
-            "trainer": {},
-            "orchestrator": {
-                "batch_size": 16,
-                "group_size": 4,
-                "algo": {
-                    "type": "grpo",
-                    "baseline": {"type": "tether", "adaptive": {}},
-                },
-            },
-            "value_function": {},
-            "deployment": {"type": "single_node", "gpus_per_node": 4},
-        }
-    )
-
-    assert config.value_function is not None
-    assert config.value_function.batch_size == 16
-    assert config.orchestrator.algo.baseline.type == "tether"
-    assert config.orchestrator.algo.baseline.adaptive is not None
-    assert config.orchestrator.algo.baseline.adaptive.batch_size == 16
-    for env in config.orchestrator.train.env:
-        assert env.algo is not None and env.algo.baseline.type == "tether"
-        assert env.algo.baseline.adaptive is not None
-        assert env.algo.baseline.adaptive.batch_size == 16
-
-
-@pytest.mark.parametrize(
-    ("seq_len", "position", "message"),
-    [
-        (256, {}, "at least two bins"),
-        (128, {"bin_size": 16, "max_action_tokens": 129}, "cannot exceed"),
-        (129, {"bin_size": 1, "max_action_tokens": 129}, "maximum is 128"),
-    ],
-)
-def test_tether_position_contract_is_validated_during_config_resolution(seq_len, position, message):
-    with pytest.raises(ValidationError, match=message):
-        RLConfig.model_validate(
-            {
-                "seq_len": seq_len,
-                "trainer": {},
-                "orchestrator": {
-                    "batch_size": 16,
-                    "group_size": 4,
-                    "algo": {
-                        "type": "grpo",
-                        "baseline": {"type": "tether", "position": position},
-                    },
-                },
-                "value_function": {},
-                "deployment": {"type": "single_node", "gpus_per_node": 4},
-            }
-        )
-
-
-def test_per_environment_adaptive_tether_batch_size_overrides_inheritance():
-    adaptive = {"type": "grpo", "baseline": {"type": "tether", "adaptive": {}}}
-    custom = {
-        "type": "grpo",
-        "baseline": {"type": "tether", "adaptive": {"batch_size": 4}},
-    }
-    config = RLConfig.model_validate(
-        {
-            "trainer": {},
-            "orchestrator": {
-                "batch_size": 16,
-                "group_size": 4,
-                "algo": adaptive,
-                "train": {
-                    "env": [
-                        {"id": "reverse-text", "name": "inherited"},
-                        {"id": "reverse-text", "name": "custom", "algo": custom},
-                    ]
-                },
-            },
-            "value_function": {},
-            "deployment": {"type": "single_node", "gpus_per_node": 4},
-        }
-    )
-
-    inherited_env, custom_env = config.orchestrator.train.env
-    assert inherited_env.algo is not None and inherited_env.algo.baseline.type == "tether"
-    assert custom_env.algo is not None and custom_env.algo.baseline.type == "tether"
-    assert inherited_env.algo.baseline.adaptive is not None
-    assert custom_env.algo.baseline.adaptive is not None
-    assert inherited_env.algo.baseline.adaptive.batch_size == 16
-    assert custom_env.algo.baseline.adaptive.batch_size == 4
 
 
 def test_shared_observability_reaches_value_trainer():
@@ -869,7 +779,7 @@ def test_value_trainer_supports_multiple_nodes_and_evaluator_replicas():
             "trainer": {},
             "orchestrator": {
                 "group_size": 2,
-                "algo": {"type": "grpo", "baseline": {"type": "linear_mix"}},
+                "algo": {"type": "grpo", "baseline": {"type": "value"}},
             },
             "inference": {"parallel": {"tp": 4}},
             "value_function": {
@@ -904,7 +814,7 @@ def test_multi_node_value_evaluator_urls_render_as_one_cli_argument(tmp_path):
             "trainer": {},
             "orchestrator": {
                 "group_size": 2,
-                "algo": {"type": "grpo", "baseline": {"type": "linear_mix"}},
+                "algo": {"type": "grpo", "baseline": {"type": "value"}},
             },
             "inference": {"parallel": {"tp": 4}},
             "value_function": {

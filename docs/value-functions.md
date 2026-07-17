@@ -241,175 +241,15 @@ configuration with non-value and value-backed choices:
 
 - `mean`: standard GRPO, `A = R - mean(R)`;
 - `leave_one_out`: `A_i = R_i - mean(R_{j != i})`;
-- `value`: pure per-token GAE;
-- `linear_mix`: an affine blend of a group advantage and GAE using one static
-  coefficient, `A = (1 - rho) * A_group + rho * A_value`;
-- `tether`: a clipped two-factor correction anchored on a group baseline.
+- `value`: pure per-token GAE.
 
-Both `linear_mix` and `tether` accept `group = "mean"` or
-`group = "leave_one_out"`; **leave-one-out is the default for both**.
 Length penalties remain group-credit-only; when `[value_function]` is enabled,
 set `baseline.type` explicitly to `mean` or `leave_one_out` before configuring
 one.
 
-TETHER forms the complete baseline and clips once at the end:
-
-```text
-b_t = clip(B_group + alpha * (V_0 - B_group) + rho * (V_t - V_0), low, high)
-A_t = R - b_t
-```
-
-The anchor correction and progress term are not clipped separately.
-Without an `adaptive` table, `alpha` and `rho` are static finite coefficients.
-They are not restricted to `[0, 1]` because calibrated control-variate
-coefficients may legitimately lie outside that interval (including being
-negative).
-
-### Adaptive TETHER coefficients
-
-An empty nested table enables the online two-factor fit:
-
-```toml
-[orchestrator.algo.baseline]
-type = "tether"
-group = "leave_one_out"
-reward_range = [0.0, 1.0]
-
-[orchestrator.algo.baseline.adaptive]
-# batch_size = value_function.batch_size
-# ridge = 1e-6
-# ema_decay = 0.9
-# initial_alpha = 0.0
-# initial_rho = 0.0
-```
-
-Adaptive mode ignores the static `baseline.alpha` and `baseline.rho` fields;
-use `adaptive.initial_alpha` and `adaptive.initial_rho` when a nonzero start is
-intentional. Their defaults are zero. With the required leave-one-out anchor,
-zero/zero is exactly the LOO sibling-mean baseline, not the own-inclusive GRPO
-group mean.
-
-For every trainable token, the estimator fits the no-intercept ridge problem
-
-```text
-y       = R - B_LOO
-x_alpha = V_0 - B_LOO
-x_rho   = V_t - V_0
-y ~= alpha * x_alpha + rho * x_rho
-```
-
-Rows are weighted by trainable-token count because the actor loss is
-token-normalized. The features and target are divided by the reward-range width
-before their moments are accumulated, so `ridge` is invariant to a linear
-rescaling of the reward. The fit targets the unclipped linear residual; the
-full TETHER baseline is still clipped once when advantages are constructed.
-`V_0` is the first native model-sampled action value on the branch. On a
-shared-prefix fork, that remains the shared branch start even when the prefix's
-policy gradient is deduplicated onto another leaf.
-
-There is one estimator per training environment, shared globally across that
-environment's prompts. A group snapshots the current coefficients before any
-of its advantages are assigned. Only after every sibling is scored are its
-sufficient statistics queued; each exact `batch_size` rollouts produces a new
-ridge fit, followed by
-
-```text
-beta <- ema_decay * beta + (1 - ema_decay) * beta_batch
-```
-
-The EMA is intentionally not bias-corrected: its early shrinkage toward the
-zero/zero LOO baseline is the safety ramp. The completed batch can therefore
-affect only later groups. Together with LOO and the evaluator's causal
-pre-action values, this prevents the coefficient fit from introducing a
-same-action reward-dependent baseline when sibling rewards are scored
-independently. A joint or rank-based group scorer can make sibling rewards
-depend on the current rollout, in which case LOO alone does not provide this
-guarantee. Regression collection happens before the policy-batch warmup gate,
-so coefficients adapt during value warmup too.
-
-### Position-conditioned TETHER
-
-Position conditioning is opt-in. It replaces the global coefficient pair with
-fixed-width bins over causal, branch-local action-token depth:
-
-```toml
-[orchestrator.algo.baseline]
-type = "tether"
-alpha = 1.0
-rho = 1.0
-
-[orchestrator.algo.baseline.position]
-bin_size = 1024
-# max_action_tokens = 20000  # otherwise the policy sequence length
-```
-
-The position of an action token is the number of native model-sampled action
-tokens before it on that root-to-leaf branch. Prompt tokens, tool results, user
-feedback, and rendering scaffold neither receive an advantage nor advance the
-position. Shared sampled prefixes advance every descendant branch, while their
-gradient/regression rows are still counted only once. Independent branches
-start at zero. This definition does not impose a timing-dependent total order
-on concurrent subagents.
-
-Bin boundaries and the horizon are fixed before sampling. The implementation
-does not normalize by a rollout's realized final length, since doing so would
-let future stopping decisions change the baseline of an earlier action. Tokens
-beyond an explicit `max_action_tokens` use the final bin. The position config
-must resolve to between 2 and 128 bins; the default 1024-token width gives 20
-bins for a 20k-token horizon.
-
-In static mode, the configured `alpha` and `rho` are endpoints. For `K` bins,
-bin `k` uses the ex-ante ramp
-
-```text
-gate_k  = k / (K - 1)
-alpha_k = gate_k * alpha
-rho_k   = gate_k * rho
-```
-
-The first bin is therefore the configured group anchor (LOO under the default
-configuration). With `alpha = rho = 1`, the final bin is the pure current value
-`V_t`; other endpoint values remain valid static control-variate choices.
-
-Adding the ordinary adaptive table fits one independent alpha/rho pair per
-position bin:
-
-```toml
-[orchestrator.algo.baseline.adaptive]
-ridge = 1e-6
-ema_decay = 0.9
-initial_alpha = 0.0
-initial_rho = 0.0
-# min_bin_rollouts = 32
-```
-
-All bins start from the adaptive initial coefficients (zero/zero, hence LOO,
-by default). A bin is fitted only from rows in the current exact rollout
-regression window and only when enough distinct rollouts reached it. The
-default support threshold is one eighth of the regression batch, rounded up.
-Unsupported bins retain their coefficients without EMA decay. Supported bins
-use `ema_decay ** (contributing_rollouts / batch_size)`, so sparse tail evidence
-moves a coefficient less than full-batch evidence. Each bin's moments are
-normalized by its own trainable-token count, and its ridge strength is scaled
-by `batch_size / contributing_rollouts`. A bin's fit is therefore invariant to
-unrelated tokens in other bins while sparse bins are regularized more strongly,
-without retaining stale raw rollouts across critic versions.
-
-The applied coefficients, raw batch fits, MSE proxies, clipping fraction,
-condition number, update count, and pending rollout count are logged on the
-wall-clock axis under `algorithm/<env>/tether/*`. Coefficients need not rise
-monotonically as the critic improves: a directionally correct but shrunken
-critic can need `rho > 1`, while better calibration can later move it back
-toward one. Orchestrator checkpoints preserve the EMA and pending sufficient
-statistics. Positioned adaptive runs additionally log each bin's coefficients,
-raw fit, support, token count, age, condition number, and update counts under
-`algorithm/<env>/tether/position/bin_NNN/*`, plus min/max and active-bin
-summaries. A run interrupted before its first policy checkpoint has no
-warmup-only orchestrator checkpoint to restore.
-
-`value`, `linear_mix`, and `tether` are invalid unless `[value_function]` is
-enabled. Explicitly selecting `mean` or `leave_one_out` with a value function
-is valid and trains the critic for diagnostics or a later baseline change.
+`value` is invalid unless `[value_function]` is enabled. Explicitly selecting
+`mean` or `leave_one_out` with a value function is valid and trains the critic
+for diagnostics or a later baseline change.
 
 ## Staleness and overload
 
@@ -482,9 +322,6 @@ are also logged by the orchestrator.
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
 | `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means the credited response was accepted by ZeroMQ, not acknowledged as replay admission; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
 | `value/rollout_queue_pending_{bytes,tokens}`, `value/rollout_responder_failures` | Encoded host-memory pressure and pull-responder health. The local FIFO remains within its configured rollout capacity while the trainer is not admitting data. |
-| `algorithm/<env>/tether/{alpha,rho,batch_fit_alpha,batch_fit_rho,batch_fit_valid}` | Adaptive TETHER coefficients currently applied to new groups and the most recent raw ridge fit. `batch_fit_valid=0` marks a skipped singular/non-finite fit. |
-| `algorithm/<env>/tether/{mse_loo,mse_batch_fit,mse_ema,clip_fraction,condition_number}` | Token-weighted residual-variance proxies and fit conditioning. `clip_fraction` is the realized rate under the pre-update coefficients that scored those rollouts. Heavy clipping or poor conditioning makes coefficient magnitude less informative. |
-| `algorithm/<env>/tether/{updates,skipped_updates,pending_rollouts,regression_batch_size}` | Adaptive fit cadence and health. These continue updating and logging during value warmup. |
 
 ## Warmup
 

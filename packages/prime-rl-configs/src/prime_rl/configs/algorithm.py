@@ -33,7 +33,6 @@ count; per-token component weights ship on the wire and the trainer just
 executes them.
 """
 
-import math
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, model_validator
@@ -114,8 +113,6 @@ LengthPenaltyConfig: TypeAlias = LinearLengthPenaltyConfig
 # GRPO baselines
 # ---------------------------------------------------------------------------
 
-MAX_TETHER_POSITION_BINS = 128
-
 
 class MeanBaselineConfig(BaseConfig):
     type: Literal["mean"] = "mean"
@@ -132,97 +129,8 @@ class ValueBaselineConfig(BaseConfig):
     """Use the value evaluator's per-token GAE directly."""
 
 
-class LinearMixBaselineConfig(BaseConfig):
-    type: Literal["linear_mix"] = "linear_mix"
-    """Affinely mix a group-relative advantage with per-token GAE."""
-
-    group: Literal["mean", "leave_one_out"] = "leave_one_out"
-    """Group baseline used by the non-value side of the mixture."""
-
-    rho: float = Field(0.5, allow_inf_nan=False)
-    """Static value-advantage coefficient. Any finite value is allowed."""
-
-
-class TetherPositionConfig(BaseConfig):
-    """Causal, branch-local action-position bins for TETHER coefficients."""
-
-    bin_size: int = Field(1024, ge=1)
-    """Generated assistant tokens per coefficient bin."""
-
-    max_action_tokens: int | None = Field(None, ge=1)
-    """Fixed ex-ante action horizon. None uses the policy sequence length."""
-
-
-class AdaptiveTetherConfig(BaseConfig):
-    """Online two-factor control-variate fit for TETHER.
-
-    One no-intercept ridge regression is fit after each completed rollout
-    batch. Its coefficients are exponentially averaged and only become
-    visible to later rollout groups, so rewards never tune the baseline used
-    for the actions that produced those rewards.
-    """
-
-    batch_size: int | None = Field(None, ge=1)
-    """Rollouts per regression fit. None inherits ``value_function.batch_size``."""
-
-    ridge: float = Field(1e-6, ge=0, allow_inf_nan=False)
-    """L2 penalty applied to token-normalized feature moments."""
-
-    ema_decay: float = Field(0.9, ge=0, lt=1, allow_inf_nan=False)
-    """EMA decay: ``new = decay * old + (1 - decay) * batch_fit``."""
-
-    initial_alpha: float = Field(0.0, allow_inf_nan=False)
-    """Applied alpha before the first fit and the EMA's initial value."""
-
-    initial_rho: float = Field(0.0, allow_inf_nan=False)
-    """Applied rho before the first fit and the EMA's initial value."""
-
-    min_bin_rollouts: int | None = Field(None, ge=1)
-    """Minimum distinct contributing rollouts required to fit a position bin.
-    None resolves to one eighth of the regression batch in positioned mode and
-    one rollout in the ordinary one-bin mode."""
-
-
-class TetherBaselineConfig(BaseConfig):
-    type: Literal["tether"] = "tether"
-    """Clipped group-anchor plus value-progress correction."""
-
-    group: Literal["mean", "leave_one_out"] = "leave_one_out"
-    """Group reward anchor; leave-one-out is computed directly from siblings."""
-
-    alpha: float = Field(0.5, allow_inf_nan=False)
-    """Static coefficient on the correction from the group anchor to the start value."""
-
-    rho: float = Field(0.5, allow_inf_nan=False)
-    """Static coefficient on value progress from the start state to the current state."""
-
-    adaptive: AdaptiveTetherConfig | None = None
-    """Optional online coefficient fit. When enabled, its initial coefficients
-    replace the static ``alpha`` and ``rho`` fields and default to zero."""
-
-    position: TetherPositionConfig | None = None
-    """Optional causal action-position conditioning. None keeps the default
-    single global alpha/rho pair."""
-
-    reward_range: tuple[float, float] = (0.0, 1.0)
-    """Closed interval used to clip the corrected baseline."""
-
-    @model_validator(mode="after")
-    def validate_reward_range(self):
-        low, high = self.reward_range
-        if not math.isfinite(low) or not math.isfinite(high) or high <= low or not math.isfinite(high - low):
-            raise ValueError("tether.reward_range must be increasing")
-        if self.adaptive is not None and self.group != "leave_one_out":
-            raise ValueError("adaptive tether requires group='leave_one_out' to keep the baseline action-independent")
-        return self
-
-
 GRPOBaselineConfig: TypeAlias = Annotated[
-    MeanBaselineConfig
-    | LeaveOneOutBaselineConfig
-    | ValueBaselineConfig
-    | LinearMixBaselineConfig
-    | TetherBaselineConfig,
+    MeanBaselineConfig | LeaveOneOutBaselineConfig | ValueBaselineConfig,
     Field(discriminator="type"),
 ]
 
@@ -309,7 +217,7 @@ class BaseAlgoConfig(BaseConfig):
 
 class GRPOAlgoConfig(BaseAlgoConfig):
     type: Literal["grpo"] = "grpo"
-    """GRPO with configurable group, value, mixed, or TETHER credit,
+    """GRPO with configurable group or pure-value credit,
     consumed by the ``rl`` loss component on the rollout's action tokens."""
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
@@ -322,7 +230,7 @@ class GRPOAlgoConfig(BaseAlgoConfig):
 
     @model_validator(mode="after")
     def validate_value_baseline_length_penalty(self):
-        if self.length_penalty is not None and self.baseline.type in {"value", "linear_mix", "tether"}:
+        if self.length_penalty is not None and self.baseline.type == "value":
             raise ValueError("value-backed GRPO baselines cannot be combined with length_penalty yet")
         return self
 

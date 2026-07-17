@@ -80,18 +80,6 @@ state to the policy trainer.
   its default capacity and refill threshold are both
   `max_updates_per_rollout * value_function.batch_size`. Replay state is not
   checkpointed and refills from fresh rollouts after resume.
-- TETHER can fit its two coefficients online by adding an empty
-  `[orchestrator.algo.baseline.adaptive]` table. Adaptive mode requires the
-  leave-one-out anchor, starts from alpha/rho zero, inherits the critic rollout
-  batch size, and updates during value warmup. Watch
-  `algorithm/<env>/tether/{alpha,rho,updates,mse_ema}`; orchestrator checkpoints
-  preserve the estimator state.
-- TETHER position conditioning is opt-in through
-  `[orchestrator.algo.baseline.position]`. It uses fixed-width, branch-local
-  generated-action bins (`bin_size = 1024` by default). With adaptive TETHER,
-  watch the per-bin coefficient/support metrics under
-  `algorithm/<env>/tether/position/bin_NNN/*` as well as the active-bin summary.
-
 ## `sft` — SFT training
 
 Launches torchrun internally — never call torchrun directly.

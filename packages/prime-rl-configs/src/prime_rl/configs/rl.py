@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 
-from prime_rl.configs.algorithm import MAX_TETHER_POSITION_BINS, AlgoConfig, GRPOAlgoConfig, ValueBaselineConfig
+from prime_rl.configs.algorithm import AlgoConfig, GRPOAlgoConfig, ValueBaselineConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.inference import WeightBroadcastConfig as InferenceWeightBroadcastConfig
 from prime_rl.configs.orchestrator import (
@@ -273,15 +273,14 @@ class RLConfig(BaseConfig):
                         raise ValueError("value-backed GRPO baselines cannot be combined with length_penalty yet")
                     algo.baseline = ValueBaselineConfig()
         for env_name, algo in effective_algorithms:
-            if isinstance(algo, GRPOAlgoConfig) and algo.baseline.type in {"value", "linear_mix", "tether"}:
+            if isinstance(algo, GRPOAlgoConfig) and algo.baseline.type == "value":
                 value_baselines.append((env_name, algo.baseline.type))
 
         for env_name, algo in effective_algorithms:
             if not isinstance(algo, GRPOAlgoConfig):
                 continue
             baseline = algo.baseline
-            group_kind = getattr(baseline, "group", baseline.type)
-            if group_kind != "leave_one_out":
+            if baseline.type != "leave_one_out":
                 continue
             env = next((item for item in self.orchestrator.train.env if item.resolved_name == env_name), None)
             group_size = env.group_size if env is not None else self.orchestrator.group_size
@@ -320,26 +319,6 @@ class RLConfig(BaseConfig):
                 raise ValueError("value_function.batch_size must be set when the policy uses token_batch_size")
             value.batch_size = self.orchestrator.batch_size
         value.replay.resolve(batch_size=value.batch_size)
-        algorithms_to_resolve = [self.orchestrator.algo, *(algo for _, algo in effective_algorithms)]
-        for algo in algorithms_to_resolve:
-            if not isinstance(algo, GRPOAlgoConfig) or algo.baseline.type != "tether":
-                continue
-            adaptive = algo.baseline.adaptive
-            if adaptive is not None and adaptive.batch_size is None:
-                adaptive.batch_size = value.batch_size
-            position = algo.baseline.position
-            if position is None:
-                continue
-            horizon = position.max_action_tokens or self.orchestrator.seq_len
-            if horizon > self.orchestrator.seq_len:
-                raise ValueError("tether.position.max_action_tokens cannot exceed orchestrator.seq_len")
-            num_bins = (horizon + position.bin_size - 1) // position.bin_size
-            if num_bins < 2:
-                raise ValueError("tether position conditioning must resolve to at least two bins")
-            if num_bins > MAX_TETHER_POSITION_BINS:
-                raise ValueError(
-                    f"tether position config creates {num_bins} bins; maximum is {MAX_TETHER_POSITION_BINS}"
-                )
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
 

@@ -14,8 +14,7 @@ turns the signal half into runtime objects (the sampling half is the env's
   and register it below.
 - ``base`` — the :class:`Algorithm` base class, whose non-virtual
   ``finalize_rollout`` / ``finalize_group`` methods the pipeline drives.
-- ``advantage`` — shared rollout-credit math for group baselines, GAE, and
-  group/value mixing.
+- ``advantage`` — shared rollout-credit math for group baselines and GAE.
   Advantages are per-token everywhere they are stored or shipped — there is no
   scalar advantage in the pipeline. An algorithm assigns credit in its scoring
   hook via ``Rollout.assign_advantages``: a scalar that is *broadcast* over the
@@ -65,7 +64,6 @@ def build_algorithm(
     *,
     value_evaluator: ValueEvaluatorClient | None = None,
     value_config: ValueFunctionConfig | None = None,
-    policy_seq_len: int | None = None,
 ) -> Algorithm:
     cls = ALGORITHM_CLASSES[config.type]
     assert cls.action_loss_type == config.action_loss_type  # config and runtime declare in two places
@@ -80,7 +78,6 @@ def build_algorithm(
             policy_pool,
             value_evaluator=value_evaluator,
             value_config=value_config,
-            policy_seq_len=policy_seq_len,
         )
     return cls(config, policy_pool)
 

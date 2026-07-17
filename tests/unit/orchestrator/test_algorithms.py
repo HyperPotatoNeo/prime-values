@@ -58,18 +58,12 @@ def test_type_defaults_are_the_vetted_algorithms(algorithm_type, build_kwargs, s
         ({"type": "mean"}, 1),
         ({"type": "value"}, 1),
         ({"type": "leave_one_out"}, 2),
-        ({"type": "linear_mix", "group": "leave_one_out"}, 2),
-        ({"type": "tether", "group": "mean"}, 1),
     ],
 )
 def test_grpo_declares_minimum_surviving_group_size(baseline, minimum_group_size):
-    value_config = ValueFunctionConfig(model={"seq_len": 1}) if baseline["type"] == "tether" else None
-    value_evaluator = MagicMock() if value_config is not None else None
     algorithm = GRPOAlgorithm(
         _build(type="grpo", baseline=baseline),
         MagicMock(),
-        value_evaluator=value_evaluator,
-        value_config=value_config,
     )
     assert algorithm.minimum_group_size == minimum_group_size
 

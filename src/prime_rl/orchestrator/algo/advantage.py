@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import math
 
-from prime_rl.configs.algorithm import LinearMixBaselineConfig
-
 
 def compute_gae(
     *,
@@ -63,19 +61,3 @@ def group_advantages(rewards: list[float], baseline: str) -> list[float]:
         reward - group_baseline
         for reward, group_baseline in zip(rewards, group_baselines(rewards, baseline), strict=True)
     ]
-
-
-def linear_mix_advantages(
-    group_advantage: float,
-    value_advantages: list[float],
-    mask: list[bool],
-    config: LinearMixBaselineConfig,
-) -> list[float]:
-    if len(value_advantages) != len(mask):
-        raise ValueError("value advantage/mask length mismatch")
-    output = [0.0] * len(mask)
-    for index, trainable in enumerate(mask):
-        if not trainable:
-            continue
-        output[index] = (1.0 - config.rho) * group_advantage + config.rho * value_advantages[index]
-    return output

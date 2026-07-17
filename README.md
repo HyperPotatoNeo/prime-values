@@ -1,3 +1,35 @@
+# Prime Values
+
+Prime Values extends [PRIME-RL](https://github.com/PrimeIntellect-ai/prime-rl)
+with asynchronous value functions and rollout replay. It keeps critic learning
+outside the policy trainer: a value evaluator scores each rollout's causal
+states, the orchestrator turns those predictions into per-token GAE and value
+targets, and the policy receives the pure value advantage without owning any
+critic model or loss.
+
+Completed rollouts enter a bounded, nonblocking queue and a rollout-granular
+replay buffer. The value trainer samples critic batches independently of policy
+updates, publishes monotonically versioned weights, and lets the evaluator
+adopt those weights without coupling critic progress to policy versions. Value
+evaluation can run on dedicated GPUs for independent throughput or queue on the
+value trainer's GPUs when a smaller deployment matters more.
+
+```mermaid
+flowchart LR
+    P["🎲 Policy inference"] --> O["🧭 Orchestrator"]
+    O -->|"trajectories"| E["🔎 Value evaluator"]
+    E -->|"values + version"| O
+    O -->|"pure-value GAE"| T["🚂 Policy trainer"]
+    O -->|"targets via bounded FIFO"| R["🫙 Replay buffer"]
+    R --> V["🧠 Value trainer"]
+    V -->|"versioned weights"| E
+```
+
+See [Value Functions](docs/value-functions.md) for topology, replay semantics,
+configuration, and monitoring.
+
+---
+
 <p align="center">
 </p>
 

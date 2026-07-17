@@ -213,7 +213,7 @@ The shipped end-to-end examples in [`examples/`](https://github.com/PrimeIntelle
 - [**Alphabet Sort**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/alphabet_sort) — `Qwen3-4B-Instruct-2507` sorting names alphabetically. Multi-turn LoRA RL without SFT warmup; one H100.
 - [**Wiki Search**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/wiki_search) — `Qwen3-4B-Instruct-2507` answering trivia by web-searching Wikipedia. Multi-turn with tool use.
 - [**Hendrycks Sanity**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/hendrycks_sanity) — `DeepSeek-R1-Distill-Qwen-1.5B` on a filtered MATH subset. Useful for algorithm ablations.
-- [**Async Value Function**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/value_function) — Qwen3-0.6B smoke with an independently trained critic, dedicated or trainer-placed evaluation, and mixed group/value advantages.
+- [**Async Value Function**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/value_function) — Qwen3-0.6B smoke with an independently trained critic, dedicated or trainer-placed evaluation, and pure value advantages.
 
 **Advanced** (32–2048 GPUs, SLURM):
 

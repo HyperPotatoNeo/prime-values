@@ -6,7 +6,7 @@ algorithm: it owns the algorithm's two scoring hooks directly —
 which loss component its action tokens feed (``action_loss_type``). Reading a
 module top to bottom reads the algorithm; writing your own is subclassing
 :class:`Algorithm` and overriding the hooks its signal needs. Shared rollout-credit
-math (group baselines, GAE, and group/value mixing) lives as plain functions in
+math (group baselines and GAE) lives as plain functions in
 ``advantage.py``;
 duplication of orchestration between similar algorithms (e.g. OPD and OPSD) is
 accepted so each module stays self-contained.
@@ -41,7 +41,7 @@ Every *frozen* model an algorithm needs is an external endpoint it *connects to*
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from prime_rl.configs.algorithm import ActionLossType, AlgoConfig, FrozenModelConfig
 from prime_rl.configs.value import ValueFunctionConfig
@@ -135,14 +135,12 @@ class Algorithm:
         *,
         value_evaluator: ValueEvaluatorClient | None = None,
         value_config: ValueFunctionConfig | None = None,
-        policy_seq_len: int | None = None,
     ):
         self.config = config
         self.policy_pool = policy_pool
         self.connected_pools: list[InferencePool] = []  # frozen pools connected in setup(); closed at shutdown
         self.value_evaluator = value_evaluator
         self.value_config = value_config
-        self.policy_seq_len = policy_seq_len
         if (value_evaluator is None) != (value_config is None):
             raise ValueError("value evaluator and value config must be provided together")
 
@@ -150,21 +148,6 @@ class Algorithm:
         """Connect client pools to the algorithm's frozen models — override
         and resolve each reference via :meth:`connect`. The base has nothing
         to connect."""
-
-    def metrics(self) -> dict[str, float]:
-        """Current algorithm-local metrics, without an environment prefix."""
-        return {}
-
-    def metric_keys(self) -> list[str]:
-        """Stable metric names, including keys not yet present in ``metrics``."""
-        return list(self.metrics())
-
-    def state_dict(self) -> dict[str, Any]:
-        """Small orchestrator-owned state persisted with policy checkpoints."""
-        return {}
-
-    def load_state_dict(self, state: dict[str, Any]) -> None:
-        """Restore orchestrator-owned state. Stateless algorithms ignore it."""
 
     async def connect(self, reference: FrozenModelConfig) -> InferencePool:
         """Connect a client pool to a frozen model endpoint and track it in

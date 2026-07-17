@@ -15,9 +15,7 @@ max_inflight_rollouts = 16
 type = "grpo"
 
 [orchestrator.algo.baseline]
-type = "linear_mix"
-group = "leave_one_out"
-rho = 0.5
+type = "value"
 
 [orchestrator.train.sampling]
 max_completion_tokens = 64
