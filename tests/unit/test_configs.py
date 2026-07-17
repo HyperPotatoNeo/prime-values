@@ -225,6 +225,81 @@ def test_value_baseline_requires_value_function():
         )
 
 
+def test_value_function_defaults_omitted_grpo_baselines_to_value():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "group_size": 2,
+                "algo": {"type": "grpo"},
+                "train": {
+                    "env": [
+                        {"id": "inherited"},
+                        {"id": "implicit", "algo": {"type": "grpo"}},
+                        {
+                            "id": "explicit",
+                            "algo": {"type": "grpo", "baseline": {"type": "mean"}},
+                        },
+                    ]
+                },
+            },
+            "value_function": {},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.orchestrator.algo.baseline.type == "value"
+    inherited, implicit, explicit = config.orchestrator.train.env
+    assert inherited.algo is not None and inherited.algo.baseline.type == "value"
+    assert implicit.algo is not None and implicit.algo.baseline.type == "value"
+    assert explicit.algo is not None and explicit.algo.baseline.type == "mean"
+
+
+def test_grpo_without_value_function_keeps_mean_baseline():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "grpo"}},
+        }
+    )
+
+    assert config.orchestrator.algo.baseline.type == "mean"
+
+
+def test_value_function_preserves_explicit_mean_baseline_and_length_penalty():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "algo": {
+                    "type": "grpo",
+                    "baseline": {"type": "mean"},
+                    "length_penalty": {},
+                }
+            },
+            "value_function": {},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.orchestrator.algo.baseline.type == "mean"
+    assert config.orchestrator.algo.length_penalty is not None
+
+
+def test_implicit_value_baseline_rejects_length_penalty():
+    with pytest.raises(ValidationError, match="value-backed GRPO baselines cannot be combined"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "algo": {"type": "grpo", "length_penalty": {}},
+                },
+                "value_function": {},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+
 def test_value_function_resolves_separate_model_and_gpu_roles():
     config = RLConfig.model_validate(
         {
@@ -242,6 +317,7 @@ def test_value_function_resolves_separate_model_and_gpu_roles():
     assert config.value_function.model is not None
     assert config.value_function.model.name == config.trainer.model.name
     assert config.orchestrator.value_function is not None
+    assert config.orchestrator.algo.baseline.type == "linear_mix"
     assert config.value_function.batch_size == config.orchestrator.batch_size == 128
     assert config.value_function.evaluator.placement == "dedicated"
     assert config.value_function.evaluator.dtype == "bfloat16"
@@ -532,6 +608,7 @@ def test_value_function_defaults_to_binary_classification_and_independent_lambda
     assert config.transport.max_pending_rollouts == 2048
     assert config.gae_lambda == 1.0
     assert config.value_target_lambda == 1.0
+    assert config.warmup_updates == 0
 
 
 def test_default_value_replay_matches_one_optimizer_batch():

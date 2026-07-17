@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 
-from prime_rl.configs.algorithm import MAX_TETHER_POSITION_BINS, AlgoConfig, GRPOAlgoConfig
+from prime_rl.configs.algorithm import MAX_TETHER_POSITION_BINS, AlgoConfig, GRPOAlgoConfig, ValueBaselineConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.inference import WeightBroadcastConfig as InferenceWeightBroadcastConfig
 from prime_rl.configs.orchestrator import (
@@ -264,6 +264,14 @@ class RLConfig(BaseConfig):
         effective_algorithms = [
             (env.resolved_name, env.algo or self.orchestrator.algo) for env in self.orchestrator.train.env
         ] or [("orchestrator.algo", self.orchestrator.algo)]
+        if self.value_function is not None:
+            algorithms = [self.orchestrator.algo]
+            algorithms.extend(algo for _, algo in effective_algorithms if algo is not self.orchestrator.algo)
+            for algo in algorithms:
+                if isinstance(algo, GRPOAlgoConfig) and "baseline" not in algo.model_fields_set:
+                    if algo.length_penalty is not None:
+                        raise ValueError("value-backed GRPO baselines cannot be combined with length_penalty yet")
+                    algo.baseline = ValueBaselineConfig()
         for env_name, algo in effective_algorithms:
             if isinstance(algo, GRPOAlgoConfig) and algo.baseline.type in {"value", "linear_mix", "tether"}:
                 value_baselines.append((env_name, algo.baseline.type))

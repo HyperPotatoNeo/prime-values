@@ -315,7 +315,7 @@ class GRPOAlgoConfig(BaseAlgoConfig):
     action_loss_type: ClassVar[ActionLossType] = "rl"
 
     baseline: GRPOBaselineConfig = MeanBaselineConfig()
-    """Credit baseline. Value-backed variants require the top-level ``value_function`` service."""
+    """Credit baseline. Omitted baselines resolve to ``value`` when the top-level ``value_function`` service is enabled; otherwise they remain ``mean``."""
 
     length_penalty: LengthPenaltyConfig | None = None
     """Linear length penalty subtracted from each reward before the GRPO baseline (see ``LinearLengthPenaltyConfig``): a ``pass_rate``-scaled sum of output-token, input-token, and turns terms, each normalized by the group's own max for that quantity. None disables it."""

@@ -278,13 +278,17 @@ The per-token training signal is set by `algo.type` and the [algorithm](#the-alg
 
 ### Default Advantage
 
-The default advantage is per-group reward minus per-group baseline (DR-GRPO without std normalization). For each prompt's group of `group_size` rollouts, every token in rollout $i$ receives advantage $s_i - \bar{s}$ where $\bar{s}$ is the group mean.
+Without `[value_function]`, the default advantage is per-group reward minus
+per-group baseline (DR-GRPO without std normalization). For each prompt's group
+of `group_size` rollouts, every token in rollout $i$ receives advantage
+$s_i - \bar{s}$ where $\bar{s}$ is the group mean. When `[value_function]` is
+enabled, an omitted GRPO baseline instead resolves to pure per-token GAE.
 
 `[orchestrator.algo.baseline]` selects the credit rule:
 
 | `baseline.type` | Credit |
 |---|---|
-| `mean` | Reward minus the full group mean; the GRPO default. |
+| `mean` | Reward minus the full group mean; the GRPO default without `[value_function]`. |
 | `leave_one_out` | Reward minus the mean of the other group members. |
 | `value` | Per-token GAE from the async critic. |
 | `linear_mix` | Affine combination of group credit and per-token GAE using a static coefficient; its group side defaults to leave-one-out. |
@@ -293,6 +297,9 @@ The default advantage is per-group reward minus per-group baseline (DR-GRPO with
 The three value-backed choices require `[value_function]`. Their topology,
 losses, targets, configuration, and monitoring are documented in
 [Value Functions](value-functions.md).
+Length penalties are compatible only with `mean` and `leave_one_out`; because
+an omitted baseline becomes `value` when the value function is enabled, select
+one of those group baselines explicitly when using a length penalty.
 
 This is intentionally simple — it does the right thing for most envs. Write a named algorithm class when you need group-aware shaping that depends on trajectory metadata (sub-agent rollouts, relative-rank shaping, …) — see [Authoring an Algorithm](#authoring-an-algorithm).
 

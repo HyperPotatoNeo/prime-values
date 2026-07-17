@@ -7,10 +7,11 @@ advantages as it does without a critic.
 
 ## Quickstart
 
-Add an empty value-function table and select a value-backed GRPO baseline. The
+Add an empty value-function table. When a GRPO baseline is omitted, enabling
+the value function resolves it to pure per-token GAE (`type = "value"`). The
 empty table uses binary classification over `[0, 1]`, learning rate `1e-5`, a
-one-batch FIFO replay buffer, and independent policy/target lambdas of `1.0`.
-The critic batch size inherits `orchestrator.batch_size`:
+one-batch FIFO replay buffer, no warmup, and independent policy/target lambdas
+of `1.0`. The critic batch size inherits `orchestrator.batch_size`:
 
 ```toml
 [orchestrator]
@@ -18,10 +19,6 @@ group_size = 2
 
 [orchestrator.algo]
 type = "grpo"
-
-[orchestrator.algo.baseline]
-type = "linear_mix" # "value" and "tether" are also value-backed
-# group = "leave_one_out" is the linear_mix/tether default
 
 [value_function]
 ```
@@ -237,8 +234,10 @@ uv run rl @ rl.toml \
 
 ## Baselines
 
-GRPO keeps the existing group-mean baseline by default. Its `baseline` is a
-discriminated configuration with non-value and value-backed choices:
+Without `[value_function]`, GRPO keeps the existing group-mean default. With a
+value function enabled, an omitted GRPO baseline resolves to `value`. Any
+explicit baseline remains unchanged. The `baseline` is a discriminated
+configuration with non-value and value-backed choices:
 
 - `mean`: standard GRPO, `A = R - mean(R)`;
 - `leave_one_out`: `A_i = R_i - mean(R_{j != i})`;
@@ -249,6 +248,9 @@ discriminated configuration with non-value and value-backed choices:
 
 Both `linear_mix` and `tether` accept `group = "mean"` or
 `group = "leave_one_out"`; **leave-one-out is the default for both**.
+Length penalties remain group-credit-only; when `[value_function]` is enabled,
+set `baseline.type` explicitly to `mean` or `leave_one_out` before configuring
+one.
 
 TETHER forms the complete baseline and clips once at the end:
 
@@ -406,8 +408,8 @@ summaries. A run interrupted before its first policy checkpoint has no
 warmup-only orchestrator checkpoint to restore.
 
 `value`, `linear_mix`, and `tether` are invalid unless `[value_function]` is
-enabled. Enabling a value function with `mean` or `leave_one_out` is valid and
-trains the critic for diagnostics or a later baseline change.
+enabled. Explicitly selecting `mean` or `leave_one_out` with a value function
+is valid and trains the critic for diagnostics or a later baseline change.
 
 ## Staleness and overload
 
