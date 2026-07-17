@@ -23,13 +23,7 @@ value trainer's GPUs when a smaller deployment matters more.
 ### Animated walkthrough
 
 <p align="center">
-  <a href="docs/assets/prime-values-async-pipeline.mp4?raw=1">
-    <img src="docs/assets/prime-values-async-pipeline-poster.jpg" alt="Watch the Prime Values asynchronous pipeline walkthrough" width="100%">
-  </a>
-</p>
-
-<p align="center">
-  <a href="docs/assets/prime-values-async-pipeline.mp4?raw=1"><strong>▶ Watch the full asynchronous pipeline walkthrough (2 min)</strong></a>
+  <img src="docs/assets/prime-values-async-pipeline.gif" alt="Prime Values asynchronous pipeline walkthrough" width="100%">
 </p>
 
 See [Value Functions](docs/value-functions.md) for topology, replay semantics,
