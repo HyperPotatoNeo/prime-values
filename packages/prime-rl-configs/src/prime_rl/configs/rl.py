@@ -311,6 +311,7 @@ class RLConfig(BaseConfig):
             if self.orchestrator.batch_size is None:
                 raise ValueError("value_function.batch_size must be set when the policy uses token_batch_size")
             value.batch_size = self.orchestrator.batch_size
+        value.replay.resolve(batch_size=value.batch_size)
         algorithms_to_resolve = [self.orchestrator.algo, *(algo for _, algo in effective_algorithms)]
         for algo in algorithms_to_resolve:
             if not isinstance(algo, GRPOAlgoConfig) or algo.baseline.type != "tether":

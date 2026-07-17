@@ -35,9 +35,11 @@ name = "rg-mix"
 args = { dataset_path = "/pscratch/sd/s/siddart2/datasets/rg_mix_7500", num_train_examples = 100, num_eval_examples = 10, seed = 42 }
 
 [value_function]
-updates_per_batch = 1
 warmup_updates = 1
 max_steps = 3
+
+[value_function.replay]
+max_updates_per_rollout = 1
 
 [value_function.evaluator]
 max_batch_tokens = 8192

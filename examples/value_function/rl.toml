@@ -30,8 +30,10 @@ id = "reverse-text"
 [inference]
 
 [value_function]
-updates_per_batch = 1
 warmup_updates = 2
+
+[value_function.replay]
+max_updates_per_rollout = 1
 
 [value_function.ckpt]
 interval = 2

@@ -57,8 +57,10 @@ lr = 1e-6
 gamma = 1.0
 gae_lambda = 1.0
 value_target_lambda = 1.0
-updates_per_batch = 1
 warmup_updates = 10
+
+[value_function.replay]
+max_updates_per_rollout = 1
 
 [value_function.loss]
 type = "classification"

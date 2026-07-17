@@ -525,9 +525,80 @@ def test_value_function_defaults_to_binary_classification_and_independent_lambda
     assert config.loss.num_bins == 2
     assert config.loss.reward_range == (0.0, 1.0)
     assert config.optim.lr == 1e-5
-    assert config.updates_per_batch == 1
+    assert config.replay.max_updates_per_rollout == 1
+    assert config.replay.capacity is None
+    assert config.replay.refill_size is None
+    assert config.replay.seed == 0
+    assert config.transport.max_pending_rollouts == 2048
     assert config.gae_lambda == 1.0
     assert config.value_target_lambda == 1.0
+
+
+def test_value_replay_defaults_resolve_from_rollout_batch_size():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"batch_size": 16, "algo": {"type": "grpo"}},
+            "value_function": {"replay": {"max_updates_per_rollout": 3}},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.replay.capacity == 48
+    assert config.value_function.replay.refill_size == 48
+    assert config.value_function.replay.resolved_capacity == 48
+    assert config.value_function.replay.resolved_refill_size == 48
+
+
+def test_standalone_value_config_resolves_replay_when_batch_size_is_explicit():
+    config = ValueFunctionConfig.model_validate({"batch_size": 8, "replay": {"max_updates_per_rollout": 2}})
+
+    assert config.replay.capacity == 16
+    assert config.replay.refill_size == 16
+
+
+def test_value_replay_explicit_capacity_and_refill_are_preserved():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"batch_size": 16, "algo": {"type": "grpo"}},
+            "value_function": {
+                "replay": {
+                    "max_updates_per_rollout": 3,
+                    "capacity": 64,
+                    "refill_size": 32,
+                    "seed": 7,
+                }
+            },
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.replay.capacity == 64
+    assert config.value_function.replay.refill_size == 32
+    assert config.value_function.replay.seed == 7
+
+
+@pytest.mark.parametrize(
+    ("replay", "message"),
+    [
+        ({"capacity": 15}, "capacity must be at least"),
+        ({"capacity": 32, "refill_size": 15}, "refill_size must be at least"),
+        ({"capacity": 32, "refill_size": 33}, "refill_size cannot exceed"),
+    ],
+)
+def test_value_replay_requires_batch_size_at_most_refill_at_most_capacity(replay, message):
+    with pytest.raises(ValidationError, match=message):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"batch_size": 16, "algo": {"type": "grpo"}},
+                "value_function": {"replay": replay},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
 
 
 def test_token_batched_policy_requires_explicit_value_rollout_batch_size():

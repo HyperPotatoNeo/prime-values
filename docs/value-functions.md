@@ -8,9 +8,9 @@ advantages as it does without a critic.
 ## Quickstart
 
 Add an empty value-function table and select a value-backed GRPO baseline. The
-empty table uses binary classification over `[0, 1]`, learning rate `1e-5`, one
-critic update per full rollout batch, and independent policy/target lambdas of
-`1.0`. The critic batch size inherits `orchestrator.batch_size`:
+empty table uses binary classification over `[0, 1]`, learning rate `1e-5`, a
+one-batch FIFO replay buffer, and independent policy/target lambdas of `1.0`.
+The critic batch size inherits `orchestrator.batch_size`:
 
 ```toml
 [orchestrator]
@@ -54,11 +54,12 @@ training and serving throughput.
 With the default `evaluator.placement = "dedicated"`, enabling
 `[value_function]` adds two roles:
 
-1. The orchestrator accumulates completed trajectories into full critic
-   rollout batches before filtering. The **value trainer** receives those
-   batches on a bounded, latest-only queue, runs one optimizer update per batch
-   during value warmup and `updates_per_batch` updates afterward, discards the
-   batch, and publishes a monotonically increasing value version after every
+1. After a rollout group has been finalized coherently, the orchestrator puts
+   each completed trajectory on a bounded, nonblocking FIFO destined for the
+   **value trainer**. The trainer pulls bounded FIFO slices as replay space is
+   available, admits trajectories into a rollout-granular
+   replay buffer, uniformly samples optimizer batches without replacement, and
+   publishes a monotonically increasing value version after every successful
    optimizer update.
 2. The dedicated **value evaluator** serves per-token values to the orchestrator. It
    adopts value-trainer weights independently of policy versions. By default,
@@ -88,9 +89,12 @@ The policy and value planes are deliberately independent:
 ```text
 policy inference --> orchestrator ----------------------> policy trainer
                           |                                  |
-                          | latest-only value batches        | policy weights
+                          | bounded rollout FIFO             | policy weights
                           v                                  v
-                    value trainer                      policy inference
+                    value replay                       policy inference
+                          |
+                          v
+                    value trainer
                      |          |
         live values  |          | value weights (dedicated)
                      v          v
@@ -98,9 +102,10 @@ policy inference --> orchestrator ----------------------> policy trainer
 ```
 
 Policy inference never waits for the value trainer. If the trainer cannot keep
-up, intermediate value batches are replaced by newer batches. A completed
-policy trajectory does need one evaluator result before its final advantage is
-known; those requests start per rollout and overlap sibling rollout generation.
+up, its producer queue retains a bounded recent window and drops the oldest
+pending training rollout when a newer one arrives. A completed policy
+trajectory does need one evaluator result before its final advantage is known;
+those requests start per rollout and overlap sibling rollout generation.
 The dispatcher continues filling its bounded rollout window while this happens.
 As with any bounded pipeline, an evaluator that remains slower than generation
 can eventually fill that window. Dedicated evaluation never waits for value
@@ -120,8 +125,8 @@ the value prediction used for policy credit. For every trainable branch it:
    all earlier action tokens;
 2. evaluates the causal state value for every action token;
 3. computes GAE and lambda returns over action tokens only; and
-4. queues lambda returns into a full critic rollout batch while stamping the
-   selected advantage on the policy sample.
+4. queues the finalized rollout and its lambda returns for replay while
+   stamping the selected advantage on the policy sample.
 
 Context, prompt, and tool-response tokens are never value-loss members. Packed
 sequences reset both the causal value shift and GAE recursion at every sequence
@@ -195,8 +200,12 @@ than being silently clipped.
 | `value_function.value_target_lambda` | `1.0` | Independent lambda for critic targets. |
 | `value_function.batch_size` | `orchestrator.batch_size` | Rollouts per critic optimizer batch. Required explicitly when the policy uses token-based batching. |
 | `value_function.optim.lr` | `1e-5` | Critic AdamW learning rate. Other optimizer fields use normal trainer defaults. |
-| `value_function.updates_per_batch` | `1` | Optimizer updates made on each post-warmup rollout batch before discarding it. Warmup always uses one update per batch. |
-| `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Every warmup batch receives one optimizer update. |
+| `value_function.replay.max_updates_per_rollout` | `1` | Hard cap on the number of optimizer selections that may include one admitted rollout. FIFO eviction can retire it earlier. |
+| `value_function.replay.capacity` | `max_updates_per_rollout * batch_size` | Replay capacity in rollouts. |
+| `value_function.replay.refill_size` | `capacity` | Hysteretic high-water mark: training begins or resumes after the replay reaches this many rollouts. |
+| `value_function.replay.seed` | `0` | Rank-0 RNG seed for uniform rollout selection. |
+| `value_function.transport.max_pending_rollouts` | `2048` | Producer-side queue bound. Admission never blocks policy processing; a full queue drops its oldest pending rollout. |
+| `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Replay behavior is unchanged during warmup. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
 | `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context. |
 | `value_function.evaluator.placement` | `dedicated` | `dedicated` uses a separate serving model; `trainer` queues inference on the value-trainer GPUs. |
@@ -396,20 +405,40 @@ trains the critic for diagnostics or a later baseline change.
 ## Staleness and overload
 
 Value staleness is independent of policy off-policy level. Each evaluator
-response records one `value_version`; a full value-training batch records the
-minimum and maximum policy and evaluator versions represented. Evaluator
-coherence is enforced within every rollout group used for policy credit, while
-mixing independently labeled groups in a critic optimizer batch is allowed.
-The orchestrator reports value-batch fill and publication/drop counts. The
-trainer reports `value/source_batches_skipped`, derived from source batch-id
-gaps, so replacements caused by conflation remain visible even when the
-producer's non-blocking send succeeded. It does not cancel policy rollouts when
-a new value version appears.
+response records one `value_version`; every replayed rollout retains its source
+policy and evaluator versions, and an optimizer batch reports their ranges.
+Evaluator coherence is enforced within every rollout group used for policy
+credit, while uniformly mixing independently labeled groups in a critic update
+is allowed. Lambda-return targets are frozen when the rollout is finalized, so
+the source-value lag is important when `value_target_lambda < 1`.
 
-The value queue is intentionally lossy and capacity one. This is the desired
-overload behavior for an online regressor: train repeatedly on one full recent
-batch, then move to the newest available policy distribution instead of
-working through an increasingly stale FIFO backlog.
+The producer queue and replay buffer have deliberately different jobs. The
+producer queue prevents critic throughput from backpressuring inference. It is
+bounded by `transport.max_pending_rollouts`, keeps rollouts droppable until the
+trainer requests a bounded admission slice, and drops the oldest still-pending
+rollout on overflow. One trainer-credited response of at most one optimizer
+batch may be in flight outside the queue; unsolicited rollouts are never moved
+into transport buffers.
+The value evaluator request service is not part of this queue: policy
+advantages retain their existing completion, timeout, and overload semantics.
+
+The replay buffer bounds both age and reuse. Admission and capacity eviction
+are FIFO, but each optimizer batch is a uniform sample of distinct resident
+rollouts; sampling does not refresh FIFO age. A rollout is retired after
+`max_updates_per_rollout` selections or when newer admission evicts it,
+whichever happens first. The cap is therefore not a promise that every rollout
+will receive that many updates. Under sustained producer pressure, each trainer
+turn admits up to one optimizer batch before sampling, favoring recent data and
+often realizing fewer than the maximum selections. When arrivals are slower,
+resident rollouts can instead be reused up to the cap.
+
+Replay readiness is hysteretic. In the filling state, the trainer waits until
+`refill_size` resident rollouts are available. It then keeps sampling while at
+least one full optimizer batch remains. Once occupancy falls below
+`batch_size`, it returns to filling and waits for `refill_size` again. With the
+defaults and `max_updates_per_rollout = 1`, capacity and refill size both equal
+one optimizer batch, so the selected cohort and insertion order match the
+ordinary one-update cadence when the producer is not overloaded.
 
 ## Monitoring
 
@@ -426,18 +455,22 @@ are also logged by the orchestrator.
 | `value/target_{mean,std,min,max}` | TD(lambda) target distribution. |
 | `value/accuracy`, `value/entropy`, `value/confidence` | Classification diagnostics. Accuracy compares the most probable support atom to the target's nearest atom; error metrics remain more informative for continuous soft targets. |
 | `value/version`, `value/source_value_version_{min,max,spread}`, `value/source_value_lag_{min,max}` | Trainer version and the evaluator-version provenance range represented in the optimizer batch. The unsuffixed source-version metric is the maximum and the unsuffixed lag is the maximum. |
-| `value/source_policy_version_{min,max,spread}`, `value/batch_id`, `value/source_batches_skipped` | Policy provenance range and latest-only transport replacement pressure. |
+| `value/source_policy_version_{min,max,spread}`, `value/source_rollout_id_{min,max,spread}` | Policy-version and producer-order provenance represented in the sampled optimizer batch. |
+| `value/replay_attempt_{min,mean,max}` | Selection counts after reserving the sampled rollouts. |
+| `value/replay_size_{rollouts,samples,tokens}`, `value/replay_{capacity,refill_size}_rollouts`, `value/replay_ready` | Replay occupancy, configured hysteresis, and readiness after the selection. Samples count branches; tokens measure stored sequence payload. |
+| `value/replay_{admitted,attempts,retired,evicted}_total` | Cumulative replay admission, selection, max-cap retirement, and FIFO-capacity eviction counts. |
 | `value/batch_{tokens,rollouts,samples}`, `value/total_{tokens,samples}` | Per-update and cumulative critic data volume. Samples count branches; rollouts count episodes used to trigger the batch. |
 | `value/update_seconds`, `value/tokens_per_second` | Value optimizer performance. |
 | `value/service_pending_{requests,tokens}`, `value/service_{oldest,max}_wait_seconds` | Trainer-placement queue pressure, including selected work until completion. |
 | `value/service_{admitted,rejected_full,expired,abandoned,completed,failed}` | Trainer-placement request outcomes and overload behavior. |
-| `value/checkpoint_seconds`, `value/service_{inference,training,idle}_seconds`, `value/service_inference_{batches,tokens}`, `value/service_stale_training_batches` | Trainer-placement checkpoint/scheduling time, inference volume, and stale input pressure. |
+| `value/checkpoint_seconds`, `value/service_{inference,training,idle}_seconds`, `value/service_inference_{batches,tokens}` | Trainer-placement checkpoint/scheduling time and inference volume. |
 | `optim/lr`, `optim/grad_norm`, `optim/zero_grad_ratio` | Critic optimizer health. |
 | `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
-| `value/batch_{pending,target}_rollouts`, `value/batches_{published,dropped}`, `value/batch_drop_rate` | Producer-side critic batch fill and latest-only queue pressure. Dropping stale full batches is expected under overload. |
+| `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means delivered in response to a bounded trainer pull; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
+| `value/rollout_queue_pending_{bytes,tokens}`, `value/rollout_responder_failures` | Encoded host-memory pressure and pull-responder health. The local FIFO remains within its configured rollout capacity while the trainer is not admitting data. |
 | `algorithm/<env>/tether/{alpha,rho,batch_fit_alpha,batch_fit_rho,batch_fit_valid}` | Adaptive TETHER coefficients currently applied to new groups and the most recent raw ridge fit. `batch_fit_valid=0` marks a skipped singular/non-finite fit. |
 | `algorithm/<env>/tether/{mse_loo,mse_batch_fit,mse_ema,clip_fraction,condition_number}` | Token-weighted residual-variance proxies and fit conditioning. `clip_fraction` is the realized rate under the pre-update coefficients that scored those rollouts. Heavy clipping or poor conditioning makes coefficient magnitude less informative. |
 | `algorithm/<env>/tether/{updates,skipped_updates,pending_rollouts,regression_batch_size}` | Adaptive fit cadence and health. These continue updating and logging during value warmup. |
@@ -445,13 +478,13 @@ are also logged by the orchestrator.
 ## Warmup
 
 `warmup_updates` remains a value-version barrier, not a fixed number of rollout
-batches. Before the trainer reaches that version, every successfully trained
-incoming critic batch receives exactly one optimizer update, regardless of
-`updates_per_batch`. The dispatcher and policy inference keep generating and
-publishing full critic batches while policy batches are withheld. Once the
-trainer reaches the barrier, subsequent critic batches use `updates_per_batch`;
-normal policy shipping begins as soon as the evaluator adopts that version.
-Loading a value checkpoint may satisfy some or all of the barrier.
+batches. Replay admission, refill, sampling, and per-rollout update caps are the
+same before and after the barrier. The dispatcher and policy inference keep
+generating and publishing critic rollouts while policy batches are withheld;
+normal policy shipping begins as soon as the evaluator adopts the required
+version. With a replay larger than one batch, initial warmup therefore waits
+for the configured refill threshold. Loading a value checkpoint may satisfy
+some or all of the version barrier, but replay still starts cold.
 
 ## Initialization and checkpoints
 
@@ -469,6 +502,9 @@ Policy and value checkpoints have separate directories and progress counters.
 Resuming one never rewrites the other's step. Dedicated evaluator weights are a
 serving copy reconstructed from the value checkpoint plus subsequent trainer
 publications; trainer placement serves directly from the restored live model.
+Replay contents, sampling RNG state, and the producer queue are not
+checkpointed. A resumed value trainer restores model, optimizer, scheduler, and
+version, then refills a new replay from fresh finalized rollouts.
 On normal policy completion, the value trainer finishes its selected operation
 and writes a final value checkpoint before the launcher tears down the value
 plane.
