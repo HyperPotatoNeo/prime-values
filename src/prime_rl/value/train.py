@@ -17,23 +17,39 @@ from prime_rl.utils.config import cli
 from prime_rl.utils.logger import setup_logger
 from prime_rl.utils.process import set_proc_title
 from prime_rl.utils.utils import clean_exit
+from prime_rl.value.coordinator import admit_available_rollouts
+from prime_rl.value.replay import ValueReplayBuffer, ValueReplaySnapshot
 from prime_rl.value.trainer import ValueTrainerRuntime
-from prime_rl.value.transport import LatestValueBatchReceiver
+from prime_rl.value.transport import ValueRolloutReceiver
 from prime_rl.value.types import ValueTrainingBatch
 
 
 def _broadcast_batch(
-    receiver: LatestValueBatchReceiver | None,
+    receiver: ValueRolloutReceiver | None,
+    replay: ValueReplayBuffer | None,
     decoder: msgspec.msgpack.Decoder,
-) -> ValueTrainingBatch | None:
+) -> tuple[ValueTrainingBatch | None, ValueReplaySnapshot | None, bool]:
     world = get_world()
-    payload: list[bytes | None] = [None]
+    control: list[tuple[bool, bytes | None] | None] = [None]
+    snapshot: ValueReplaySnapshot | None = None
     if world.is_master:
-        assert receiver is not None
-        batch = receiver.receive()
-        payload[0] = msgspec.msgpack.encode(batch) if batch is not None else None
-    dist.broadcast_object_list(payload, src=0, device=torch.device("cuda", world.local_rank))
-    return decoder.decode(payload[0]) if payload[0] is not None else None
+        assert receiver is not None and replay is not None
+        stop = _policy_run_finished()
+        encoded_batch: bytes | None = None
+        if not stop:
+            filling = not replay.can_sample
+            admit_available_rollouts(receiver, replay, wait_for_first=filling)
+            if replay.can_sample:
+                batch = replay.sample()
+                snapshot = replay.snapshot()
+                encoded_batch = msgspec.msgpack.encode(batch)
+        control[0] = (stop, encoded_batch)
+    dist.broadcast_object_list(control, src=0, device=torch.device("cuda", world.local_rank))
+    if control[0] is None:
+        raise RuntimeError("value trainer received an empty coordinator control")
+    stop, encoded_batch = control[0]
+    batch = decoder.decode(encoded_batch) if encoded_batch is not None else None
+    return batch, snapshot, stop
 
 
 def _policy_run_finished() -> bool:
@@ -45,6 +61,11 @@ def _policy_run_finished() -> bool:
 def train_value(config: ValueFunctionConfig) -> None:
     if config.model is None:
         raise ValueError("value_function.model must be resolved before starting the value trainer")
+    batch_size = config.batch_size
+    if batch_size is None:
+        raise ValueError("value_function.batch_size must be resolved before starting the value trainer")
+    replay_capacity = config.replay.resolved_capacity
+    replay_refill_size = config.replay.resolved_refill_size
     trainer_placed = config.evaluator.placement == "trainer"
     run_done_file: Path | None = None
     if trainer_placed:
@@ -75,7 +96,16 @@ def train_value(config: ValueFunctionConfig) -> None:
         run_colocated(config, runtime, run_done_file)
         return
 
-    receiver = LatestValueBatchReceiver(config.transport) if world.is_master else None
+    receiver = ValueRolloutReceiver(config.transport) if world.is_master else None
+    replay: ValueReplayBuffer | None = None
+    if world.is_master:
+        replay = ValueReplayBuffer(
+            batch_size=batch_size,
+            capacity=replay_capacity,
+            refill_size=replay_refill_size,
+            max_updates_per_rollout=config.replay.max_updates_per_rollout,
+            seed=config.replay.seed,
+        )
     decoder = msgspec.msgpack.Decoder(type=ValueTrainingBatch)
     from prime_rl.value.weights import ValueWeightPublisher
 
@@ -88,16 +118,16 @@ def train_value(config: ValueFunctionConfig) -> None:
     logger.info(f"Published initial value model version {runtime.version}")
 
     while not runtime.max_steps_reached:
-        if _policy_run_finished():
-            logger.info("Policy run completed; stopping value updates")
+        batch, replay_snapshot, stop = _broadcast_batch(receiver, replay, decoder)
+        if stop:
+            if world.is_master:
+                logger.info("Policy run completed; stopping value updates")
             break
-        batch = _broadcast_batch(receiver, decoder)
         if batch is None:
             continue
         if not runtime.prepare_batch(batch):
             continue
-        while runtime.can_step:
-            runtime.step(weight_publisher)
+        runtime.step(weight_publisher, replay_snapshot)
 
     runtime.finish()
     if receiver is not None:

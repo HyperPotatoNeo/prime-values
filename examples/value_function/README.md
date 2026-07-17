@@ -18,8 +18,10 @@ uv run rl @ examples/value_function/rl.toml \
 
 The critic warms for two adopted evaluator versions while inference continues
 to generate. It then uses a leave-one-out/value linear mixture for policy
-advantages and takes one optimizer update from each newest critic batch. The
-default value head is two-bin classification over `[0, 1]`; see
+advantages and, by default, trains once on each one-batch replay cohort. Raising
+`value_function.replay.max_updates_per_rollout` grows the default replay and
+allows uniform reuse without repeating one fixed batch. The default value head
+is two-bin classification over `[0, 1]`; see
 [`docs/value-functions.md`](../../docs/value-functions.md) for regression,
 separate policy/target lambdas, monitoring, and scaling options.
 

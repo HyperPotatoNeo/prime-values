@@ -1,6 +1,7 @@
 import math
+import warnings
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
@@ -45,8 +46,8 @@ ValueLossConfig: TypeAlias = Annotated[
 ]
 
 
-class LatestZMQValueTransportConfig(BaseConfig):
-    type: Literal["zmq_latest"] = "zmq_latest"
+class ZMQValueTransportConfig(BaseConfig):
+    type: Literal["zmq"] = "zmq"
 
     host: str = "127.0.0.1"
     """Value-trainer host as reached by the orchestrator."""
@@ -55,10 +56,66 @@ class LatestZMQValueTransportConfig(BaseConfig):
     """Interface on which the value trainer binds."""
 
     port: int = Field(29610, ge=1, le=65535)
-    """Dedicated latest-only full-batch trajectory port."""
+    """Dedicated value-training rollout port."""
 
     poll_timeout_ms: int = Field(1000, ge=1)
     """Receiver poll interval, allowing graceful policy-run shutdown checks."""
+
+    max_pending_rollouts: int = Field(2048, ge=1)
+    """Bounded nonblocking producer queue. Trainer pulls remove rollouts; new arrivals replace the oldest when full."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_latest_type(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or data.get("type") != "zmq_latest":
+            return data
+        data = dict(data)
+        data["type"] = "zmq"
+        warnings.warn(
+            "value_function.transport.type='zmq_latest' is deprecated; use 'zmq'. "
+            "Auto-translating for now, but this will be removed in a future release.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return data
+
+
+class ValueReplayConfig(BaseConfig):
+    max_updates_per_rollout: int = Field(1, ge=1)
+    """Maximum optimizer selections for one rollout before retirement."""
+
+    capacity: int | None = Field(None, ge=1)
+    """Rollout capacity. None resolves to ``max_updates_per_rollout * batch_size``."""
+
+    refill_size: int | None = Field(None, ge=1)
+    """Rollouts required to leave the filling state. None resolves to ``capacity``."""
+
+    seed: int = 0
+    """Seed for uniform replay sampling."""
+
+    @property
+    def resolved_capacity(self) -> int:
+        if self.capacity is None:
+            raise ValueError("value_function.replay.capacity has not been resolved")
+        return self.capacity
+
+    @property
+    def resolved_refill_size(self) -> int:
+        if self.refill_size is None:
+            raise ValueError("value_function.replay.refill_size has not been resolved")
+        return self.refill_size
+
+    def resolve(self, *, batch_size: int) -> None:
+        if self.capacity is None:
+            self.capacity = self.max_updates_per_rollout * batch_size
+        if self.refill_size is None:
+            self.refill_size = self.capacity
+        if self.capacity < batch_size:
+            raise ValueError("value_function.replay.capacity must be at least value_function.batch_size")
+        if self.refill_size < batch_size:
+            raise ValueError("value_function.replay.refill_size must be at least value_function.batch_size")
+        if self.refill_size > self.capacity:
+            raise ValueError("value_function.replay.refill_size cannot exceed value_function.replay.capacity")
 
 
 class NCCLValueWeightBroadcastConfig(BaseConfig):
@@ -158,13 +215,12 @@ class ValueFunctionConfig(BaseConfig):
     batch_size: int | None = Field(None, ge=1)
     """Rollouts per critic optimizer batch. None inherits the orchestrator rollout batch size."""
 
-    updates_per_batch: int = Field(1, ge=1)
-    """Optimizer updates on each post-warmup rollout batch before it is discarded."""
+    replay: ValueReplayConfig = ValueReplayConfig()
 
     warmup_updates: int = Field(0, ge=0)
     """Evaluator value version required before the first policy batch ships."""
 
-    transport: LatestZMQValueTransportConfig = LatestZMQValueTransportConfig()
+    transport: ZMQValueTransportConfig = ZMQValueTransportConfig()
 
     weight_broadcast: NCCLValueWeightBroadcastConfig = NCCLValueWeightBroadcastConfig()
 
@@ -187,8 +243,44 @@ class ValueFunctionConfig(BaseConfig):
 
     env_vars: EnvVars = {}
 
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_updates_per_batch(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or "updates_per_batch" not in data:
+            return data
+        data = dict(data)
+        legacy_updates = ValueReplayConfig(
+            max_updates_per_rollout=data.pop("updates_per_batch")
+        ).max_updates_per_rollout
+        replay = data.get("replay", {})
+        if isinstance(replay, ValueReplayConfig):
+            replay = replay.model_dump(exclude_unset=True)
+        if not isinstance(replay, dict):
+            raise ValueError("value_function.replay must be a table when using updates_per_batch")
+        replay = dict(replay)
+        if "max_updates_per_rollout" in replay:
+            configured_updates = ValueReplayConfig(
+                max_updates_per_rollout=replay["max_updates_per_rollout"]
+            ).max_updates_per_rollout
+            if configured_updates != legacy_updates:
+                raise ValueError(
+                    "value_function.updates_per_batch conflicts with value_function.replay.max_updates_per_rollout"
+                )
+        replay["max_updates_per_rollout"] = legacy_updates
+        data["replay"] = replay
+        warnings.warn(
+            "value_function.updates_per_batch is deprecated; use "
+            "value_function.replay.max_updates_per_rollout. The new setting caps "
+            "per-rollout selections instead of repeating one fixed batch.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return data
+
     @model_validator(mode="after")
     def validate_initial_scope(self):
+        if self.batch_size is not None:
+            self.replay.resolve(batch_size=self.batch_size)
         if self.max_steps is not None and self.warmup_updates > self.max_steps:
             raise ValueError("value_function.warmup_updates cannot exceed value_function.max_steps")
         dedicated = self.evaluator.placement == "dedicated"

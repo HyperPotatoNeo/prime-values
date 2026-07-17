@@ -26,20 +26,17 @@ from prime_rl.utils.utils import resolve_latest_ckpt_step
 from prime_rl.value.batch import ValueMicroBatch, pack_value_samples
 from prime_rl.value.math import align_value_logits, compute_value_loss, value_head_output_size
 from prime_rl.value.types import ValueTrainingBatch
-from prime_rl.value.update_schedule import updates_for_batch
 
 if TYPE_CHECKING:
+    from prime_rl.value.replay import ValueReplaySnapshot
     from prime_rl.value.weights import ValueWeightPublisher
 
 
 @dataclass
-class _ActiveBatch:
+class _PreparedBatch:
     batch: ValueTrainingBatch
     micro_batches: list[ValueMicroBatch]
     scale: int
-    source_batches_skipped: int
-    updates: int
-    reuse_step: int = 0
 
 
 @dataclass
@@ -193,9 +190,8 @@ class ValueTrainerRuntime:
         self._data_world_size = data_mesh.size()
         self._data_rank = data_mesh.get_local_rank()
         self._dp_group = parallel_dims.get_mesh("dp_cp").get_group()
-        self._last_batch_id: int | None = None
         self._last_checkpoint_version = resume_step
-        self._active: _ActiveBatch | None = None
+        self._active: _PreparedBatch | None = None
         self._finished = False
         self.optimizer.zero_grad()
 
@@ -209,17 +205,13 @@ class ValueTrainerRuntime:
 
     @property
     def can_step(self) -> bool:
-        return (
-            self._active is not None and self._active.reuse_step < self._active.updates and not self.max_steps_reached
-        )
+        return self._active is not None and not self.max_steps_reached
 
     def prepare_batch(self, batch: ValueTrainingBatch) -> bool:
-        """Pack a new batch on every rank and retain it for its configured updates."""
-        if self.can_step:
-            raise RuntimeError("cannot replace a value batch with pending reuse updates")
+        """Pack one optimizer batch on every rank."""
+        if self._active is not None:
+            raise RuntimeError("cannot replace a prepared value batch")
         assert self.config.model is not None
-        source_batches_skipped = 0 if self._last_batch_id is None else max(batch.batch_id - self._last_batch_id - 1, 0)
-        self._last_batch_id = batch.batch_id
         grid = pack_value_samples(
             batch.samples,
             seq_len=self.config.model.seq_len,
@@ -235,23 +227,24 @@ class ValueTrainerRuntime:
         if scale == 0:
             self._active = None
             if self.world.is_master:
-                get_logger().warning(f"Skipping value batch {batch.batch_id} with no trainable tokens")
+                get_logger().warning(
+                    f"Skipping value replay batch spanning rollouts "
+                    f"{batch.rollout_id_min}-{batch.rollout_id_max} with no trainable tokens"
+                )
             return False
 
-        self._active = _ActiveBatch(
+        self._active = _PreparedBatch(
             batch=batch,
             micro_batches=micro_batches,
             scale=scale,
-            source_batches_skipped=source_batches_skipped,
-            updates=updates_for_batch(
-                value_version=self.version,
-                warmup_updates=self.config.warmup_updates,
-                updates_per_batch=self.config.updates_per_batch,
-            ),
         )
         return True
 
-    def step(self, weight_publisher: ValueWeightPublisher | None = None) -> int:
+    def step(
+        self,
+        weight_publisher: ValueWeightPublisher | None = None,
+        replay_snapshot: ValueReplaySnapshot | None = None,
+    ) -> int:
         """Perform one complete value update, including optional publication and checkpointing."""
         if not self.can_step:
             raise RuntimeError("value trainer has no prepared update")
@@ -259,7 +252,6 @@ class ValueTrainerRuntime:
         assert self.config.model is not None
         active = self._active
         batch = active.batch
-        reuse_step = active.reuse_step
         update_started_at = time.perf_counter()
         source_value_lag_min = max(self.version - batch.value_version_max, 0)
         source_value_lag_max = max(self.version - batch.value_version_min, 0)
@@ -324,7 +316,6 @@ class ValueTrainerRuntime:
         if self.world.is_master:
             self._log_step(
                 active,
-                reuse_step,
                 source_value_lag_min,
                 source_value_lag_max,
                 update_seconds,
@@ -332,11 +323,10 @@ class ValueTrainerRuntime:
                 metric_state,
                 grad_norm,
                 zero_grad_ratio,
+                replay_snapshot,
             )
 
-        active.reuse_step += 1
-        if active.reuse_step == active.updates or self.max_steps_reached:
-            self._active = None
+        self._active = None
         return self.version
 
     def _save_checkpoint(self) -> None:
@@ -362,8 +352,7 @@ class ValueTrainerRuntime:
 
     def _log_step(
         self,
-        active: _ActiveBatch,
-        reuse_step: int,
+        active: _PreparedBatch,
         source_value_lag_min: int,
         source_value_lag_max: int,
         update_seconds: float,
@@ -371,6 +360,7 @@ class ValueTrainerRuntime:
         metric_state: _ValueMetricState,
         grad_norm: torch.Tensor | None,
         zero_grad_ratio: float,
+        replay_snapshot: ValueReplaySnapshot | None,
     ) -> None:
         batch = active.batch
         count = max(metric_state.metric_count.item(), 1.0)
@@ -409,12 +399,15 @@ class ValueTrainerRuntime:
             "value/source_value_lag": float(source_value_lag_max),
             "value/source_value_lag_min": float(source_value_lag_min),
             "value/source_value_lag_max": float(source_value_lag_max),
-            "value/batch_id": float(batch.batch_id),
+            "value/source_rollout_id_min": float(batch.rollout_id_min),
+            "value/source_rollout_id_max": float(batch.rollout_id_max),
+            "value/source_rollout_id_spread": float(batch.rollout_id_max - batch.rollout_id_min),
+            "value/replay_attempt_min": float(batch.replay_attempt_min),
+            "value/replay_attempt_max": float(batch.replay_attempt_max),
+            "value/replay_attempt_mean": batch.replay_attempt_mean,
             "value/batch_tokens": float(active.scale),
             "value/batch_rollouts": float(batch.num_rollouts),
             "value/batch_samples": float(len(batch.samples)),
-            "value/source_batches_skipped": float(active.source_batches_skipped),
-            "value/reuse_step": float(reuse_step),
             "value/update_seconds": update_seconds,
             "value/tokens_per_second": active.scale / max(update_seconds, 1e-12),
             "value/total_tokens": float(self.progress.total_tokens),
@@ -423,6 +416,19 @@ class ValueTrainerRuntime:
             "optim/grad_norm": grad_norm.item() if grad_norm is not None else 0.0,
             "optim/zero_grad_ratio": zero_grad_ratio,
         }
+        if replay_snapshot is not None:
+            payload |= {
+                "value/replay_size_rollouts": float(replay_snapshot.size),
+                "value/replay_size_samples": float(replay_snapshot.samples),
+                "value/replay_size_tokens": float(replay_snapshot.tokens),
+                "value/replay_capacity_rollouts": float(replay_snapshot.capacity),
+                "value/replay_refill_size_rollouts": float(replay_snapshot.refill_size),
+                "value/replay_ready": float(replay_snapshot.ready),
+                "value/replay_admitted_total": float(replay_snapshot.admitted),
+                "value/replay_attempts_total": float(replay_snapshot.attempts),
+                "value/replay_retired_total": float(replay_snapshot.retired),
+                "value/replay_evicted_total": float(replay_snapshot.evicted),
+            }
         if self.config.evaluator.placement == "trainer":
             payload["value/checkpoint_seconds"] = checkpoint_seconds
         if metric_state.accuracy_count.item() > 0:
@@ -432,8 +438,8 @@ class ValueTrainerRuntime:
             payload["value/confidence"] = metric_state.confidence_sum.item() / metric_state.classification_count.item()
         self.monitor.log(payload, step=self.version)
         get_logger().info(
-            f"Value version {self.version} | batch {batch.batch_id} | "
-            f"rollouts {batch.num_rollouts} | reuse {reuse_step + 1}/{active.updates} | "
+            f"Value version {self.version} | rollouts {batch.rollout_id_min}-{batch.rollout_id_max} "
+            f"({batch.num_rollouts} sampled) | "
             f"loss {metric_state.loss_sum.item():.5f} | mae {payload['value/mae']:.5f} | "
             f"explained variance {payload['value/explained_variance']:.3f}"
         )

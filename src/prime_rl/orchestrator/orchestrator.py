@@ -83,7 +83,7 @@ from prime_rl.utils.utils import (
     resolve_latest_ckpt_step,
 )
 from prime_rl.value.client import ValueEvaluatorClient
-from prime_rl.value.transport import LatestValueBatchPublisher
+from prime_rl.value.transport import ValueRolloutPublisher
 
 monkey_patch_oai_iterable_types()
 monkey_patch_chat_completion_logprobs()
@@ -156,7 +156,7 @@ class Orchestrator:
     resume_step: int | None
     lag_task: asyncio.Task | None
     value_evaluator: ValueEvaluatorClient | None
-    value_publisher: LatestValueBatchPublisher | None
+    value_publisher: ValueRolloutPublisher | None
 
     def __init__(self, config: OrchestratorConfig) -> None:
         self.config = config
@@ -265,7 +265,8 @@ class Orchestrator:
             get_logger().info("Connecting to value evaluator")
             self.value_evaluator = ValueEvaluatorClient(config.value_function.evaluator)
             await self.value_evaluator.wait_for_ready()
-            self.value_publisher = LatestValueBatchPublisher(config.value_function.transport)
+            self.value_publisher = ValueRolloutPublisher(config.value_function.transport)
+            await self.value_publisher.start()
             get_logger().success("Value evaluator ready")
 
         get_logger().info("Loading training environments")
@@ -426,16 +427,8 @@ class Orchestrator:
                 "event_loop_lag/p99",
                 "event_loop_lag/max",
                 "event_loop_lag/n",
-                *(
-                    [
-                        "value/batches_published",
-                        "value/batches_dropped",
-                        "value/batch_drop_rate",
-                        *self.value_evaluator.metrics(),
-                    ]
-                    if self.value_evaluator is not None
-                    else []
-                ),
+                *(self.value_publisher.metrics() if self.value_publisher is not None else []),
+                *(self.value_evaluator.metrics() if self.value_evaluator is not None else []),
                 *[f"algorithm/{env.name}/{key}" for env in self.train_envs for key in env.algorithm.metric_keys()],
             ],
             interval=log_interval,
@@ -658,10 +651,7 @@ class Orchestrator:
         if self.value_evaluator is not None:
             metrics |= self.value_evaluator.metrics()
         if self.value_publisher is not None:
-            attempted = self.value_publisher.published + self.value_publisher.dropped
-            metrics["value/batches_published"] = float(self.value_publisher.published)
-            metrics["value/batches_dropped"] = float(self.value_publisher.dropped)
-            metrics["value/batch_drop_rate"] = self.value_publisher.dropped / attempted if attempted else 0.0
+            metrics |= self.value_publisher.metrics()
         for env_name, env_pool in batch.rollouts.by_env().items():
             metrics[f"batch/{env_name}"] = len(env_pool) / len(batch.rollouts)
         if self.train_sink.pre_filter_seen > 0:
@@ -776,17 +766,11 @@ class Orchestrator:
 
         payload: dict[str, float] = {**disp_gauges, **disp_drain, **watcher_gauges}
         if self.value_publisher is not None:
-            attempted = self.value_publisher.published + self.value_publisher.dropped
-            value_pending, value_target = self.train_sink.value_batch_progress() or (0, 0)
             body += (
-                f"; value batch {value_pending}/{value_target}, "
-                f"published={self.value_publisher.published}, dropped={self.value_publisher.dropped}"
+                f"; value queue {self.value_publisher.pending_rollouts}/{self.value_publisher.capacity}, "
+                f"sent={self.value_publisher.sent}, dropped-oldest={self.value_publisher.dropped_oldest}"
             )
-            payload["value/batch_pending_rollouts"] = float(value_pending)
-            payload["value/batch_target_rollouts"] = float(value_target)
-            payload["value/batches_published"] = float(self.value_publisher.published)
-            payload["value/batches_dropped"] = float(self.value_publisher.dropped)
-            payload["value/batch_drop_rate"] = self.value_publisher.dropped / attempted if attempted else 0.0
+            payload |= self.value_publisher.metrics()
         if self.value_evaluator is not None:
             payload |= self.value_evaluator.metrics()
         adaptive_parts: list[str] = []
@@ -983,13 +967,13 @@ class Orchestrator:
         async def teardown() -> None:
             if self.sender is not None:
                 self.sender.close()
-            if self.value_publisher is not None:
-                self.value_publisher.close()
-                self.value_publisher = None
             if self.dispatcher is not None:
                 await self.dispatcher.stop()
             if self.train_sink is not None:
                 await self.train_sink.stop()
+            if self.value_publisher is not None:
+                await self.value_publisher.close()
+                self.value_publisher = None
             if self.watcher is not None:
                 await self.watcher.stop()
             if self.periodic_logger is not None:

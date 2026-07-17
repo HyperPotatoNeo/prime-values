@@ -43,9 +43,10 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
 
 ### Optional async value plane
 
-An RL config with `[value_function]` always adds a `value-trainer`, which
-consumes a capacity-one stream of full rollout batches. Dedicated evaluation is
-the default and adds a `value-evaluator` serving copy. Setting
+An RL config with `[value_function]` always adds a `value-trainer`, which pulls
+finalized rollouts from a bounded, nonblocking producer FIFO into a
+rollout-granular replay buffer. Dedicated evaluation is the default and adds a
+`value-evaluator` serving copy. Setting
 `value_function.evaluator.placement = "trainer"` instead queues evaluation on
 the live value trainer between updates. Do not add value loss or value-model
 state to the policy trainer.
@@ -63,17 +64,22 @@ state to the policy trainer.
   scratch (`UV_CACHE_DIR`, `XDG_CACHE_HOME`, `HF_HOME`, `TRITON_CACHE_DIR`,
   `TORCHINDUCTOR_CACHE_DIR`, `CUDA_CACHE_PATH`, and `TMPDIR`). Triton otherwise
   defaults to the quota-limited home filesystem and can fail during vLLM startup.
+  Keep `TMPDIR` short (for example, `$SCRATCH/t/pv`) because vLLM IPC socket
+  paths must also fit the Unix-domain socket path limit.
 - Check `logs/value_trainer.log`, evaluator `/health` and `/version`, plus
   `logs/value_evaluator.log` in dedicated placement and
-  `value/batch_pending_rollouts` and
-  `value/batch_drop_rate`. `value_function.batch_size` inherits the policy
-  rollout batch size unless set explicitly; token-batched policy runs must set
-  it explicitly. Drops are expected under overload; value work must not
+  producer-queue and `value/replay_*` metrics. `value_function.batch_size`
+  inherits the policy rollout batch size unless set explicitly; token-batched
+  policy runs must set it explicitly. The producer retains 2048 pending
+  rollouts by default and drops the oldest on overload; value work must not
   backpressure policy rollout generation.
 - Value checkpoints live under `<output_dir>/value` and have an independent
   version. `warmup_updates` gates only policy-batch shipping while generation
-  and value training continue. Warmup uses exactly one optimizer update per
-  incoming critic batch; `updates_per_batch` applies after the warmup barrier.
+  and value training continue. Replay uses the same rules during and after
+  warmup. `replay.max_updates_per_rollout` is a hard per-rollout selection cap;
+  its default capacity and refill threshold are both
+  `max_updates_per_rollout * value_function.batch_size`. Replay state is not
+  checkpointed and refills from fresh rollouts after resume.
 - TETHER can fit its two coefficients online by adding an empty
   `[orchestrator.algo.baseline.adaptive]` table. Adaptive mode requires the
   leave-one-out anchor, starts from alpha/rho zero, inherits the critic rollout

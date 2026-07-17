@@ -17,16 +17,18 @@ from prime_rl.trainer.model import value_model_supports_packing
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
 from prime_rl.value.batch import pack_value_inputs
+from prime_rl.value.coordinator import admit_available_rollouts
 from prime_rl.value.inference import predict_value_microbatches, reassemble_value_outputs
+from prime_rl.value.replay import ValueReplayBuffer, ValueReplaySnapshot
 from prime_rl.value.service import ValueHTTPServer, ValueRequestBatch, ValueRequestService
 from prime_rl.value.trainer import ValueTrainerRuntime
-from prime_rl.value.transport import LatestValueBatchReceiver
+from prime_rl.value.transport import ValueRolloutReceiver
 from prime_rl.value.types import ValueEvaluationRequest, ValueTrainingBatch
 from prime_rl.value.update_schedule import choose_next_operation
 
 _IDLE_WAIT_SECONDS = 0.01
 _MAX_IDLE_HEARTBEAT_SECONDS = 60.0
-_ControlKind = Literal["train_new", "train_reuse", "infer", "idle", "stop"]
+_ControlKind = Literal["train", "infer", "idle", "stop"]
 
 
 def validate_colocated_model(config: ModelConfig) -> None:
@@ -68,7 +70,6 @@ class _CoordinatorMetrics:
     inference_seconds: float = 0.0
     training_seconds: float = 0.0
     idle_seconds: float = 0.0
-    stale_training_batches: int = 0
 
     def snapshot(self, service: ValueRequestService, version: int) -> dict[str, float]:
         return service.metrics() | {
@@ -77,7 +78,6 @@ class _CoordinatorMetrics:
             "value/service_inference_seconds": self.inference_seconds,
             "value/service_training_seconds": self.training_seconds,
             "value/service_idle_seconds": self.idle_seconds,
-            "value/service_stale_training_batches": float(self.stale_training_batches),
             "value/version": float(version),
         }
 
@@ -163,7 +163,8 @@ def run_colocated(
     service: ValueRequestService | None = None
     server: ValueHTTPServer | None = None
     server_thread: threading.Thread | None = None
-    receiver: LatestValueBatchReceiver | None = None
+    receiver: ValueRolloutReceiver | None = None
+    replay: ValueReplayBuffer | None = None
     active_request: ValueRequestBatch | None = None
     stats = _CoordinatorMetrics()
 
@@ -181,14 +182,22 @@ def run_colocated(
             server_thread = threading.Thread(target=server.serve_forever, name="value-http", daemon=True)
             server_thread.start()
             if not runtime.max_steps_reached:
-                receiver = LatestValueBatchReceiver(config.transport)
+                assert config.batch_size is not None
+                receiver = ValueRolloutReceiver(config.transport)
+                replay = ValueReplayBuffer(
+                    batch_size=config.batch_size,
+                    capacity=config.replay.resolved_capacity,
+                    refill_size=config.replay.resolved_refill_size,
+                    max_updates_per_rollout=config.replay.max_updates_per_rollout,
+                    seed=config.replay.seed,
+                )
             get_logger().info(
                 f"Serving value inference from trainer version {runtime.version} on "
                 f"{config.evaluator.host}:{port}; dedicated serving settings are inactive"
             )
 
         pending_batch: ValueTrainingBatch | None = None
-        last_batch_id: int | None = None
+        pending_replay_snapshot: ValueReplaySnapshot | None = None
         last_operation: Literal["infer", "train"] | None = None
         serve_only = runtime.max_steps_reached
         next_command_id = 0
@@ -198,33 +207,43 @@ def run_colocated(
         while True:
             command_kind: _ControlKind | None = None
             command_payload: bytes | None = None
+            training_replay_snapshot: ValueReplaySnapshot | None = None
             if world.is_master:
                 assert service is not None
                 if run_done_file.exists():
-                    runtime.monitor.log(stats.snapshot(service, runtime.version), step=runtime.version)
-                    service.close()
-                    command_kind = "stop"
+                    if pending_batch is None:
+                        runtime.monitor.log(stats.snapshot(service, runtime.version), step=runtime.version)
+                        service.close()
+                        command_kind = "stop"
+                    else:
+                        get_logger().info("Policy run completed; executing the reserved final value update")
+                        command_kind = "train"
+                        command_payload = msgspec.msgpack.encode(pending_batch)
+                        training_replay_snapshot = pending_replay_snapshot
+                        pending_batch = None
+                        pending_replay_snapshot = None
                 else:
                     if runtime.max_steps_reached and not serve_only:
                         assert receiver is not None
                         receiver.close()
                         receiver = None
+                        replay = None
                         serve_only = True
                         get_logger().info(f"Value trainer reached max_steps; serving version {runtime.version}")
 
-                    if not serve_only and not runtime.can_step and pending_batch is None:
-                        assert receiver is not None
-                        candidate = receiver.try_receive()
-                        if candidate is not None:
-                            if last_batch_id is not None and candidate.batch_id <= last_batch_id:
-                                stats.stale_training_batches += 1
-                            else:
-                                pending_batch = candidate
-                                last_batch_id = candidate.batch_id
+                    if not serve_only and pending_batch is None:
+                        assert receiver is not None and replay is not None
+                        if not replay.can_sample:
+                            admit_available_rollouts(receiver, replay)
+                            if replay.can_sample:
+                                # Reserve now so inference cannot displace an N=1 cohort.
+                                pending_batch = replay.sample()
+                                pending_replay_snapshot = replay.snapshot()
 
                     operation = choose_next_operation(
                         has_inference=service.has_queued(),
-                        has_training=runtime.can_step or pending_batch is not None,
+                        has_training=pending_batch is not None
+                        or (not serve_only and replay is not None and replay.can_sample),
                         last_operation=last_operation,
                     )
                     if operation == "infer":
@@ -234,13 +253,17 @@ def run_colocated(
                             command_kind = "infer"
                             command_payload = msgspec.msgpack.encode(request)
                     elif operation == "train":
-                        if runtime.can_step:
-                            command_kind = "train_reuse"
-                        else:
-                            assert pending_batch is not None
-                            command_kind = "train_new"
-                            command_payload = msgspec.msgpack.encode(pending_batch)
-                            pending_batch = None
+                        if pending_batch is None:
+                            assert receiver is not None and replay is not None and replay.can_sample
+                            admit_available_rollouts(receiver, replay)
+                            pending_batch = replay.sample()
+                            pending_replay_snapshot = replay.snapshot()
+                        assert pending_batch is not None
+                        command_kind = "train"
+                        command_payload = msgspec.msgpack.encode(pending_batch)
+                        training_replay_snapshot = pending_replay_snapshot
+                        pending_batch = None
+                        pending_replay_snapshot = None
                     else:
                         idle_started_at = time.perf_counter()
                         service.wait_for_work(_IDLE_WAIT_SECONDS)
@@ -281,17 +304,13 @@ def run_colocated(
                 continue
 
             started_at = time.perf_counter()
-            if command.kind == "train_new":
+            if command.kind == "train":
                 if command.payload is None:
-                    raise RuntimeError("new-batch command is missing its batch")
+                    raise RuntimeError("training command is missing its batch")
                 batch = msgspec.msgpack.decode(command.payload, type=ValueTrainingBatch)
                 runtime.prepare_batch(batch)
                 if runtime.can_step:
-                    runtime.step()
-            elif command.kind == "train_reuse":
-                if not runtime.can_step:
-                    raise RuntimeError("value trainer received a reuse command without an active batch")
-                runtime.step()
+                    runtime.step(replay_snapshot=training_replay_snapshot)
             if world.is_master:
                 assert service is not None
                 service.set_version(runtime.version)
