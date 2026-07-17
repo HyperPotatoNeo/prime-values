@@ -14,20 +14,18 @@ adopt those weights without coupling critic progress to policy versions. Value
 evaluation can run on dedicated GPUs for independent throughput or queue on the
 value trainer's GPUs when a smaller deployment matters more.
 
+See [Value Functions](docs/value-functions.md) for topology, replay semantics,
+configuration, and monitoring.
+
 ### Architecture at a glance
 
 <p align="center">
   <img src="docs/assets/prime-values-flow.svg" alt="Prime Values asynchronous value-function pipeline" width="100%">
 </p>
 
-### Animated walkthrough
-
 <p align="center">
   <img src="docs/assets/prime-values-async-pipeline.gif" alt="Prime Values asynchronous pipeline walkthrough" width="100%">
 </p>
-
-See [Value Functions](docs/value-functions.md) for topology, replay semantics,
-configuration, and monitoring.
 
 ---
 
