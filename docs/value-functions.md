@@ -219,6 +219,13 @@ than being silently clipped.
 | `deployment.num_value_train_gpus` / `num_value_train_nodes` | `1` | Single-node GPU count or multi-node critic-trainer node count. |
 | `deployment.num_value_eval_gpus` / `num_value_eval_nodes` | placement-dependent | Defaults to one evaluator per configured replica in dedicated placement and zero in trainer placement. |
 
+Existing configs may migrate incrementally. The deprecated
+`value_function.updates_per_batch` key is translated to
+`value_function.replay.max_updates_per_rollout`, with the new per-rollout cap
+semantics; setting both to different values fails validation. The deprecated
+`value_function.transport.type = "zmq_latest"` tag is translated to `"zmq"`.
+Both translations emit `FutureWarning` and will be removed in a future release.
+
 Every field is also available as a dotted CLI override, for example:
 
 ```bash
@@ -418,7 +425,9 @@ bounded by `transport.max_pending_rollouts`, keeps rollouts droppable until the
 trainer requests a bounded admission slice, and drops the oldest still-pending
 rollout on overflow. One trainer-credited response of at most one optimizer
 batch may be in flight outside the queue; unsolicited rollouts are never moved
-into transport buffers.
+into transport buffers. Producer publication still performs finite local
+MessagePack encoding on the orchestrator event loop; nonblocking means it never
+waits for trainer or network progress.
 The value evaluator request service is not part of this queue: policy
 advantages retain their existing completion, timeout, and overload semantics.
 
@@ -469,7 +478,7 @@ are also logged by the orchestrator.
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
-| `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means delivered in response to a bounded trainer pull; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
+| `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means the credited response was accepted by ZeroMQ, not acknowledged as replay admission; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
 | `value/rollout_queue_pending_{bytes,tokens}`, `value/rollout_responder_failures` | Encoded host-memory pressure and pull-responder health. The local FIFO remains within its configured rollout capacity while the trainer is not admitting data. |
 | `algorithm/<env>/tether/{alpha,rho,batch_fit_alpha,batch_fit_rho,batch_fit_valid}` | Adaptive TETHER coefficients currently applied to new groups and the most recent raw ridge fit. `batch_fit_valid=0` marks a skipped singular/non-finite fit. |
 | `algorithm/<env>/tether/{mse_loo,mse_batch_fit,mse_ema,clip_fraction,condition_number}` | Token-weighted residual-variance proxies and fit conditioning. `clip_fraction` is the realized rate under the pre-update coefficients that scored those rollouts. Heavy clipping or poor conditioning makes coefficient magnitude less informative. |
@@ -562,6 +571,10 @@ CPU offload, DeepEP, or FP8. Dedicated placement retains the broader existing
 value-model topology. The transport, evaluator client, baseline, and value-model
 APIs remain separate from the policy trainer contract.
 
-A distributed-rank failure is fatal rather than recoverable. Rank 0 marks the
-HTTP service failed when it observes the error; a request already executing on
-a failed peer can remain pending until the process-group or request timeout.
+A distributed-rank failure or independent value-transport peer process
+exit/restart is fatal rather than hot-recoverable; the managed launcher tears
+down all child processes. In particular, restarting a rollout producer while
+the trainer is awaiting its credited response does not repair that outstanding
+REQ state. Rank 0 marks the HTTP service failed when it observes a distributed
+error; a request already executing on a failed peer can remain pending until
+the process-group or request timeout.

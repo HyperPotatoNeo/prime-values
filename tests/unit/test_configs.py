@@ -15,7 +15,7 @@ from prime_rl.configs.sft import SFTConfig
 from prime_rl.configs.shared import SlurmConfig
 from prime_rl.configs.trainer import ModelConfig as TrainerModelConfig
 from prime_rl.configs.trainer import TrainerConfig
-from prime_rl.configs.value import ClassificationValueLossConfig, ValueFunctionConfig
+from prime_rl.configs.value import ClassificationValueLossConfig, ValueFunctionConfig, ValueReplayConfig
 from prime_rl.entrypoints.rl import validate_value_tokenizer_compatibility, write_slurm_script
 from prime_rl.utils.config import BaseConfig, cli
 
@@ -532,6 +532,99 @@ def test_value_function_defaults_to_binary_classification_and_independent_lambda
     assert config.transport.max_pending_rollouts == 2048
     assert config.gae_lambda == 1.0
     assert config.value_target_lambda == 1.0
+
+
+def test_default_value_replay_matches_one_optimizer_batch():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"batch_size": 16, "algo": {"type": "grpo"}},
+            "value_function": {},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.batch_size == config.orchestrator.batch_size == 16
+    assert config.value_function.replay.max_updates_per_rollout == 1
+    assert config.value_function.replay.capacity == 16
+    assert config.value_function.replay.refill_size == 16
+    assert config.orchestrator.value_function is not None
+    assert config.orchestrator.value_function.replay == config.value_function.replay
+
+
+def test_legacy_value_updates_per_batch_migrates_to_replay():
+    with pytest.warns(FutureWarning, match="updates_per_batch is deprecated"):
+        config = ValueFunctionConfig.model_validate({"batch_size": 8, "updates_per_batch": 3})
+
+    assert config.replay.max_updates_per_rollout == 3
+    assert config.replay.capacity == 24
+    assert config.replay.refill_size == 24
+
+
+def test_legacy_value_updates_per_batch_rejects_conflicting_replay_setting():
+    with pytest.raises(ValidationError, match="updates_per_batch conflicts"):
+        ValueFunctionConfig.model_validate(
+            {
+                "updates_per_batch": 2,
+                "replay": {"max_updates_per_rollout": 3},
+            }
+        )
+
+
+@pytest.mark.parametrize(("legacy", "replacement"), [(3, "03"), ("3.0", 3)])
+def test_legacy_value_updates_per_batch_accepts_equivalent_replay_setting(legacy, replacement):
+    with pytest.warns(FutureWarning, match="updates_per_batch is deprecated"):
+        config = ValueFunctionConfig.model_validate(
+            {
+                "updates_per_batch": legacy,
+                "replay": {"max_updates_per_rollout": replacement},
+            }
+        )
+
+    assert config.replay.max_updates_per_rollout == 3
+
+
+def test_legacy_value_updates_per_batch_does_not_overwrite_invalid_replay_setting():
+    with pytest.raises(ValidationError, match="max_updates_per_rollout"):
+        ValueFunctionConfig.model_validate(
+            {
+                "updates_per_batch": 3,
+                "replay": {"max_updates_per_rollout": None},
+            }
+        )
+
+
+def test_legacy_value_updates_per_batch_preserves_explicit_replay_model_fields():
+    with pytest.warns(FutureWarning, match="updates_per_batch is deprecated"):
+        config = ValueFunctionConfig.model_validate(
+            {
+                "updates_per_batch": 3,
+                "replay": ValueReplayConfig(capacity=32),
+            }
+        )
+
+    assert config.replay.max_updates_per_rollout == 3
+    assert config.replay.capacity == 32
+
+
+def test_legacy_value_cli_settings_migrate():
+    with pytest.warns(FutureWarning) as caught:
+        config = cli(
+            ValueFunctionConfig,
+            args=["--updates-per-batch", "3", "--transport.type", "zmq_latest"],
+        )
+
+    assert len(caught) == 2
+    assert config.replay.max_updates_per_rollout == 3
+    assert config.transport.type == "zmq"
+
+
+def test_legacy_latest_value_transport_type_migrates_to_zmq():
+    with pytest.warns(FutureWarning, match="zmq_latest.*deprecated"):
+        config = ValueFunctionConfig.model_validate({"transport": {"type": "zmq_latest"}})
+
+    assert config.transport.type == "zmq"
 
 
 def test_value_replay_defaults_resolve_from_rollout_batch_size():

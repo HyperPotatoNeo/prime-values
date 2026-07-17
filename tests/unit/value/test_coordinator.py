@@ -58,3 +58,29 @@ def test_filling_admission_stops_exactly_at_refill_threshold():
     assert receiver.requests == [(1, True)]
     assert len(receiver.rollouts) == 1
     assert replay.can_sample
+
+
+def test_one_update_replay_streams_consecutive_cohorts_once_in_order():
+    replay = ValueReplayBuffer(
+        batch_size=2,
+        capacity=2,
+        refill_size=2,
+        max_updates_per_rollout=1,
+    )
+    receiver = _Receiver([_rollout(0)])
+
+    assert admit_available_rollouts(receiver, replay, wait_for_first=True) == 1
+    assert not replay.can_sample
+
+    receiver.rollouts.extend([_rollout(1), _rollout(2), _rollout(3)])
+    assert admit_available_rollouts(receiver, replay, wait_for_first=True) == 1
+    first = replay.sample()
+    assert [sample.token_ids[0] for sample in first.samples] == [0, 1]
+    assert len(replay) == 0
+
+    assert admit_available_rollouts(receiver, replay, wait_for_first=True) == 2
+    second = replay.sample()
+    assert [sample.token_ids[0] for sample in second.samples] == [2, 3]
+    assert len(replay) == 0
+    assert replay.snapshot().retired == 4
+    assert receiver.requests == [(2, True), (1, True), (2, True)]

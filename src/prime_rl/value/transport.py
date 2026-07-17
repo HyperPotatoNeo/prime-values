@@ -87,7 +87,6 @@ class ValueRolloutPublisher:
         self.endpoint = f"tcp://{config.host}:{config.port}"
         self._queue = _DropOldestRolloutQueue(config.max_pending_rollouts)
         self._wake = asyncio.Event()
-        self._context: zmq.asyncio.Context | None = None
         self._socket: zmq.asyncio.Socket | None = None
         self._responder_task: asyncio.Task | None = None
         self._closed = False
@@ -109,8 +108,7 @@ class ValueRolloutPublisher:
             raise RuntimeError("value rollout publisher is already started")
         if self._closed:
             raise RuntimeError("value rollout publisher is closed")
-        self._context = zmq.asyncio.Context.instance()
-        self._socket = self._context.socket(zmq.REP)
+        self._socket = zmq.asyncio.Context.instance().socket(zmq.REP)
         self._socket.setsockopt(zmq.SNDHWM, 1)
         self._socket.setsockopt(zmq.RCVHWM, 1)
         self._socket.setsockopt(zmq.IMMEDIATE, 1)

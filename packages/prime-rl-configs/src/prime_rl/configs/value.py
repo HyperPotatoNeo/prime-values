@@ -1,6 +1,7 @@
 import math
+import warnings
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
@@ -62,6 +63,21 @@ class ZMQValueTransportConfig(BaseConfig):
 
     max_pending_rollouts: int = Field(2048, ge=1)
     """Bounded nonblocking producer queue. Trainer pulls remove rollouts; new arrivals replace the oldest when full."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_latest_type(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or data.get("type") != "zmq_latest":
+            return data
+        data = dict(data)
+        data["type"] = "zmq"
+        warnings.warn(
+            "value_function.transport.type='zmq_latest' is deprecated; use 'zmq'. "
+            "Auto-translating for now, but this will be removed in a future release.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return data
 
 
 class ValueReplayConfig(BaseConfig):
@@ -226,6 +242,40 @@ class ValueFunctionConfig(BaseConfig):
     wandb: WandbConfig | None = None
 
     env_vars: EnvVars = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_updates_per_batch(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or "updates_per_batch" not in data:
+            return data
+        data = dict(data)
+        legacy_updates = ValueReplayConfig(
+            max_updates_per_rollout=data.pop("updates_per_batch")
+        ).max_updates_per_rollout
+        replay = data.get("replay", {})
+        if isinstance(replay, ValueReplayConfig):
+            replay = replay.model_dump(exclude_unset=True)
+        if not isinstance(replay, dict):
+            raise ValueError("value_function.replay must be a table when using updates_per_batch")
+        replay = dict(replay)
+        if "max_updates_per_rollout" in replay:
+            configured_updates = ValueReplayConfig(
+                max_updates_per_rollout=replay["max_updates_per_rollout"]
+            ).max_updates_per_rollout
+            if configured_updates != legacy_updates:
+                raise ValueError(
+                    "value_function.updates_per_batch conflicts with value_function.replay.max_updates_per_rollout"
+                )
+        replay["max_updates_per_rollout"] = legacy_updates
+        data["replay"] = replay
+        warnings.warn(
+            "value_function.updates_per_batch is deprecated; use "
+            "value_function.replay.max_updates_per_rollout. The new setting caps "
+            "per-rollout selections instead of repeating one fixed batch.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return data
 
     @model_validator(mode="after")
     def validate_initial_scope(self):
