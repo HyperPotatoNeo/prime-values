@@ -994,14 +994,14 @@ def test_slurm_scheduler_selection_fields_are_preserved():
     config = SlurmConfig.model_validate(
         {
             "partition": "",
-            "constraint": "gpu&hbm80g",
-            "qos": "premium",
+            "constraint": "gpu",
+            "qos": "standard",
         }
     )
 
     assert config.template_vars["partition"] == ""
-    assert config.template_vars["constraint"] == "gpu&hbm80g"
-    assert config.template_vars["qos"] == "premium"
+    assert config.template_vars["constraint"] == "gpu"
+    assert config.template_vars["qos"] == "standard"
 
 
 def test_orchestrator_vlm_requires_renderer():

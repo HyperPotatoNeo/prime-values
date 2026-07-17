@@ -60,7 +60,6 @@ env-server = "prime_rl.orchestrator.env_server.env_server:main"
 prime_rl = "prime_rl.inference.patches:apply_shared_vllm_patches"
 
 [project.optional-dependencies]
-rgmix = ["rg-mix"]
 flash-attn = [
     "flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu128torch2.11-cp312-cp312-linux_x86_64.whl ; platform_machine == 'x86_64'",
 ]
@@ -116,7 +115,6 @@ envs = [
     "redsearcher-v1",
     "reverse-text",
     "reverse-text-v1",
-    "rg-mix",
     "s1-deepresearch-v1",
     "scaleswe-v1",
     "simpleqa-v1",
@@ -290,7 +288,6 @@ r2e-gym-v1 = { path = "deps/research-environments/environments/swe/r2e_gym_v1", 
 redsearcher-v1 = { path = "deps/research-environments/environments/redsearcher_v1", editable = true }
 reverse-text = { path = "deps/verifiers/environments/reverse_text", editable = true }
 reverse-text-v1 = { path = "deps/verifiers/environments/reverse_text_v1", editable = true }
-rg-mix = { path = "environments/rg_mix", editable = true }
 s1-deepresearch-v1 = { path = "deps/research-environments/environments/s1_deepresearch_v1", editable = true }
 scaleswe-v1 = { path = "deps/research-environments/environments/swe/scaleswe_v1", editable = true }
 simpleqa-v1 = { path = "deps/research-environments/environments/simpleqa_v1", editable = true }

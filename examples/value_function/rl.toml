@@ -1,4 +1,4 @@
-# One-node functional smoke. Dedicated evaluation uses one GPU per runtime role.
+# Minimal one-node example. Dedicated evaluation uses one GPU per runtime role.
 
 max_steps = 5
 seq_len = 256

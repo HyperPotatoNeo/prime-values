@@ -1,4 +1,4 @@
-# Async value-function smoke
+# Async value-function example
 
 `rl.toml` runs the default four-role topology on one four-GPU host with
 Qwen3-0.6B:
@@ -26,6 +26,3 @@ omitted, enabling the value function would select the same pure-value baseline.
 The default value head is two-bin classification over `[0, 1]`; see
 [`docs/value-functions.md`](../../docs/value-functions.md) for regression,
 separate policy/target lambdas, monitoring, and scaling options.
-
-For the four-node Qwen3-4B RG-Mix setup, use
-`configs/rg_mix/async_value.toml` and overlay cluster-specific Slurm settings.

@@ -55,17 +55,11 @@ state to the policy trainer.
   Dedicated placement also reserves `num_value_eval_gpus`; trainer placement
   requires it to resolve to zero.
 - Multi-node runs similarly reserve value-trainer nodes and reserve evaluator
-  nodes only in dedicated placement. Use `examples/value_function/rl.toml` as
-  the local smoke and `configs/rg_mix/async_value.toml` as the dedicated
-  four-node shape.
+  nodes only in dedicated placement. Start from
+  `examples/value_function/rl.toml` and set the multi-node deployment and
+  scheduler fields for the target environment.
 - Launch trainer placement through `rl`, not the standalone `value-trainer`
   command; the managed run-done file owns serve-only shutdown.
-- Before a local GPU smoke on Perlmutter, point compiler and package caches at
-  scratch (`UV_CACHE_DIR`, `XDG_CACHE_HOME`, `HF_HOME`, `TRITON_CACHE_DIR`,
-  `TORCHINDUCTOR_CACHE_DIR`, `CUDA_CACHE_PATH`, and `TMPDIR`). Triton otherwise
-  defaults to the quota-limited home filesystem and can fail during vLLM startup.
-  Keep `TMPDIR` short (for example, `$SCRATCH/t/pv`) because vLLM IPC socket
-  paths must also fit the Unix-domain socket path limit.
 - Check `logs/value_trainer.log`, evaluator `/health` and `/version`, plus
   `logs/value_evaluator.log` in dedicated placement and
   producer-queue and `value/replay_*` metrics. `value_function.batch_size`
