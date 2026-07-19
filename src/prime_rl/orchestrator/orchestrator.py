@@ -385,9 +385,11 @@ class Orchestrator:
             tasks_per_minute=config.tasks_per_minute,
             max_off_policy_steps=config.max_off_policy_steps,
         )
+        assert self.renderer is not None
         self.train_sink = TrainSink(
             config,
             tokenizer=self.tokenizer,
+            renderer=self.renderer,
             train_envs=self.train_envs,
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
             batch_size=config.batch_size,
@@ -622,6 +624,16 @@ class Orchestrator:
             metrics["value/evaluator_version"] = float(max(value_versions))
             metrics["value/evaluator_version_min"] = float(min(value_versions))
             metrics["value/evaluator_version_spread"] = float(max(value_versions) - min(value_versions))
+            value_rollouts = [rollout for rollout in effective if rollout.value_version is not None]
+            conditioned = [rollout for rollout in value_rollouts if rollout.value_prefix is not None]
+            prefix_lengths = [
+                len(rollout.value_prefix.token_ids) for rollout in conditioned if rollout.value_prefix is not None
+            ]
+            metrics["value/privileged_conditioned_fraction"] = len(conditioned) / len(value_rollouts)
+            metrics["value/privileged_prefix_tokens_mean"] = (
+                math.fsum(prefix_lengths) / len(prefix_lengths) if prefix_lengths else 0.0
+            )
+            metrics["value/privileged_prefix_tokens_max"] = float(max(prefix_lengths, default=0))
             value_streams: dict[str, list[float]] = {
                 "value/rollout_prediction": [],
                 "value/rollout_advantage": [],

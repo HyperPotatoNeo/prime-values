@@ -1,11 +1,13 @@
 import asyncio
 import uuid
+from collections import defaultdict
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from prime_rl.orchestrator.train_sink import TrainSink
+from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
 
 
@@ -36,6 +38,7 @@ def _rollout(
         reward=1.0,
         value_returns=[[0.0, 1.0] for _ in samples] if samples else None,
         value_version=value_version if samples else None,
+        value_prefix=None,
         policy_version=policy_version,
         num_total_tokens=2,
         is_filtered=False,
@@ -153,6 +156,155 @@ def test_value_rollout_truncates_and_copies_sample_data():
     assert value_sample.token_ids is not sample.token_ids
     assert value_sample.mask is not sample.mask
     assert value_sample.targets is not targets
+
+
+def test_value_rollout_lifts_policy_streams_around_privileged_prefix():
+    publisher = MagicMock()
+    sink = _value_sink(publisher, seq_len=4)
+    rollout = _rollout()
+    rollout.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=1)
+    policy_token_ids = list(rollout.samples[0].token_ids)
+    policy_mask = list(rollout.samples[0].mask)
+    policy_targets = list(rollout.value_returns[0])
+
+    sink._publish_value_rollouts([rollout])
+
+    value_sample = publisher.publish.call_args.args[0].samples[0]
+    assert value_sample.token_ids == [1, 90, 91, 2]
+    assert value_sample.mask == [False, False, False, True]
+    assert value_sample.targets == [0.0, 0.0, 0.0, 1.0]
+    assert rollout.samples[0].token_ids == policy_token_ids
+    assert rollout.samples[0].mask == policy_mask
+    assert rollout.value_returns[0] == policy_targets
+
+
+def test_value_prefix_preflight_rejects_overflow_without_exposing_prompt():
+    sink = TrainSink.__new__(TrainSink)
+    sink._value_seq_len = 3
+    sink.renderer = MagicMock()
+    sink.renderer.render_ids.return_value = [1, 90, 91]
+    sink.tokenizer = SimpleNamespace(bos_token_id=1)
+    rollout = _rollout()
+    rollout.task = SimpleNamespace(idx=7, value_function_prompt="private solved grid")
+
+    with pytest.raises(ValueError, match="merged_tokens=4") as error:
+        sink._build_value_prefix(rollout, rollout.samples, enabled=True)
+
+    assert "private solved grid" not in str(error.value)
+    sink.renderer.render_ids.assert_called_once_with(
+        [{"role": "system", "content": "private solved grid"}],
+        add_generation_prompt=False,
+    )
+
+    sink._value_seq_len = 4
+    assert sink._build_value_prefix(rollout, rollout.samples, enabled=True) == TokenPrefix(
+        token_ids=(90, 91),
+        insert_at=1,
+    )
+
+
+def test_missing_or_none_value_prompt_uses_no_prefix_without_rendering():
+    sink = TrainSink.__new__(TrainSink)
+    sink._value_seq_len = 8
+    sink.renderer = MagicMock()
+    sink.tokenizer = SimpleNamespace(bos_token_id=1)
+    rollout = _rollout()
+
+    assert sink._build_value_prefix(rollout, rollout.samples, enabled=True) is None
+    rollout.task.value_function_prompt = None
+    assert sink._build_value_prefix(rollout, rollout.samples, enabled=True) is None
+    rollout.task.value_function_prompt = {"ignored": "without a value function"}
+    assert sink._build_value_prefix(rollout, rollout.samples, enabled=False) is None
+    sink.renderer.render_ids.assert_not_called()
+
+
+def test_value_prefix_preflight_rejects_empty_prompt_and_mixed_bos_branches():
+    sink = TrainSink.__new__(TrainSink)
+    sink._value_seq_len = 8
+    sink.renderer = MagicMock()
+    sink.renderer.render_ids.return_value = [1, 90]
+    sink.tokenizer = SimpleNamespace(bos_token_id=1)
+    rollout = _rollout(num_samples=2)
+    rollout.task = SimpleNamespace(idx=7, value_function_prompt="  ")
+
+    with pytest.raises(ValueError, match="non-whitespace"):
+        sink._build_value_prefix(rollout, rollout.samples, enabled=True)
+
+    rollout.task.value_function_prompt = "hint"
+    rollout.samples[1].token_ids[0] = 2
+    with pytest.raises(ValueError, match="all branches"):
+        sink._build_value_prefix(rollout, rollout.samples, enabled=True)
+
+
+def test_value_prefix_preflight_rejects_non_string_and_rendered_bos_mismatch():
+    sink = TrainSink.__new__(TrainSink)
+    sink._value_seq_len = 8
+    sink.renderer = MagicMock()
+    sink.tokenizer = SimpleNamespace(bos_token_id=1)
+    rollout = _rollout()
+    rollout.task = SimpleNamespace(idx=7, value_function_prompt={"oracle": "private"})
+
+    with pytest.raises(TypeError, match="must be a string"):
+        sink._build_value_prefix(rollout, rollout.samples, enabled=True)
+    sink.renderer.render_ids.assert_not_called()
+
+    rollout.task.value_function_prompt = "hint"
+    sink.renderer.render_ids.return_value = [90, 91]
+    with pytest.raises(ValueError, match="same BOS convention"):
+        sink._build_value_prefix(rollout, rollout.samples, enabled=True)
+
+
+def test_overflow_escapes_add_before_rollout_or_pending_state_mutates():
+    async def run_test() -> None:
+        old_samples = [_sample()]
+        old_prefix = TokenPrefix(token_ids=(70,), insert_at=1)
+        overflow_sample = _sample()
+        overflow_sample.token_ids = [1, 2, 3]
+        overflow_sample.mask = [False, True, True]
+        overflow_sample.logprobs = [0.0, -0.1, -0.2]
+        rollout = _rollout()
+        rollout.group_id = uuid.UUID(int=1)
+        rollout.task = SimpleNamespace(idx=7, value_function_prompt="private oracle")
+        rollout.samples = old_samples
+        rollout.value_prefix = old_prefix
+
+        algorithm = SimpleNamespace(
+            value_evaluator=SimpleNamespace(evaluate=AsyncMock()),
+            finalize_rollout=AsyncMock(),
+        )
+        sink = TrainSink.__new__(TrainSink)
+        sink.mm_token_type_ids_mapping = None
+        sink.train_envs = SimpleNamespace(get=lambda _name: SimpleNamespace(algorithm=algorithm))
+        sink._value_seq_len = 3
+        sink.renderer = MagicMock()
+        sink.renderer.render_ids.return_value = [1, 90]
+        sink.tokenizer = SimpleNamespace(bos_token_id=1)
+        sink.scoring_tasks = {}
+        sink.pending_rollouts = []
+        sink.pending_groups = defaultdict(list)
+        sink.pending_batch = []
+        sink._value_publisher = MagicMock()
+
+        with (
+            patch(
+                "prime_rl.orchestrator.train_sink.trace_to_samples",
+                return_value=[overflow_sample],
+            ),
+            pytest.raises(ValueError, match="conditioned value input exceeds"),
+        ):
+            await sink.add(rollout)
+
+        assert rollout.samples is old_samples
+        assert rollout.value_prefix is old_prefix
+        assert sink.scoring_tasks == {}
+        assert sink.pending_rollouts == []
+        assert sink.pending_groups == {}
+        assert sink.pending_batch == []
+        algorithm.finalize_rollout.assert_not_awaited()
+        algorithm.value_evaluator.evaluate.assert_not_awaited()
+        sink._value_publisher.publish.assert_not_called()
+
+    asyncio.run(run_test())
 
 
 def test_value_rollouts_are_ignored_when_all_targets_are_absent():

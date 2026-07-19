@@ -130,6 +130,46 @@ sequences reset both the causal value shift and GAE recursion at every sequence
 boundary. Value predictions are versioned; if an update lands while siblings
 are being scored, the whole group is re-evaluated at one coherent version.
 
+### Privileged value context
+
+An environment task may expose an optional string field named
+`value_function_prompt`. When present, the orchestrator renders that string as
+a closed leading system message with the policy's canonical renderer and
+prepends it to every critic branch for that rollout. The policy still samples
+and trains on its original token sequence; only the value evaluator and value
+trainer see the extra context. The environment therefore owns both the
+privileged information and its prompt wording, while the orchestrator remains
+independent of task-specific schemas such as solved grids, reference answers,
+or proof sketches.
+
+The field is static for the episode and optional per task. Omitting it leaves
+the value path byte-for-byte unchanged. A non-empty field activates
+conditioning without a separate prime-rl flag. Prefix tokens are masked out of
+the critic loss, and evaluator outputs are projected back onto the original
+policy positions before GAE and lambda returns are computed.
+
+This is an OPSD-style rendered-token prefix, not a guarantee that every custom
+chat template produces the same bytes as re-rendering one combined
+conversation. Qwen system-prefix behavior and Llama BOS handling are covered;
+add an integration test for another renderer family before using it in a
+production experiment.
+
+Conditioned inputs are never truncated. The rendered prefix plus the complete
+policy branch must fit `value_function.model.seq_len`; otherwise the
+orchestrator fails before issuing a value request or admitting the rollout to a
+batch. This prevents silent loss of late action values. Configure additional
+critic context length when an environment supplies substantial privileged
+information. Batch logs report `value/privileged_conditioned_fraction`,
+`value/privileged_prefix_tokens_mean`, and
+`value/privileged_prefix_tokens_max`.
+
+The overflow exception escapes the orchestrator's inline rollout loop. The
+managed `rl` launcher then performs bounded cleanup and terminates its trainer,
+value trainer, evaluator, and inference children. A standalone orchestrator
+still exits nonzero, but cannot terminate services managed by another process.
+Failure diagnostics report lengths and task coordinates without including the
+privileged prompt content.
+
 The policy GAE and critic target have independent lambda values:
 
 ```text
@@ -204,7 +244,7 @@ than being silently clipped.
 | `value_function.transport.max_pending_rollouts` | `2048` | Producer-side queue bound. Admission never blocks policy processing; a full queue drops its oldest pending rollout. |
 | `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Replay behavior is unchanged during warmup. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
-| `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context. |
+| `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context plus any environment-provided `value_function_prompt`. |
 | `value_function.evaluator.placement` | `dedicated` | `dedicated` uses a separate serving model; `trainer` queues inference on the value-trainer GPUs. |
 | `value_function.evaluator.dtype` | `bfloat16` | Dedicated serving-copy parameter dtype; inactive in trainer placement. |
 | `value_function.evaluator.double_buffer_weights` | `true` | Dedicated placement only: atomically swap weight versions without pausing inference; needs roughly two model copies of GPU memory. |
@@ -319,6 +359,7 @@ are also logged by the orchestrator.
 | `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
+| `value/privileged_conditioned_fraction`, `value/privileged_prefix_tokens_{mean,max}` | Fraction of value-backed policy rollouts carrying environment-provided privileged context and the number of tokens inserted into each conditioned rollout. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
 | `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means the credited response was accepted by ZeroMQ, not acknowledged as replay admission; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
 | `value/rollout_queue_pending_{bytes,tokens}`, `value/rollout_responder_failures` | Encoded host-memory pressure and pull-responder health. The local FIFO remains within its configured rollout capacity while the trainer is not admitting data. |
