@@ -132,21 +132,34 @@ are being scored, the whole group is re-evaluated at one coherent version.
 
 ### Privileged value context
 
-An environment task may expose an optional string field named
-`value_function_prompt`. When present, the orchestrator renders that string as
-a closed leading system message with the policy's canonical renderer and
-prepends it to every critic branch for that rollout. The policy still samples
-and trains on its original token sequence; only the value evaluator and value
-trainer see the extra context. The environment therefore owns both the
-privileged information and its prompt wording, while the orchestrator remains
-independent of task-specific schemas such as solved grids, reference answers,
-or proof sketches.
+A native Verifiers v1 task may expose the following optional typed field:
 
-The field is static for the episode and optional per task. Omitting it leaves
-the value path byte-for-byte unchanged. A non-empty field activates
-conditioning without a separate prime-rl flag. Prefix tokens are masked out of
-the critic loss, and evaluator outputs are projected back onto the original
-policy positions before GAE and lambda returns are computed.
+```python
+import verifiers.v1 as vf
+
+
+class MyTask(vf.Task):
+    value_function_prompt: str | None = None
+```
+
+The taskset decides during task construction whether to populate the field and
+owns the privileged information and prompt wording. A missing or `None` field
+leaves the value path byte-for-byte unchanged; if no value function is
+configured, the field is ignored. A non-empty string activates conditioning
+without a separate prime-rl flag. Non-string and blank values fail before the
+rollout enters group or batch state. Treat the value as the complete content of
+one critic-only system message, fixed for the episode. Do not derive it from
+`Trace.info`, rewards, answers, or post-action state.
+
+The orchestrator renders the field as a closed leading system message with the
+policy's canonical renderer and prepends it to every critic branch for that
+rollout. The policy still samples and trains on its original token sequence;
+only the value evaluator and value trainer see the extra context. Prefix tokens
+are masked out of the critic loss, and evaluator outputs are projected back
+onto the original policy positions before GAE and lambda returns are computed.
+An environment-specific `TasksetConfig` flag is the natural place for an A/B
+toggle; structured messages, online context, and per-turn insertions are not
+part of this interface.
 
 This is an OPSD-style rendered-token prefix, not a guarantee that every custom
 chat template produces the same bytes as re-rendering one combined

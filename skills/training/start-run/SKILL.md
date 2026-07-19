@@ -58,6 +58,11 @@ state to the policy trainer.
   nodes only in dedicated placement. Start from
   `examples/value_function/rl.toml` and set the multi-node deployment and
   scheduler fields for the target environment.
+- Native-v1 tasksets may attach one static `value_function_prompt` to a task.
+  The environment owns activation and wording; there is no matching
+  `value_function` flag. Conditioned branches are not truncated and must fit
+  `value_function.model.seq_len`, or the orchestrator fails before batching or
+  evaluator I/O.
 - Launch trainer placement through `rl`, not the standalone `value-trainer`
   command; the managed run-done file owns serve-only shutdown.
 - Check `logs/value_trainer.log`, evaluator `/health` and `/version`, plus

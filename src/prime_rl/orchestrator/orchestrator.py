@@ -89,8 +89,8 @@ monkey_patch_oai_iterable_types()
 monkey_patch_chat_completion_logprobs()
 
 
-# Wall-clock budget for post-training cleanup; force-exit if graceful
-# shutdown wedges (env-server ZMQ recv, vLLM admin aclose, etc)
+# Wall-clock budget for post-training cleanup; force-exit nonzero if graceful
+# shutdown wedges (env-server ZMQ recv, vLLM admin aclose, etc).
 SHUTDOWN_TIMEOUT_S = 300
 
 # Abort after this many consecutive train batches drop all rollouts to
@@ -971,7 +971,7 @@ class Orchestrator:
                 f"Orchestrator shutdown did not complete within {SHUTDOWN_TIMEOUT_S}s; "
                 "forcing process exit. Training artifacts are already persisted."
             )
-            os._exit(0)
+            os._exit(1)
         await task
 
 

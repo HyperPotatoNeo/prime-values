@@ -144,7 +144,25 @@ Omit `type` to keep the default variant.
 
 ### Environments (`[[orchestrator.train.env]]`)
 
-Training environments are an array of tables — set one per env, optionally with sampling weights:
+Training environments are an array of tables. Native Verifiers v1 environments
+declare a typed taskset and harness; taskset-specific fields are validated by
+the environment's `TasksetConfig`:
+
+```toml
+[[orchestrator.train.env]]
+name = "math-train"
+taskset = { id = "math500-v1" }
+harness = { id = "null" }
+ratio = 3
+```
+
+Environment-owned experimental switches belong in that typed taskset table.
+For example, an environment may expose
+`include_value_function_prompt = true`; this is not a global prime-rl setting.
+See [Privileged value context](value-functions.md#privileged-value-context) for
+the task contract.
+
+Legacy v0 environments instead use `id` and `args`:
 
 ```toml
 [[orchestrator.train.env]]
@@ -165,9 +183,13 @@ args = { dataset_name = "openai/gsm8k", dataset_subset = "main" }
 
 `ratio` defaults to `1` (equal weight per env); values are relative weights normalized to probabilities across envs.
 
-`args` is forwarded verbatim to the environment's `load_environment(**args)`.
+For v1 environments, fields in `taskset` and `harness` are resolved through the
+corresponding typed configs. For legacy environments, `args` is forwarded
+verbatim to `load_environment(**args)`.
 
-The same `id` can appear multiple times across train and eval (or with different `args`) — useful for evaluating on a held-out split of the env you're training on, or comparing two configurations of the same env side by side. When `id` is reused, set a distinct `name` on each entry; `name` defaults to `id` and must be unique across all envs in the same group.
+The same taskset or legacy environment can appear multiple times across train
+and eval with different settings. Set a distinct `name` on each entry; it
+defaults to the v1 taskset id or legacy id and must be unique within the group.
 
 ### Environment Variables
 
