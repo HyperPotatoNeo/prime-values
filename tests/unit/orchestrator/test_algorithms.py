@@ -250,6 +250,33 @@ def test_value_result_truncates_critic_input_and_preserves_policy_alignment():
     assert rollout.value_version == 4
 
 
+def test_value_evaluation_applies_prefix_and_projects_predictions():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value=SimpleNamespace(
+                values=[[0.1, 9.0, 8.0, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                version=3,
+            )
+        )
+        algorithm = Algorithm(
+            _build(type="grpo"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(model={"seq_len": 8, "attn": "sdpa"}),
+        )
+        rollout = _make_rollout([_make_sample()])
+        rollout.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=1)
+
+        await algorithm.finalize_rollout(rollout)
+
+        evaluator.evaluate.assert_awaited_once_with([[1, 90, 91, 2, 3, 4, 5, 6]])
+        assert rollout.value_predictions == [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]
+        assert rollout.value_version == 3
+
+    asyncio.run(run_test())
+
+
 def test_value_group_rescore_mixes_projected_prefix_and_legacy_truncation():
     async def run_test() -> None:
         evaluator = MagicMock()

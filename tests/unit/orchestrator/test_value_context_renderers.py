@@ -29,11 +29,12 @@ def test_real_renderer_prefix_preserves_complete_multiturn_policy_sequence(
         {"role": "user", "content": "Continue."},
         {"role": "assistant", "content": "Second step."},
     ]
+    privileged_message = {"role": "system", "content": "Privileged reference answer."}
     original = renderer.render_ids(policy_messages, add_generation_prompt=False)
     sample = SimpleNamespace(token_ids=list(original))
     rollout = SimpleNamespace(
         env_name="test-environment",
-        task=SimpleNamespace(idx=0, value_function_prompt="Privileged reference answer."),
+        task=SimpleNamespace(idx=0, value_function_prompt=privileged_message["content"]),
     )
     sink = TrainSink.__new__(TrainSink)
     sink.renderer = renderer
@@ -45,6 +46,7 @@ def test_real_renderer_prefix_preserves_complete_multiturn_policy_sequence(
     assert prefix is not None
     assert prefix.insert_at == expected_insert_at
     augmented = prefix.apply(sample.token_ids)
+    assert augmented == renderer.render_ids([privileged_message, *policy_messages], add_generation_prompt=False)
     assert prefix.project(augmented) == original
     assert sample.token_ids == original
     assert len(augmented) == len(original) + len(prefix.token_ids)
