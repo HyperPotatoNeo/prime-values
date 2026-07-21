@@ -131,55 +131,6 @@ sequences reset both the causal value shift and GAE recursion at every sequence
 boundary. Value predictions are versioned; if an update lands while siblings
 are being scored, the whole group is re-evaluated at one coherent version.
 
-### Privileged value context
-
-A native Verifiers v1 task may expose the following optional typed field:
-
-```python
-import verifiers.v1 as vf
-
-
-class MyTask(vf.Task):
-    value_function_prompt: str | None = None
-```
-
-The taskset decides during task construction whether to populate the field and
-owns the context and prompt wording. A missing or `None` field leaves policy
-and value token streams and credit computation unchanged; algorithms without a
-value evaluator ignore the field. A non-empty string activates conditioning
-without a separate prime-rl flag. Non-string and blank values fail before the
-rollout enters group or batch state. Treat the value as the complete content of
-one critic-only system message, fixed for the episode. Do not derive it from
-the rollout response, rewards, `Trace.info`, or other post-action state.
-
-The orchestrator renders the field as a closed leading system message with the
-policy's canonical renderer and prepends it to every critic branch for that
-rollout. The policy still samples and trains on its original token sequence;
-only the value evaluator and value trainer see the extra context. Prefix tokens
-are masked out of the critic loss, and evaluator outputs are projected back
-onto the original policy positions before GAE and lambda returns are computed.
-An environment-specific `TasksetConfig` flag is the natural place for an A/B
-toggle; structured messages, online context, and per-turn insertions are not
-part of this interface.
-
-This is an OPSD-style rendered-token prefix, not a guarantee that every custom
-chat template produces the same bytes as re-rendering one combined
-conversation. Qwen system-prefix behavior and Llama BOS handling are covered;
-add an integration test for another renderer family before using it in a
-production experiment.
-
-Conditioned inputs are never truncated. The rendered prefix plus the complete
-policy branch must fit `value_function.model.seq_len`; otherwise the
-orchestrator fails before issuing a value request or admitting the rollout to a
-batch. This prevents silent loss of late action values. Configure additional
-critic context length when an environment supplies substantial privileged
-information. Batch logs report `value/privileged_conditioned_fraction`,
-`value/privileged_prefix_tokens_mean`, and
-`value/privileged_prefix_tokens_max`.
-
-Failure diagnostics report lengths and task coordinates without including the
-prompt content.
-
 The policy GAE and critic target have independent lambda values:
 
 ```text
@@ -458,6 +409,55 @@ num_value_eval_nodes = 0 # optional; this is the resolved default
 The launcher routes the orchestrator to the value-trainer master and omits the
 evaluator process and weight broadcast. The value trainer stays alive after its
 own `max_steps` in serve-only mode until the policy run finishes.
+
+## Optional privileged value context
+
+A native Verifiers v1 task may expose the following optional typed field:
+
+```python
+import verifiers.v1 as vf
+
+
+class MyTask(vf.Task):
+    value_function_prompt: str | None = None
+```
+
+The taskset decides during task construction whether to populate the field and
+owns the context and prompt wording. A missing or `None` field leaves policy
+and value token streams and credit computation unchanged; algorithms without a
+value evaluator ignore the field. A non-empty string activates conditioning
+without a separate prime-rl flag. Non-string and blank values fail before the
+rollout enters group or batch state. Treat the value as the complete content of
+one critic-only system message, fixed for the episode. Do not derive it from
+the rollout response, rewards, `Trace.info`, or other post-action state.
+
+The orchestrator renders the field as a closed leading system message with the
+policy's canonical renderer and prepends it to every critic branch for that
+rollout. The policy still samples and trains on its original token sequence;
+only the value evaluator and value trainer see the extra context. Prefix tokens
+are masked out of the critic loss, and evaluator outputs are projected back
+onto the original policy positions before GAE and lambda returns are computed.
+An environment-specific `TasksetConfig` flag is the natural place for an A/B
+toggle; structured messages, online context, and per-turn insertions are not
+part of this interface.
+
+This is an OPSD-style rendered-token prefix, not a guarantee that every custom
+chat template produces the same bytes as re-rendering one combined
+conversation. Qwen system-prefix behavior and Llama BOS handling are covered;
+add an integration test for another renderer family before using it in a
+production experiment.
+
+Conditioned inputs are never truncated. The rendered prefix plus the complete
+policy branch must fit `value_function.model.seq_len`; otherwise the
+orchestrator fails before issuing a value request or admitting the rollout to a
+batch. This prevents silent loss of late action values. Configure additional
+critic context length when an environment supplies substantial privileged
+information. Batch logs report `value/privileged_conditioned_fraction`,
+`value/privileged_prefix_tokens_mean`, and
+`value/privileged_prefix_tokens_max`.
+
+Failure diagnostics report lengths and task coordinates without including the
+prompt content.
 
 ## Scope
 

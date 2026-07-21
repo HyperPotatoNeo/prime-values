@@ -159,8 +159,8 @@ ratio = 3
 Environment-owned experimental switches belong in that typed taskset table.
 For example, an environment may expose
 `include_value_function_prompt = true`; this is not a global prime-rl setting.
-See [Privileged value context](value-functions.md#privileged-value-context) for
-the task contract.
+See [Optional privileged value context](value-functions.md#optional-privileged-value-context)
+for the task contract.
 
 Legacy v0 environments instead use `id` and `args`:
 
