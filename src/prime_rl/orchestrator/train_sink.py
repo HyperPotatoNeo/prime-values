@@ -390,7 +390,9 @@ class TrainSink:
 
         # Samples are pre-built by ``process_rollout``; ``process_group`` already stamped the
         # advantage stream and loss routing on each sample. Filtered rollouts don't ship.
-        samples: list[TrainingSample] = [sample for r in cohort if not r.is_filtered for sample in r.samples]
+        shipped_rollouts = [rollout for rollout in cohort if not rollout.is_filtered]
+        samples: list[TrainingSample] = [sample for rollout in shipped_rollouts for sample in rollout.samples]
+        value_versions = [rollout.value_version for rollout in shipped_rollouts if rollout.value_version is not None]
 
         # ``rollouts`` is the whole arrival window (errored + filtered + survivors); ``samples`` is
         # the shipped cohort's trainable payload. ``rollouts.effective`` / ``rollouts.metrics`` derive
@@ -400,7 +402,11 @@ class TrainSink:
         rollouts = self.pending_rollouts
         if samples:
             self.pending_rollouts = TrainRollouts()
-        return TrainBatch(rollouts=rollouts, samples=samples)
+        return TrainBatch(
+            rollouts=rollouts,
+            samples=samples,
+            shipped_value_version_min=min(value_versions, default=None),
+        )
 
     def reset_pre_filter_stats(self) -> None:
         self.pre_filter_seen = 0

@@ -218,7 +218,12 @@ class ValueFunctionConfig(BaseConfig):
     replay: ValueReplayConfig = ValueReplayConfig()
 
     warmup_updates: int = Field(0, ge=0)
-    """Evaluator value version required before the first policy batch ships."""
+    """Minimum evaluator version allowed in a policy batch.
+
+    When omitted from an RL config, this resolves to one update if any effective
+    GRPO baseline uses the value function. Explicit values, including zero, are
+    preserved.
+    """
 
     transport: ZMQValueTransportConfig = ZMQValueTransportConfig()
 

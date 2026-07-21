@@ -10,8 +10,9 @@ advantages as it does without a critic.
 Add an empty value-function table. When a GRPO baseline is omitted, enabling
 the value function resolves it to pure per-token GAE (`type = "value"`). The
 empty table uses binary classification over `[0, 1]`, learning rate `1e-5`, a
-one-batch FIFO replay buffer, no warmup, and independent policy/target lambdas
-of `1.0`. The critic batch size inherits `orchestrator.batch_size`:
+one-batch FIFO replay buffer, a one-update critic warmup, and independent
+policy/target lambdas of `1.0`. The critic batch size inherits
+`orchestrator.batch_size`:
 
 ```toml
 [orchestrator]
@@ -255,7 +256,7 @@ than being silently clipped.
 | `value_function.replay.refill_size` | `capacity` | Hysteretic high-water mark: training begins or resumes after the replay reaches this many rollouts. |
 | `value_function.replay.seed` | `0` | Rank-0 RNG seed for uniform rollout selection. |
 | `value_function.transport.max_pending_rollouts` | `2048` | Producer-side queue bound. Admission never blocks policy processing; a full queue drops its oldest pending rollout. |
-| `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Replay behavior is unchanged during warmup. |
+| `value_function.warmup_updates` | automatic | Minimum evaluator version allowed in a policy batch. An omitted setting resolves to `1` when an effective GRPO baseline is `value`, otherwise `0`; explicit values are preserved. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
 | `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context plus any environment-provided `value_function_prompt`. |
 | `value_function.evaluator.placement` | `dedicated` | `dedicated` uses a separate serving model; `trainer` queues inference on the value-trainer GPUs. |
@@ -379,14 +380,22 @@ are also logged by the orchestrator.
 
 ## Warmup
 
-`warmup_updates` remains a value-version barrier, not a fixed number of rollout
-batches. Replay admission, refill, sampling, and per-rollout update caps are the
-same before and after the barrier. The dispatcher and policy inference keep
-generating and publishing critic rollouts while policy batches are withheld;
-normal policy shipping begins as soon as the evaluator adopts the required
-version. With a replay larger than one batch, initial warmup therefore waits
-for the configured refill threshold. Loading a value checkpoint may satisfy
-some or all of the version barrier, but replay still starts cold.
+`warmup_updates` is a value-version barrier, not a fixed number of rollout
+batches. For value-scored samples it is checked against the minimum evaluator
+version in the exact post-filter cohort being shipped, not the evaluator's
+current version. Advancing the evaluator therefore does not retroactively make
+an already-scored stale cohort safe; that cohort is discarded. In a mixed
+algorithm run, a candidate batch with no value-scored samples uses the live
+evaluator version, preserving the explicitly configured global barrier.
+
+Replay admission, refill, sampling, and per-rollout update caps are unchanged
+during warmup. The dispatcher and policy inference keep generating and
+publishing critic rollouts while policy batches are withheld. Normal shipping
+begins once candidate cohorts were scored at or above the required version.
+With a replay larger than one batch, initial warmup therefore waits for the
+configured refill threshold, and stale in-flight groups may cause additional
+batch drops after the evaluator advances. Loading a value checkpoint may
+satisfy some or all of the version barrier, but replay still starts cold.
 
 ## Initialization and checkpoints
 

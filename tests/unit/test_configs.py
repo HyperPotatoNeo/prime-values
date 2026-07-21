@@ -253,6 +253,9 @@ def test_value_function_defaults_omitted_grpo_baselines_to_value():
     assert inherited.algo is not None and inherited.algo.baseline.type == "value"
     assert implicit.algo is not None and implicit.algo.baseline.type == "value"
     assert explicit.algo is not None and explicit.algo.baseline.type == "mean"
+    assert config.value_function is not None and config.value_function.warmup_updates == 1
+    assert config.orchestrator.value_function is not None
+    assert config.orchestrator.value_function.warmup_updates == 1
 
 
 def test_grpo_without_value_function_keeps_mean_baseline():
@@ -284,6 +287,24 @@ def test_value_function_preserves_explicit_mean_baseline_and_length_penalty():
 
     assert config.orchestrator.algo.baseline.type == "mean"
     assert config.orchestrator.algo.length_penalty is not None
+    assert config.value_function is not None and config.value_function.warmup_updates == 0
+
+
+@pytest.mark.parametrize("warmup_updates", [0, 3])
+def test_value_function_preserves_explicit_warmup(warmup_updates):
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "grpo"}},
+            "value_function": {"warmup_updates": warmup_updates},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None
+    assert config.value_function.warmup_updates == warmup_updates
+    assert config.orchestrator.value_function is not None
+    assert config.orchestrator.value_function.warmup_updates == warmup_updates
 
 
 def test_implicit_value_baseline_rejects_length_penalty():

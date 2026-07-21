@@ -515,16 +515,20 @@ class Orchestrator:
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():
                 if self.value_evaluator is not None and self.config.value_function is not None:
-                    value_version = await self.value_evaluator.version()
-                    if value_version < self.config.value_function.warmup_updates:
+                    warmup_updates = self.config.value_function.warmup_updates
+                    value_version = train_batch.shipped_value_version_min
+                    if warmup_updates > 0 and value_version is None:
+                        value_version = await self.value_evaluator.version()
+                    if value_version is not None and value_version < warmup_updates:
                         if value_version != self.last_warmup_value_version:
                             get_logger().info(
-                                f"Value warmup {value_version}/{self.config.value_function.warmup_updates}; "
+                                f"Value warmup: gate version {value_version}/{warmup_updates}; "
                                 "discarding policy batches while rollout generation continues"
                             )
                             self.last_warmup_value_version = value_version
                         self.train_sink.reset_pre_filter_stats()
                         continue
+                    self.last_warmup_value_version = None
                 await self.finalize_train_batch(train_batch)
 
     async def finalize_train_batch(self, batch: TrainBatch) -> None:

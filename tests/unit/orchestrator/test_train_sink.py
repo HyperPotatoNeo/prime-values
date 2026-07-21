@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from prime_rl.orchestrator.metrics import TrainRollouts
 from prime_rl.orchestrator.train_sink import TrainSink
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
@@ -339,6 +340,36 @@ def test_value_rollout_is_published_after_group_finalization():
         assert sink.pending_batch == [rollout]
 
     asyncio.run(run_test())
+
+
+def test_process_batch_tracks_actual_shipped_value_versions():
+    version_two = _rollout(value_version=2)
+    version_three = _rollout(value_version=3)
+    filtered_stale = _rollout(value_version=0)
+    filtered_stale.is_filtered = True
+    overflow_stale = _rollout(value_version=0)
+    arrival_only_stale = _rollout(value_version=0)
+
+    sink = TrainSink.__new__(TrainSink)
+    sink.batch_size = 3
+    sink.token_batch_size = None
+    sink.pending_batch = [version_two, version_three, filtered_stale, overflow_stale]
+    sink.pending_tokens = 0
+    sink.pending_rollouts = TrainRollouts([arrival_only_stale])
+    sink.post_filters = []
+
+    batch = sink.process_batch()
+
+    assert batch.shipped_value_version_min == 2
+    assert batch.samples == [*version_two.samples, *version_three.samples]
+    assert sink.pending_batch == [overflow_stale]
+
+    fresh = _rollout(value_version=1)
+    sink.batch_size = 2
+    sink.pending_batch = [overflow_stale, fresh]
+    sink.pending_rollouts = TrainRollouts()
+
+    assert sink.process_batch().shipped_value_version_min == 0
 
 
 def test_stop_cancels_scoring_for_incomplete_groups():

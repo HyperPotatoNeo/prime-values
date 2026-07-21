@@ -302,6 +302,8 @@ class RLConfig(BaseConfig):
             return self
 
         value = self.value_function
+        if value_baselines and "warmup_updates" not in value.model_fields_set:
+            value.warmup_updates = 1
         self._resolve_value_algorithm_config(value, effective_algorithms)
         trainer_placed_evaluator = self._resolve_value_model_config(value)
         self._resolve_value_deployment(value, trainer_placed_evaluator)
