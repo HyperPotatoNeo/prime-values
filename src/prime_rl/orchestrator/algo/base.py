@@ -47,6 +47,7 @@ from prime_rl.configs.algorithm import ActionLossType, AlgoConfig, FrozenModelCo
 from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.orchestrator.algo.advantage import compute_gae
 from prime_rl.orchestrator.algo.routing import stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.utils.logger import get_logger
 
 if TYPE_CHECKING:
@@ -186,7 +187,11 @@ class Algorithm:
             if len(versions) > 1:
                 # A critic update landed while siblings were completing. Re-score
                 # the group in one request so one coherent version defines credit.
-                token_ids = [self._value_input(sample.token_ids) for rollout in rollouts for sample in rollout.samples]
+                token_ids = [
+                    self._value_input(sample.token_ids, rollout.value_prefix)
+                    for rollout in rollouts
+                    for sample in rollout.samples
+                ]
                 response = await self.value_evaluator.evaluate(token_ids)
                 offset = 0
                 for rollout in rollouts:
@@ -202,12 +207,14 @@ class Algorithm:
     async def _evaluate_value(self, rollout: Rollout) -> None:
         assert self.value_evaluator is not None
         response = await self.value_evaluator.evaluate(
-            [self._value_input(sample.token_ids) for sample in rollout.samples]
+            [self._value_input(sample.token_ids, rollout.value_prefix) for sample in rollout.samples]
         )
         self._assign_value_result(rollout, response.values, response.version)
 
-    def _value_input(self, token_ids: list[int]) -> list[int]:
+    def _value_input(self, token_ids: list[int], prefix: TokenPrefix | None = None) -> list[int]:
         assert self.value_config is not None and self.value_config.model is not None
+        if prefix is not None:
+            return prefix.apply(token_ids)
         return token_ids[: self.value_config.model.seq_len]
 
     def _assign_value_result(self, rollout: Rollout, predictions: list[list[float]], version: int) -> None:
@@ -218,26 +225,34 @@ class Algorithm:
             )
         advantages: list[list[float]] = []
         returns: list[list[float]] = []
+        projected_predictions: list[list[float]] = []
         for sample, values in zip(rollout.samples, predictions, strict=True):
-            value_length = len(self._value_input(sample.token_ids))
-            if len(values) != value_length:
+            value_input = self._value_input(sample.token_ids, rollout.value_prefix)
+            if len(values) != len(value_input):
+                if rollout.value_prefix is None:
+                    raise ValueError(
+                        f"value evaluator returned {len(values)} tokens for truncated value input of {len(value_input)}"
+                    )
                 raise ValueError(
-                    f"value evaluator returned {len(values)} tokens for truncated value input of {value_length}"
+                    f"value evaluator returned {len(values)} tokens for conditioned value input of {len(value_input)}"
                 )
+            projected = rollout.value_prefix.project(values) if rollout.value_prefix is not None else values
+            value_length = len(projected)
             sample_advantages, sample_returns = compute_gae(
                 reward=float(rollout.reward),
-                values=values,
+                values=projected,
                 mask=sample.mask[:value_length],
                 gamma=self.value_config.gamma,
                 gae_lambda=self.value_config.gae_lambda,
                 value_target_lambda=self.value_config.value_target_lambda,
             )
             padding = len(sample.token_ids) - value_length
+            projected_predictions.append(projected)
             advantages.append(sample_advantages + [0.0] * padding)
             returns.append(sample_returns + [0.0] * padding)
         rollout.value_predictions = [
             values + [0.0] * (len(sample.token_ids) - len(values))
-            for sample, values in zip(rollout.samples, predictions, strict=True)
+            for sample, values in zip(rollout.samples, projected_predictions, strict=True)
         ]
         rollout.value_advantages = advantages
         rollout.value_returns = returns

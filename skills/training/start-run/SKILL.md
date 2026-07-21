@@ -58,6 +58,11 @@ state to the policy trainer.
   nodes only in dedicated placement. Start from
   `examples/value_function/rl.toml` and set the multi-node deployment and
   scheduler fields for the target environment.
+- Native-v1 tasksets may attach one static `value_function_prompt` to a task.
+  The environment owns activation and wording; there is no matching
+  `value_function` flag. Conditioned branches are not truncated and must fit
+  `value_function.model.seq_len`, or the orchestrator fails before batching or
+  evaluator I/O.
 - Launch trainer placement through `rl`, not the standalone `value-trainer`
   command; the managed run-done file owns serve-only shutdown.
 - Check `logs/value_trainer.log`, evaluator `/health` and `/version`, plus
@@ -69,8 +74,12 @@ state to the policy trainer.
   backpressure policy rollout generation.
 - Value checkpoints live under `<output_dir>/value` and have an independent
   version. `warmup_updates` gates only policy-batch shipping while generation
-  and value training continue. Replay uses the same rules during and after
-  warmup. `replay.max_updates_per_rollout` is a hard per-rollout selection cap;
+  and value training continue. The gate uses the minimum evaluator version in
+  the exact post-filter cohort, so stale cohorts remain blocked after the live
+  evaluator advances. Batches with no value-scored samples use the live
+  evaluator version, preserving an explicitly configured global barrier.
+  Replay uses the same rules during and after warmup.
+  `replay.max_updates_per_rollout` is a hard per-rollout selection cap;
   its default capacity and refill threshold are both
   `max_updates_per_rollout * value_function.batch_size`. Replay state is not
   checkpointed and refills from fresh rollouts after resume.

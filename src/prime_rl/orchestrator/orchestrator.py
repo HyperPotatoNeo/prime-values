@@ -89,8 +89,8 @@ monkey_patch_oai_iterable_types()
 monkey_patch_chat_completion_logprobs()
 
 
-# Wall-clock budget for post-training cleanup; force-exit if graceful
-# shutdown wedges (env-server ZMQ recv, vLLM admin aclose, etc)
+# Wall-clock budget for post-training cleanup; force-exit nonzero if graceful
+# shutdown wedges (env-server ZMQ recv, vLLM admin aclose, etc).
 SHUTDOWN_TIMEOUT_S = 300
 
 # Abort after this many consecutive train batches drop all rollouts to
@@ -385,9 +385,11 @@ class Orchestrator:
             tasks_per_minute=config.tasks_per_minute,
             max_off_policy_steps=config.max_off_policy_steps,
         )
+        assert self.renderer is not None
         self.train_sink = TrainSink(
             config,
             tokenizer=self.tokenizer,
+            renderer=self.renderer,
             train_envs=self.train_envs,
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
             batch_size=config.batch_size,
@@ -512,18 +514,33 @@ class Orchestrator:
             # In drain mode any late-arriving train batch is dropped — we
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():
-                if self.value_evaluator is not None and self.config.value_function is not None:
-                    value_version = await self.value_evaluator.version()
-                    if value_version < self.config.value_function.warmup_updates:
-                        if value_version != self.last_warmup_value_version:
-                            get_logger().info(
-                                f"Value warmup {value_version}/{self.config.value_function.warmup_updates}; "
-                                "discarding policy batches while rollout generation continues"
-                            )
-                            self.last_warmup_value_version = value_version
-                        self.train_sink.reset_pre_filter_stats()
-                        continue
+                if (
+                    self.value_evaluator is not None
+                    and self.config.value_function is not None
+                    and not await self._passes_value_warmup(train_batch)
+                ):
+                    self.train_sink.reset_pre_filter_stats()
+                    continue
                 await self.finalize_train_batch(train_batch)
+
+    async def _passes_value_warmup(self, batch: TrainBatch) -> bool:
+        """Gate on the value version that scored this batch, with a live fallback."""
+        assert self.value_evaluator is not None and self.config.value_function is not None
+        evaluator_version = await self.value_evaluator.version()
+        gate_version = batch.shipped_value_version_min
+        if gate_version is None:
+            gate_version = evaluator_version
+        warmup_updates = self.config.value_function.warmup_updates
+        if gate_version < warmup_updates:
+            if gate_version != self.last_warmup_value_version:
+                get_logger().info(
+                    f"Value warmup: gate version {gate_version}/{warmup_updates}; "
+                    "discarding policy batches while rollout generation continues"
+                )
+                self.last_warmup_value_version = gate_version
+            return False
+        self.last_warmup_value_version = None
+        return True
 
     async def finalize_train_batch(self, batch: TrainBatch) -> None:
         """Ship one ``TrainBatch`` out to the trainer and handle the I/O
@@ -622,6 +639,16 @@ class Orchestrator:
             metrics["value/evaluator_version"] = float(max(value_versions))
             metrics["value/evaluator_version_min"] = float(min(value_versions))
             metrics["value/evaluator_version_spread"] = float(max(value_versions) - min(value_versions))
+            value_rollouts = [rollout for rollout in effective if rollout.value_version is not None]
+            conditioned = [rollout for rollout in value_rollouts if rollout.value_prefix is not None]
+            prefix_lengths = [
+                len(rollout.value_prefix.token_ids) for rollout in conditioned if rollout.value_prefix is not None
+            ]
+            metrics["value/privileged_conditioned_fraction"] = len(conditioned) / len(value_rollouts)
+            metrics["value/privileged_prefix_tokens_mean"] = (
+                math.fsum(prefix_lengths) / len(prefix_lengths) if prefix_lengths else 0.0
+            )
+            metrics["value/privileged_prefix_tokens_max"] = float(max(prefix_lengths, default=0))
             value_streams: dict[str, list[float]] = {
                 "value/rollout_prediction": [],
                 "value/rollout_advantage": [],
@@ -959,7 +986,7 @@ class Orchestrator:
                 f"Orchestrator shutdown did not complete within {SHUTDOWN_TIMEOUT_S}s; "
                 "forcing process exit. Training artifacts are already persisted."
             )
-            os._exit(0)
+            os._exit(1)
         await task
 
 

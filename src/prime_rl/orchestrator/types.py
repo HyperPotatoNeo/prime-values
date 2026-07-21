@@ -10,6 +10,7 @@ import verifiers.v1 as vf
 from pydantic import ConfigDict, Field
 from verifiers.v1.task import TaskT
 
+from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
 
 if TYPE_CHECKING:
@@ -100,6 +101,7 @@ class Rollout(vf.Trace[TaskT], Generic[TaskT]):
     value_advantages: list[list[float]] | None = Field(default=None, exclude=True)
     value_returns: list[list[float]] | None = Field(default=None, exclude=True)
     value_version: int | None = Field(default=None, exclude=True)
+    value_prefix: TokenPrefix | None = Field(default=None, exclude=True)
     is_filtered: bool = Field(default=False, exclude=True)
     filter_results: dict[str, bool] = Field(default_factory=dict, exclude=True)
     eval_step: int | None = Field(default=None, exclude=True)
@@ -144,10 +146,12 @@ class TrainBatch:
     ``.effective`` / ``.metrics`` views drive logging). ``samples`` is the trainer-bound payload (the
     shipped cohort's post-filter survivors) — an empty list means nothing ships, which would stall the
     trainer. Trainable counts derive from ``rollouts`` (``r.is_trainable``) and token totals from
-    ``samples``, so neither is carried as a field."""
+    ``samples``, so neither is carried as a field. ``shipped_value_version_min``
+    is computed from that exact shipped cohort, not from the arrival window."""
 
     rollouts: TrainRollouts
     samples: list[TrainingSample]
+    shipped_value_version_min: int | None
 
 
 @dataclass

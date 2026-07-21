@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.envs import TrainEnvs
@@ -26,11 +27,15 @@ from prime_rl.orchestrator.filters import RolloutFilter, apply_filters
 from prime_rl.orchestrator.metrics import TrainRollouts
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout, TrainBatch
+from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
 from prime_rl.utils.async_utils import safe_cancel_all
 from prime_rl.utils.logger import get_logger
 from prime_rl.value.transport import ValueRolloutPublisher
 from prime_rl.value.types import ValueTrainingRollout, ValueTrainingSample
+
+if TYPE_CHECKING:
+    from renderers.base import Renderer
 
 
 class TrainSink:
@@ -41,6 +46,7 @@ class TrainSink:
         config: OrchestratorConfig,
         *,
         tokenizer,
+        renderer: Renderer,
         train_envs: TrainEnvs,
         mm_token_type_ids_mapping: dict[int, int] | None,
         batch_size: int | None,
@@ -53,6 +59,7 @@ class TrainSink:
             "Exactly one of batch_size / token_batch_size must be set"
         )
         self.tokenizer = tokenizer
+        self.renderer = renderer
         self.train_envs = train_envs
         self.mm_token_type_ids_mapping = mm_token_type_ids_mapping
         self.batch_size = batch_size
@@ -157,12 +164,20 @@ class TrainSink:
             env_name=rollout.env_name,
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
         )
-        rollout.samples = samples or []
+        samples = samples or []
+        algorithm = self.train_envs.get(rollout.env_name).algorithm
+        value_prefix = self._build_value_prefix(
+            rollout,
+            samples,
+            enabled=algorithm.value_evaluator is not None,
+        )
+        rollout.samples = samples
+        rollout.value_prefix = value_prefix
         # Arrival phase: rollout-local scoring (raw reward, echo observation
         # weighting, opd/opsd reference logprobs) runs as soon as the rollout is
         # tokenized — before its group is complete.
         self.scoring_tasks[id(rollout)] = asyncio.create_task(
-            self.train_envs.get(rollout.env_name).algorithm.finalize_rollout(rollout),
+            algorithm.finalize_rollout(rollout),
             name=f"score-{rollout.env_name}-{rollout.group_id}",
         )
 
@@ -251,6 +266,68 @@ class TrainSink:
             f"reward={avg_reward:.4f} | filters: {filter_str}"
         )
 
+    def _build_value_prefix(
+        self,
+        rollout: Rollout,
+        samples: list[TrainingSample],
+        *,
+        enabled: bool,
+    ) -> TokenPrefix | None:
+        if not enabled or self._value_seq_len is None or not samples:
+            return None
+        prompt = getattr(rollout.task, "value_function_prompt", None)
+        if prompt is None:
+            return None
+        if not isinstance(prompt, str):
+            raise TypeError(
+                f"task value_function_prompt must be a string (env={rollout.env_name!r}, task={rollout.task.idx})"
+            )
+        if not prompt.strip():
+            raise ValueError(
+                "task value_function_prompt must contain non-whitespace text "
+                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+            )
+
+        rendered = self.renderer.render_ids(
+            [{"role": "system", "content": prompt}],
+            add_generation_prompt=False,
+        )
+        bos_token_id = self.tokenizer.bos_token_id
+        branch_has_bos = [bos_token_id is not None and sample.token_ids[:1] == [bos_token_id] for sample in samples]
+        if len(set(branch_has_bos)) != 1:
+            raise ValueError(
+                "all branches in a rollout must use the same BOS convention "
+                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+            )
+        rendered_has_bos = bos_token_id is not None and rendered[:1] == [bos_token_id]
+        if rendered_has_bos != branch_has_bos[0]:
+            raise ValueError(
+                "rendered value_function_prompt and policy branches must use the same BOS convention "
+                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+            )
+        prefix_token_ids = tuple(rendered[1:] if rendered_has_bos else rendered)
+        if not prefix_token_ids:
+            raise ValueError(
+                "value_function_prompt rendered to no prefix tokens "
+                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+            )
+        prefix = TokenPrefix(
+            token_ids=prefix_token_ids,
+            insert_at=1 if rendered_has_bos else 0,
+        )
+        for branch, sample in enumerate(samples):
+            merged_length = len(sample.token_ids) + len(prefix.token_ids)
+            if merged_length > self._value_seq_len:
+                raise ValueError(
+                    "conditioned value input exceeds value_function.model.seq_len "
+                    f"(env={rollout.env_name!r}, task={rollout.task.idx}, branch={branch}, "
+                    f"original_tokens={len(sample.token_ids)}, prefix_tokens={len(prefix.token_ids)}, "
+                    f"merged_tokens={merged_length}, seq_len={self._value_seq_len}); "
+                    "increase the critic sequence length, shorten value_function_prompt, "
+                    "or reduce the policy rollout length"
+                )
+        return prefix
+
     def _publish_value_rollouts(self, rollouts: list[Rollout]) -> None:
         if self._value_publisher is None:
             return
@@ -266,12 +343,20 @@ class TrainSink:
             assert rollout.value_returns is not None and rollout.value_version is not None
             samples: list[ValueTrainingSample] = []
             for sample, targets in zip(rollout.samples, rollout.value_returns, strict=True):
-                value_length = min(len(sample.token_ids), self._value_seq_len)
+                if rollout.value_prefix is not None:
+                    token_ids = rollout.value_prefix.apply(sample.token_ids)
+                    mask = rollout.value_prefix.lift(sample.mask, fill=False)
+                    value_targets = rollout.value_prefix.lift(targets, fill=0.0)
+                else:
+                    value_length = min(len(sample.token_ids), self._value_seq_len)
+                    token_ids = sample.token_ids[:value_length]
+                    mask = sample.mask[:value_length]
+                    value_targets = targets[:value_length]
                 samples.append(
                     ValueTrainingSample(
-                        token_ids=sample.token_ids[:value_length],
-                        mask=sample.mask[:value_length],
-                        targets=targets[:value_length],
+                        token_ids=token_ids,
+                        mask=mask,
+                        targets=value_targets,
                     )
                 )
             self._value_publisher.publish(
@@ -311,7 +396,9 @@ class TrainSink:
 
         # Samples are pre-built by ``process_rollout``; ``process_group`` already stamped the
         # advantage stream and loss routing on each sample. Filtered rollouts don't ship.
-        samples: list[TrainingSample] = [sample for r in cohort if not r.is_filtered for sample in r.samples]
+        shipped_rollouts = [rollout for rollout in cohort if not rollout.is_filtered]
+        samples: list[TrainingSample] = [sample for rollout in shipped_rollouts for sample in rollout.samples]
+        value_versions = [rollout.value_version for rollout in shipped_rollouts if rollout.value_version is not None]
 
         # ``rollouts`` is the whole arrival window (errored + filtered + survivors); ``samples`` is
         # the shipped cohort's trainable payload. ``rollouts.effective`` / ``rollouts.metrics`` derive
@@ -321,7 +408,11 @@ class TrainSink:
         rollouts = self.pending_rollouts
         if samples:
             self.pending_rollouts = TrainRollouts()
-        return TrainBatch(rollouts=rollouts, samples=samples)
+        return TrainBatch(
+            rollouts=rollouts,
+            samples=samples,
+            shipped_value_version_min=min(value_versions, default=None),
+        )
 
     def reset_pre_filter_stats(self) -> None:
         self.pre_filter_seen = 0

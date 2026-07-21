@@ -9,8 +9,9 @@ properties, not serialized) which we validate into a ``Trace[WireTask]`` — a r
 (never a loose dict) whose task keeps the env's
 task-specific fields as extras (``WireTask`` allows them). The orchestrator never imports the
 env package: the env's *type* and *runtime* both live only in the server, and the orchestrator
-drives it purely by task index. (Nothing here reads typed env task fields — only ``task.idx``
-and a full ``task.model_dump``, both of which ``WireTask`` preserves.)
+drives it purely by task index. This wrapper treats env-specific extras as opaque; downstream
+rollout consumers may read an explicit wire contract such as the optional
+``value_function_prompt`` while remaining independent of the env's Python types.
 """
 
 from __future__ import annotations
@@ -35,9 +36,8 @@ from prime_rl.orchestrator.sampler import Sampler
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.utils.logger import get_logger
 
-# Every wire trace validates into this type. WireTask (extra="allow") keeps the env's task
-# fields without importing the env package — the orchestrator never reads them typed (only
-# task.idx + task.model_dump).
+# Every wire trace validates into this type. WireTask (extra="allow") preserves task fields
+# without importing the env package; consumers access only explicit wire-level contracts.
 ROLLOUT_TYPE = Rollout[vf.WireTask]
 
 # Max wait for a spawned env server to bind and report its address. The child

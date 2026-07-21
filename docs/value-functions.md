@@ -10,8 +10,9 @@ advantages as it does without a critic.
 Add an empty value-function table. When a GRPO baseline is omitted, enabling
 the value function resolves it to pure per-token GAE (`type = "value"`). The
 empty table uses binary classification over `[0, 1]`, learning rate `1e-5`, a
-one-batch FIFO replay buffer, no warmup, and independent policy/target lambdas
-of `1.0`. The critic batch size inherits `orchestrator.batch_size`:
+one-batch FIFO replay buffer, a one-update critic warmup, and independent
+policy/target lambdas of `1.0`. The critic batch size inherits
+`orchestrator.batch_size`:
 
 ```toml
 [orchestrator]
@@ -130,6 +131,55 @@ sequences reset both the causal value shift and GAE recursion at every sequence
 boundary. Value predictions are versioned; if an update lands while siblings
 are being scored, the whole group is re-evaluated at one coherent version.
 
+### Privileged value context
+
+A native Verifiers v1 task may expose the following optional typed field:
+
+```python
+import verifiers.v1 as vf
+
+
+class MyTask(vf.Task):
+    value_function_prompt: str | None = None
+```
+
+The taskset decides during task construction whether to populate the field and
+owns the context and prompt wording. A missing or `None` field leaves policy
+and value token streams and credit computation unchanged; algorithms without a
+value evaluator ignore the field. A non-empty string activates conditioning
+without a separate prime-rl flag. Non-string and blank values fail before the
+rollout enters group or batch state. Treat the value as the complete content of
+one critic-only system message, fixed for the episode. Do not derive it from
+the rollout response, rewards, `Trace.info`, or other post-action state.
+
+The orchestrator renders the field as a closed leading system message with the
+policy's canonical renderer and prepends it to every critic branch for that
+rollout. The policy still samples and trains on its original token sequence;
+only the value evaluator and value trainer see the extra context. Prefix tokens
+are masked out of the critic loss, and evaluator outputs are projected back
+onto the original policy positions before GAE and lambda returns are computed.
+An environment-specific `TasksetConfig` flag is the natural place for an A/B
+toggle; structured messages, online context, and per-turn insertions are not
+part of this interface.
+
+This is an OPSD-style rendered-token prefix, not a guarantee that every custom
+chat template produces the same bytes as re-rendering one combined
+conversation. Qwen system-prefix behavior and Llama BOS handling are covered;
+add an integration test for another renderer family before using it in a
+production experiment.
+
+Conditioned inputs are never truncated. The rendered prefix plus the complete
+policy branch must fit `value_function.model.seq_len`; otherwise the
+orchestrator fails before issuing a value request or admitting the rollout to a
+batch. This prevents silent loss of late action values. Configure additional
+critic context length when an environment supplies substantial privileged
+information. Batch logs report `value/privileged_conditioned_fraction`,
+`value/privileged_prefix_tokens_mean`, and
+`value/privileged_prefix_tokens_max`.
+
+Failure diagnostics report lengths and task coordinates without including the
+prompt content.
+
 The policy GAE and critic target have independent lambda values:
 
 ```text
@@ -202,9 +252,9 @@ than being silently clipped.
 | `value_function.replay.refill_size` | `capacity` | Hysteretic high-water mark: training begins or resumes after the replay reaches this many rollouts. |
 | `value_function.replay.seed` | `0` | Rank-0 RNG seed for uniform rollout selection. |
 | `value_function.transport.max_pending_rollouts` | `2048` | Producer-side queue bound. Admission never blocks policy processing; a full queue drops its oldest pending rollout. |
-| `value_function.warmup_updates` | `0` | Evaluator version required before policy batches are released. Replay behavior is unchanged during warmup. |
+| `value_function.warmup_updates` | automatic | Minimum evaluator version allowed in a policy batch. An omitted setting resolves to `1` when an effective GRPO baseline is `value`, otherwise `0`; explicit values are preserved. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
-| `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context. |
+| `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context plus any environment-provided `value_function_prompt`. |
 | `value_function.evaluator.placement` | `dedicated` | `dedicated` uses a separate serving model; `trainer` queues inference on the value-trainer GPUs. |
 | `value_function.evaluator.dtype` | `bfloat16` | Dedicated serving-copy parameter dtype; inactive in trainer placement. |
 | `value_function.evaluator.double_buffer_weights` | `true` | Dedicated placement only: atomically swap weight versions without pausing inference; needs roughly two model copies of GPU memory. |
@@ -319,20 +369,29 @@ are also logged by the orchestrator.
 | `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
+| `value/privileged_conditioned_fraction`, `value/privileged_prefix_tokens_{mean,max}` | Fraction of value-backed policy rollouts carrying environment-provided privileged context and the number of tokens inserted into each conditioned rollout. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
 | `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means the credited response was accepted by ZeroMQ, not acknowledged as replay admission; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
 | `value/rollout_queue_pending_{bytes,tokens}`, `value/rollout_responder_failures` | Encoded host-memory pressure and pull-responder health. The local FIFO remains within its configured rollout capacity while the trainer is not admitting data. |
 
 ## Warmup
 
-`warmup_updates` remains a value-version barrier, not a fixed number of rollout
-batches. Replay admission, refill, sampling, and per-rollout update caps are the
-same before and after the barrier. The dispatcher and policy inference keep
-generating and publishing critic rollouts while policy batches are withheld;
-normal policy shipping begins as soon as the evaluator adopts the required
-version. With a replay larger than one batch, initial warmup therefore waits
-for the configured refill threshold. Loading a value checkpoint may satisfy
-some or all of the version barrier, but replay still starts cold.
+`warmup_updates` is a value-version barrier, not a fixed number of rollout
+batches. For value-scored samples it is checked against the minimum evaluator
+version in the exact post-filter cohort being shipped, not the evaluator's
+current version. Advancing the evaluator therefore does not retroactively make
+an already-scored stale cohort safe; that cohort is discarded. In a mixed
+algorithm run, a candidate batch with no value-scored samples uses the live
+evaluator version, preserving the explicitly configured global barrier.
+
+Replay admission, refill, sampling, and per-rollout update caps are unchanged
+during warmup. The dispatcher and policy inference keep generating and
+publishing critic rollouts while policy batches are withheld. Normal shipping
+begins once candidate cohorts were scored at or above the required version.
+With a replay larger than one batch, initial warmup therefore waits for the
+configured refill threshold, and stale in-flight groups may cause additional
+batch drops after the evaluator advances. Loading a value checkpoint may
+satisfy some or all of the version barrier, but replay still starts cold.
 
 ## Initialization and checkpoints
 

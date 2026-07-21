@@ -1,5 +1,6 @@
 import asyncio
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pydantic
 import pytest
@@ -13,6 +14,7 @@ from prime_rl.orchestrator.algo import EchoAlgorithm, GRPOAlgorithm, stamp_advan
 from prime_rl.orchestrator.algo.base import Algorithm
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout
+from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport.types import TrainingSample
 
 FROZEN = {"name": "org/ref-model", "base_url": ["http://ref:8001/v1"]}
@@ -246,6 +248,88 @@ def test_value_result_truncates_critic_input_and_preserves_policy_alignment():
     assert rollout.value_advantages[0][3:] == [0.0, 0.0, 0.0]
     assert rollout.value_returns[0][3:] == [0.0, 0.0, 0.0]
     assert rollout.value_version == 4
+
+
+def test_value_evaluation_applies_prefix_and_projects_predictions():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value=SimpleNamespace(
+                values=[[0.1, 9.0, 8.0, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                version=3,
+            )
+        )
+        algorithm = Algorithm(
+            _build(type="grpo"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(model={"seq_len": 8, "attn": "sdpa"}),
+        )
+        rollout = _make_rollout([_make_sample()])
+        rollout.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=1)
+
+        await algorithm.finalize_rollout(rollout)
+
+        evaluator.evaluate.assert_awaited_once_with([[1, 90, 91, 2, 3, 4, 5, 6]])
+        assert rollout.value_predictions == [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]
+        assert rollout.value_version == 3
+
+    asyncio.run(run_test())
+
+
+def test_value_group_rescore_mixes_projected_prefix_and_legacy_truncation():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value=SimpleNamespace(
+                values=[
+                    [0.1, 9.0, 8.0, 0.2, 0.3, 0.4, 0.5, 0.6],
+                    [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7],
+                ],
+                version=3,
+            )
+        )
+        algorithm = Algorithm(
+            _build(type="grpo"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(model={"seq_len": 8, "attn": "sdpa"}),
+        )
+        long_sample = TrainingSample(
+            token_ids=list(range(1, 11)),
+            mask=[False, False, True, True, False, True, True, True, True, True],
+            logprobs=[0.0, 0.0, -0.1, -0.2, 0.0, -0.3, -0.4, -0.5, -0.6, -0.7],
+            temperatures=[],
+            env_name="test-env",
+        )
+        conditioned = _make_rollout([_make_sample()])
+        conditioned.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=1)
+        conditioned.value_version = 1
+        unconditioned = _make_rollout([long_sample])
+        unconditioned.value_version = 2
+        rollouts = [conditioned, unconditioned]
+
+        await algorithm.finalize_group(rollouts)
+
+        evaluator.evaluate.assert_awaited_once_with(
+            [
+                [1, 90, 91, 2, 3, 4, 5, 6],
+                [1, 2, 3, 4, 5, 6, 7, 8],
+            ]
+        )
+        assert rollouts[0].value_predictions == [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]
+        assert rollouts[1].value_predictions == [[1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 0.0, 0.0]]
+        assert [rollout.value_version for rollout in rollouts] == [3, 3]
+
+    asyncio.run(run_test())
+
+
+def test_value_prefix_is_rollout_local_and_excluded_from_trace_wire_data():
+    rollout = _make_rollout([_make_sample()])
+    rollout.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=1)
+
+    assert "value_prefix" not in rollout.model_dump()
+    assert "value_prefix" not in rollout.model_dump_json()
 
 
 # --------------------------------------------------------------------------

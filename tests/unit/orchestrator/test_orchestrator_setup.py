@@ -2,8 +2,10 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from renderers import Qwen3VLRendererConfig
 
+from prime_rl.orchestrator.orchestrator import Orchestrator
 from prime_rl.orchestrator.utils import setup_policy_inference_pool
 
 
@@ -94,5 +96,38 @@ def test_setup_policy_inference_pool_keeps_renderer_without_policy_sampling():
             renderer_config=renderer_settings,
             pool_size=None,
         )
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("shipped_version", "live_version", "warmup_updates", "expected"),
+    [
+        pytest.param(0, 1, 1, False, id="stale-shipped-version-wins"),
+        pytest.param(1, 0, 1, True, id="fresh-shipped-version-wins"),
+        pytest.param(0, 1, 0, True, id="explicit-zero-disables-warmup"),
+        pytest.param(None, 1, 1, True, id="unscored-batch-uses-live-version"),
+        pytest.param(None, 0, 1, False, id="unscored-stale-live-version-blocks"),
+    ],
+)
+def test_value_warmup_uses_shipped_provenance(
+    shipped_version: int | None,
+    live_version: int,
+    warmup_updates: int,
+    expected: bool,
+):
+    async def run() -> None:
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = SimpleNamespace(
+            value_function=SimpleNamespace(warmup_updates=warmup_updates),
+        )
+        orchestrator.value_evaluator = SimpleNamespace(
+            version=AsyncMock(return_value=live_version),
+        )
+        orchestrator.last_warmup_value_version = None
+        batch = SimpleNamespace(shipped_value_version_min=shipped_version)
+
+        assert await orchestrator._passes_value_warmup(batch) is expected
+        orchestrator.value_evaluator.version.assert_awaited_once_with()
 
     asyncio.run(run())
