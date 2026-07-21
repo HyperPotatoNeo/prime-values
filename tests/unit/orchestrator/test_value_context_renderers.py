@@ -13,7 +13,7 @@ from prime_rl.orchestrator.train_sink import TrainSink
     ("model_name", "expected_insert_at"),
     [
         pytest.param("Qwen/Qwen3-4B-Instruct-2507", 0, id="qwen3-no-bos"),
-        pytest.param("meta-llama/Llama-3.2-1B-Instruct", 1, id="llama3-bos"),
+        pytest.param("NousResearch/Hermes-3-Llama-3.1-8B", 1, id="llama3-bos"),
     ],
 )
 def test_real_renderer_prefix_preserves_complete_multiturn_policy_sequence(

@@ -110,6 +110,14 @@ def _value_sink(publisher, *, seq_len: int = 8) -> TrainSink:
     return sink
 
 
+def _prefix_sink(*, seq_len: int = 8, bos_token_id: int | None = 1) -> TrainSink:
+    sink = TrainSink.__new__(TrainSink)
+    sink._value_seq_len = seq_len
+    sink.renderer = MagicMock()
+    sink.tokenizer = SimpleNamespace(bos_token_id=bos_token_id)
+    return sink
+
+
 def test_value_rollouts_are_published_individually_with_monotonic_ids():
     publisher = MagicMock()
     sink = _value_sink(publisher)
@@ -180,11 +188,8 @@ def test_value_rollout_lifts_policy_streams_around_privileged_prefix():
 
 
 def test_value_prefix_preflight_rejects_overflow_without_exposing_prompt():
-    sink = TrainSink.__new__(TrainSink)
-    sink._value_seq_len = 3
-    sink.renderer = MagicMock()
+    sink = _prefix_sink(seq_len=3)
     sink.renderer.render_ids.return_value = [1, 90, 91]
-    sink.tokenizer = SimpleNamespace(bos_token_id=1)
     rollout = _rollout()
     rollout.task = SimpleNamespace(idx=7, value_function_prompt="private solved grid")
 
@@ -205,10 +210,7 @@ def test_value_prefix_preflight_rejects_overflow_without_exposing_prompt():
 
 
 def test_missing_or_none_value_prompt_uses_no_prefix_without_rendering():
-    sink = TrainSink.__new__(TrainSink)
-    sink._value_seq_len = 8
-    sink.renderer = MagicMock()
-    sink.tokenizer = SimpleNamespace(bos_token_id=1)
+    sink = _prefix_sink()
     rollout = _rollout()
 
     assert sink._build_value_prefix(rollout, rollout.samples, enabled=True) is None
@@ -220,11 +222,8 @@ def test_missing_or_none_value_prompt_uses_no_prefix_without_rendering():
 
 
 def test_value_prefix_preflight_rejects_empty_prompt_and_mixed_bos_branches():
-    sink = TrainSink.__new__(TrainSink)
-    sink._value_seq_len = 8
-    sink.renderer = MagicMock()
+    sink = _prefix_sink()
     sink.renderer.render_ids.return_value = [1, 90]
-    sink.tokenizer = SimpleNamespace(bos_token_id=1)
     rollout = _rollout(num_samples=2)
     rollout.task = SimpleNamespace(idx=7, value_function_prompt="  ")
 
@@ -238,10 +237,7 @@ def test_value_prefix_preflight_rejects_empty_prompt_and_mixed_bos_branches():
 
 
 def test_value_prefix_preflight_rejects_non_string_and_rendered_bos_mismatch():
-    sink = TrainSink.__new__(TrainSink)
-    sink._value_seq_len = 8
-    sink.renderer = MagicMock()
-    sink.tokenizer = SimpleNamespace(bos_token_id=1)
+    sink = _prefix_sink()
     rollout = _rollout()
     rollout.task = SimpleNamespace(idx=7, value_function_prompt={"oracle": "private"})
 
@@ -250,6 +246,10 @@ def test_value_prefix_preflight_rejects_non_string_and_rendered_bos_mismatch():
     sink.renderer.render_ids.assert_not_called()
 
     rollout.task.value_function_prompt = "hint"
+    sink.renderer.render_ids.return_value = [1]
+    with pytest.raises(ValueError, match="rendered to no prefix tokens"):
+        sink._build_value_prefix(rollout, rollout.samples, enabled=True)
+
     sink.renderer.render_ids.return_value = [90, 91]
     with pytest.raises(ValueError, match="same BOS convention"):
         sink._build_value_prefix(rollout, rollout.samples, enabled=True)

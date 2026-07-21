@@ -144,13 +144,13 @@ class MyTask(vf.Task):
 ```
 
 The taskset decides during task construction whether to populate the field and
-owns the privileged information and prompt wording. A missing or `None` field
-leaves the value path byte-for-byte unchanged; if no value function is
-configured, the field is ignored. A non-empty string activates conditioning
+owns the context and prompt wording. A missing or `None` field leaves policy
+and value token streams and credit computation unchanged; algorithms without a
+value evaluator ignore the field. A non-empty string activates conditioning
 without a separate prime-rl flag. Non-string and blank values fail before the
 rollout enters group or batch state. Treat the value as the complete content of
 one critic-only system message, fixed for the episode. Do not derive it from
-`Trace.info`, rewards, answers, or post-action state.
+the rollout response, rewards, `Trace.info`, or other post-action state.
 
 The orchestrator renders the field as a closed leading system message with the
 policy's canonical renderer and prepends it to every critic branch for that
@@ -177,12 +177,8 @@ information. Batch logs report `value/privileged_conditioned_fraction`,
 `value/privileged_prefix_tokens_mean`, and
 `value/privileged_prefix_tokens_max`.
 
-The overflow exception escapes the orchestrator's inline rollout loop. The
-managed `rl` launcher then performs bounded cleanup and terminates its trainer,
-value trainer, evaluator, and inference children. A standalone orchestrator
-still exits nonzero, but cannot terminate services managed by another process.
 Failure diagnostics report lengths and task coordinates without including the
-privileged prompt content.
+prompt content.
 
 The policy GAE and critic target have independent lambda values:
 

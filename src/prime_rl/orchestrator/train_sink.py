@@ -305,12 +305,18 @@ class TrainSink:
                 "rendered value_function_prompt and policy branches must use the same BOS convention "
                 f"(env={rollout.env_name!r}, task={rollout.task.idx})"
             )
+        prefix_token_ids = tuple(rendered[1:] if rendered_has_bos else rendered)
+        if not prefix_token_ids:
+            raise ValueError(
+                "value_function_prompt rendered to no prefix tokens "
+                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+            )
         prefix = TokenPrefix(
-            token_ids=tuple(rendered[1:] if rendered_has_bos else rendered),
+            token_ids=prefix_token_ids,
             insert_at=1 if rendered_has_bos else 0,
         )
         for branch, sample in enumerate(samples):
-            merged_length = len(prefix.apply(sample.token_ids))
+            merged_length = len(sample.token_ids) + len(prefix.token_ids)
             if merged_length > self._value_seq_len:
                 raise ValueError(
                     "conditioned value input exceeds value_function.model.seq_len "
