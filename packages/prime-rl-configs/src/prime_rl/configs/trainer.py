@@ -1,3 +1,4 @@
+import math
 import warnings
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
@@ -429,6 +430,32 @@ class DefaultLossConfig(BaseConfig):
     """Temperature for the KL term."""
 
 
+class SPMALossConfig(BaseConfig):
+    type: Literal["spma"] = "spma"
+
+    dppo_mask_high: float = Field(0.2, ge=0)
+    """Upper DPPO masking threshold for the non-negative policy weights."""
+
+    eta: float = Field(0.99, ge=0, le=1, allow_inf_nan=False)
+    """Step size for the linear ``1 + eta * normalized_advantage`` weight."""
+
+    reward_range: tuple[float, float] = (0.0, 1.0)
+    """Range used to normalize advantages before forming the linear weight."""
+
+    adv_tau: float = Field(1.0, ge=0)
+    """Overall scale for the SPMA policy term."""
+
+    kl_tau: float = Field(1e-3, ge=0)
+    """Temperature for the KL term."""
+
+    @model_validator(mode="after")
+    def validate_reward_range(self):
+        low, high = self.reward_range
+        if not math.isfinite(low) or not math.isfinite(high) or high <= low:
+            raise ValueError("trainer.loss.reward_range must be finite and increasing")
+        return self
+
+
 class IPOLossConfig(BaseConfig):
     type: Literal["ipo"] = "ipo"
     ipo_threshold: float = Field(0.1, ge=0)
@@ -451,7 +478,10 @@ class CustomLossConfig(BaseConfig):
     """Kwargs forwarded to the loss function."""
 
 
-LossConfig: TypeAlias = Annotated[DefaultLossConfig | IPOLossConfig | CustomLossConfig, Field(discriminator="type")]
+LossConfig: TypeAlias = Annotated[
+    DefaultLossConfig | SPMALossConfig | IPOLossConfig | CustomLossConfig,
+    Field(discriminator="type"),
+]
 
 
 class FakeDataLoaderConfig(BaseConfig):

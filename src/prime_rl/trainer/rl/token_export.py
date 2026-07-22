@@ -8,8 +8,12 @@ from typing import Any
 import torch
 from torch import Tensor
 
-from prime_rl.configs.trainer import DefaultLossConfig, TrainerConfig
-from prime_rl.trainer.rl.loss import compute_importance_ratio_and_mismatch_kl
+from prime_rl.configs.trainer import DefaultLossConfig, SPMALossConfig, TrainerConfig
+from prime_rl.trainer.rl.loss import (
+    compute_dppo_masks,
+    compute_importance_ratio_and_mismatch_kl,
+    spma_policy_weights,
+)
 
 SCHEMA_VERSION = 1
 
@@ -202,15 +206,21 @@ def _compute_export_tensors(
         fields["importance_ratio"] = ratio
         fields["mismatch_kl"] = mismatch_kl
         fields["prob_delta"] = prob_delta
-        if isinstance(loss_config, DefaultLossConfig):
-            invalid_high = prob_delta > loss_config.dppo_mask_high
-            invalid_low = prob_delta < -loss_config.dppo_mask_low
-            positive_advantages = advantages > 0
-            negative_advantages = advantages < 0
-            invalid = torch.where(positive_advantages, invalid_high, invalid_low)
+        if isinstance(loss_config, (DefaultLossConfig, SPMALossConfig)):
+            is_default = isinstance(loss_config, DefaultLossConfig)
+            directions = (
+                advantages if is_default else loss_config.adv_tau * spma_policy_weights(advantages, loss_config)[0]
+            )
+            invalid, invalid_high, invalid_low = compute_dppo_masks(
+                directions,
+                prob_delta,
+                mask_low=loss_config.dppo_mask_low if is_default else 0.0,
+                mask_high=loss_config.dppo_mask_high,
+                zero_uses_low=is_default,
+            )
             fields["is_masked"] = loss_mask & invalid
-            fields["is_masked_high"] = loss_mask & positive_advantages & invalid_high
-            fields["is_masked_low"] = loss_mask & negative_advantages & invalid_low
+            fields["is_masked_high"] = loss_mask & invalid_high
+            fields["is_masked_low"] = loss_mask & invalid_low
     return fields
 
 

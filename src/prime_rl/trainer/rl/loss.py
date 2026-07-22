@@ -6,7 +6,7 @@ from beartype import beartype as typechecker
 from jaxtyping import Bool, Float, Int, jaxtyped
 from torch import Tensor
 
-from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig
+from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig, SPMALossConfig
 from prime_rl.utils.utils import import_object
 
 
@@ -106,21 +106,47 @@ def compute_importance_ratio_and_mismatch_kl(
     return log_importance_ratio, importance_ratio, mismatch_kl
 
 
-def default_loss_fn(inputs: LossInputs, loss_config: DefaultLossConfig) -> LossOutputs:
-    """
-    DPPO+KL loss for RL training, combining:
-    - DPPO-Binary TV Loss (https://arxiv.org/pdf/2602.04879)
-    - Kimi-K2.5 KL Loss (https://arxiv.org/pdf/2602.02276)
+def compute_dppo_masks(
+    directions: Tensor,
+    probs_diff: Tensor,
+    *,
+    mask_low: float,
+    mask_high: float,
+    zero_uses_low: bool = False,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Return the combined, high-side, and low-side DPPO masks."""
+    invalid_high = probs_diff > mask_high
+    invalid_low = probs_diff < -mask_low
+    positive = directions > 0
+    negative = directions < 0
+    masked_high = positive & invalid_high
+    masked_low = negative & invalid_low
+    combined = torch.where(positive, invalid_high, invalid_low) if zero_uses_low else masked_high | masked_low
+    return combined, masked_high, masked_low
 
-    The mask is conditioned on the advantage sign: for positive advantages,
-    we mask tokens whose probability increased too much (trust region violation
-    in the upweight direction); for negative advantages, we mask tokens whose
-    probability decreased too much (trust region violation in the downweight
-    direction).
-    """
+
+def spma_policy_weights(advantages: Tensor, loss_config: SPMALossConfig) -> tuple[Tensor, Tensor]:
+    """Build bounded linear SPMA weights and report which advantages clipped."""
+    low, high = loss_config.reward_range
+    normalized_advantages = advantages / (high - low)
+    bounded_advantages = normalized_advantages.clamp(-1.0, 1.0)
+    weights = 1.0 + loss_config.eta * bounded_advantages
+    return weights, normalized_advantages != bounded_advantages
+
+
+def _dppo_kl_loss(
+    inputs: LossInputs,
+    *,
+    policy_weights: Tensor,
+    mask_directions: Tensor,
+    dppo_mask_low: float,
+    dppo_mask_high: float,
+    kl_tau: float,
+    zero_uses_low: bool = False,
+) -> LossOutputs:
+    """Shared DPPO trust region and trainer/inference KL regularizer."""
     trainer_logprobs = inputs.trainer_logprobs
     inference_logprobs = inputs.inference_logprobs
-    advantages = inputs.advantages
     loss_mask = inputs.loss_mask
 
     log_importance_ratio, importance_ratio, mismatch_kl = compute_importance_ratio_and_mismatch_kl(
@@ -128,22 +154,19 @@ def default_loss_fn(inputs: LossInputs, loss_config: DefaultLossConfig) -> LossO
     )
 
     probs_diff = torch.exp(trainer_logprobs) - torch.exp(inference_logprobs)
-    dppo_invalid_mask_high = probs_diff > loss_config.dppo_mask_high
-    dppo_invalid_mask_low = probs_diff < -loss_config.dppo_mask_low
-    positive_advantages = advantages > 0
-    negative_advantages = advantages < 0
-    dppo_invalid_mask = torch.where(positive_advantages, dppo_invalid_mask_high, dppo_invalid_mask_low)
-
-    is_masked = dppo_invalid_mask
-    is_masked_high = positive_advantages & dppo_invalid_mask_high
-    is_masked_low = negative_advantages & dppo_invalid_mask_low
+    is_masked, is_masked_high, is_masked_low = compute_dppo_masks(
+        mask_directions,
+        probs_diff,
+        mask_low=dppo_mask_low,
+        mask_high=dppo_mask_high,
+        zero_uses_low=zero_uses_low,
+    )
     drop_mask = loss_mask & is_masked
     keep_mask = loss_mask & ~is_masked
 
-    advantages = loss_config.adv_tau * advantages
-    pg_loss = keep_mask * advantages * importance_ratio
+    pg_loss = keep_mask * policy_weights * importance_ratio
     kl_loss = loss_mask * log_importance_ratio**2
-    per_token_loss = -pg_loss + loss_config.kl_tau * kl_loss
+    per_token_loss = -pg_loss + kl_tau * kl_loss
     if inputs.loss_weights is not None:
         per_token_loss = per_token_loss * inputs.loss_weights
     loss = per_token_loss.sum()
@@ -154,11 +177,41 @@ def default_loss_fn(inputs: LossInputs, loss_config: DefaultLossConfig) -> LossO
         "is_masked": _safe_mean(is_masked, loss_mask),
         "is_masked_low": _safe_mean(is_masked_low, loss_mask),
         "is_masked_high": _safe_mean(is_masked_high, loss_mask),
-        "masked_advantage_positive": _safe_mean(positive_advantages, drop_mask),
-        "masked_advantage_negative": _safe_mean(negative_advantages, drop_mask),
+        "masked_advantage_positive": _safe_mean(inputs.advantages > 0, drop_mask),
+        "masked_advantage_negative": _safe_mean(inputs.advantages < 0, drop_mask),
     }
 
     return LossOutputs(loss=loss, metrics=metrics)
+
+
+def default_loss_fn(inputs: LossInputs, loss_config: DefaultLossConfig) -> LossOutputs:
+    """Default DPPO policy-gradient loss plus trainer/inference KL."""
+    return _dppo_kl_loss(
+        inputs,
+        policy_weights=loss_config.adv_tau * inputs.advantages,
+        mask_directions=inputs.advantages,
+        dppo_mask_low=loss_config.dppo_mask_low,
+        dppo_mask_high=loss_config.dppo_mask_high,
+        kl_tau=loss_config.kl_tau,
+        zero_uses_low=True,
+    )
+
+
+def spma_loss_fn(inputs: LossInputs, loss_config: SPMALossConfig) -> LossOutputs:
+    """Importance-weighted linear-advantage SFT (SPMA) plus DPPO and KL."""
+    linear_weights, advantage_clipped = spma_policy_weights(inputs.advantages, loss_config)
+    policy_weights = loss_config.adv_tau * linear_weights
+    outputs = _dppo_kl_loss(
+        inputs,
+        policy_weights=policy_weights,
+        mask_directions=policy_weights,
+        dppo_mask_low=0.0,
+        dppo_mask_high=loss_config.dppo_mask_high,
+        kl_tau=loss_config.kl_tau,
+    )
+    outputs.metrics["spma_weight"] = _safe_mean(linear_weights, inputs.loss_mask)
+    outputs.metrics["spma_advantage_clipped"] = _safe_mean(advantage_clipped, inputs.loss_mask)
+    return outputs
 
 
 def ipo_loss_fn(inputs: LossInputs, loss_config: IPOLossConfig) -> LossOutputs:
@@ -261,8 +314,9 @@ def ce_loss_fn(inputs: LossInputs) -> LossOutputs:
 
 def setup_rl_loss_fn(loss_config: LossConfig) -> LossFn:
     """Build the loss fn for the rl component from ``trainer.loss``:
-    ``default_loss_fn`` (``DefaultLossConfig``), ``ipo_loss_fn``
-    (``IPOLossConfig``), or the imported function (``CustomLossConfig``).
+    ``default_loss_fn`` (``DefaultLossConfig``), ``spma_loss_fn``
+    (``SPMALossConfig``), ``ipo_loss_fn`` (``IPOLossConfig``), or the imported
+    function (``CustomLossConfig``).
     The ce / ref_kl loss types are fixed and unaffected by ``trainer.loss``."""
     if isinstance(loss_config, CustomLossConfig):
         custom_fn = import_object(loss_config.import_path)
@@ -274,6 +328,10 @@ def setup_rl_loss_fn(loss_config: LossConfig) -> LossFn:
 
         def rl_fn(inputs: LossInputs) -> LossOutputs:
             return ipo_loss_fn(inputs, loss_config)
+    elif isinstance(loss_config, SPMALossConfig):
+
+        def rl_fn(inputs: LossInputs) -> LossOutputs:
+            return spma_loss_fn(inputs, loss_config)
     else:
 
         def rl_fn(inputs: LossInputs) -> LossOutputs:

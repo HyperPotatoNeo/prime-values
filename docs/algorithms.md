@@ -169,7 +169,7 @@ $$
 \mathcal{L} = \frac{\sum \mathcal{L}_{rl}}{N_{rl}} + \frac{\sum \mathcal{L}_{ce}}{N_{ce}} + \frac{\sum \mathcal{L}_{ref\_kl}}{N_{ref\_kl}}
 $$
 
-- `rl` — the configured RL loss (`[trainer.loss]`): DPPO + KL by default, or a [custom loss](#custom-loss). Fed by the group-relative algorithms (`grpo`, `max_rl`, and `echo`'s action tokens).
+- `rl` — the configured RL loss (`[trainer.loss]`): DPPO + KL by default, SPMA linear-advantage SFT, IPO, or a [custom loss](#custom-loss). Fed by the group-relative algorithms (`grpo`, `max_rl`, and `echo`'s action tokens).
 - `ce` — masked NLL. Used for frozen-model tokens (`sft`) and env-observation tokens (`echo`).
 - `ref_kl` — the per-token reverse KL to a reference model ($\log \pi_{\text{ref}} - \log \pi$) as the policy-gradient signal, importance-ratio corrected with a one-sided trust region (`opd`, `opsd`). Requires `ref_logprobs` from a [reference scoring](#reference-scoring); the scoring model must be a vLLM server (it's the only one that exposes `prompt_logprobs`).
 
@@ -210,6 +210,67 @@ The knobs (under `[trainer.loss]` with `type = "default"`):
 | `kl_tau` | 1e-3 | Temperature on the KL regularizer. Set to 0 to disable. |
 
 Set `[trainer.loss] type = "default"` and configure via the knobs above. The `ce` and `ref_kl` components are fixed and unaffected by `[trainer.loss]`.
+
+### SPMA Linear-Advantage SFT Loss
+
+`[trainer.loss] type = "spma"` implements an
+[SPMA-style](https://proceedings.mlr.press/v258/asad25a.html) linear policy
+update. It keeps the default loss's importance ratio,
+DPPO high-side trust-region mask, and trainer/inference KL term, but replaces
+the signed policy-gradient coefficient with a bounded non-negative weight:
+
+$$
+\bar A_{i,t} = \operatorname{clip}\!\left(
+\frac{\hat A_{i,t}}{R_{\max}-R_{\min}}, -1, 1
+\right), \qquad
+w_{i,t} = 1 + \eta \bar A_{i,t},
+$$
+
+$$
+\mathcal{L}_{\text{SPMA}} =
+-\frac{1}{N_{rl}}\sum_{i,t}M_{i,t}\,\tau_A\,
+\frac{\pi(y_{i,t}\mid s_{i,t})}{\mu(y_{i,t}\mid s_{i,t})}\,w_{i,t}
++ \tau_{KL}\mathcal{L}_{KL}.
+$$
+
+The importance ratio remains differentiable, so the actor gradient is the
+importance-weighted weighted-SFT gradient. Advantages are normalized by the
+configured reward span and clipped to `[-1, 1]`; this keeps
+`w` in `[1 - eta, 1 + eta]` even if a learned or future baseline overshoots
+the nominal reward range. The trainer logs `spma_weight` and
+`spma_advantage_clipped` so a mismatched range is visible.
+
+```toml
+[trainer.loss]
+type = "spma"
+eta = 0.99
+reward_range = [0.0, 1.0]
+```
+
+| Knob | Default | What it does |
+|---|---|---|
+| `eta` | 0.99 | Linear advantage step size in `[0, 1]`. At the default, a maximally negative normalized advantage has weight `0.01`; `eta = 1` is allowed and gives it zero actor weight. |
+| `reward_range` | `[0.0, 1.0]` | Advantage-normalization range. Set it to the bounded return scale shared by the reward and baseline. |
+| `dppo_mask_high` | 0.2 | Masks an actor term after the sampled token probability has increased too far. SPMA weights are non-negative, so there is no low-side mask. |
+| `adv_tau` | 1.0 | Overall scale on the SPMA actor term. |
+| `kl_tau` | 1e-3 | Same squared-log-ratio KL coefficient as the default loss. |
+
+`eta = 1` can zero the actor term, but the KL term remains active when trainer
+and inference policies differ. An advantage of zero always has weight `1`.
+Consequently, with a mean or leave-one-out baseline, an all-failure group and
+an all-success group are both retained with unit weight because both have
+zero centered advantage; `eta = 0.99` suppresses only advantages at the
+negative edge of the configured range, not homogeneous failure groups.
+
+The standard `rl` entrypoint therefore changes the implicit enforcing
+`zero_advantage` post-batch filter to monitor-only when SPMA is selected. If
+`orchestrator.post_batch_filters` is present in the user config, it is
+preserved exactly, so an explicit enforcing zero-advantage filter still wins.
+Separately launched trainer and orchestrator configs do not pass through this
+cross-component resolver; set that filter to `enforce = false` explicitly in
+that case. Off-policy age rejection through `max_off_policy_steps` is
+unchanged. The orchestrator's `Trainable` diagnostic still counts nonzero raw
+advantages, so it can undercount zero-advantage rollouts that SPMA does train.
 
 ### Custom Loss
 
@@ -360,7 +421,7 @@ Filters drop rollouts between scoring and training. Built-ins (composable):
 | `repetition` | Drops rollouts with high n-gram repetition. |
 | `zero_advantage` | Drops rollouts whose advantage is zero, so the trainer doesn't waste tokens on them. |
 
-The default `[orchestrator]` config registers all three in both filter slots: `post_batch_filters` enforce by default (flagged rollouts are recorded but not shipped to the trainer), while `pre_batch_filters` run in monitor mode (`enforce = false`); flip `enforce = true` there to drop matching rollouts before they consume a slot in the batch. Setting a slot replaces its defaults wholesale:
+The default `[orchestrator]` config registers all three in both filter slots. The post-batch `zero_advantage` filter enforces by default (flagged rollouts are recorded but not shipped to the trainer), while the pre-batch filters and the other default filters run in monitor mode (`enforce = false`). With `[trainer.loss] type = "spma"`, an omitted post-batch filter slot instead resolves the zero-advantage filter to monitor-only because zero advantages carry unit SPMA weight. Flip `enforce = true` explicitly to drop matching rollouts. Setting a slot replaces its defaults wholesale:
 
 ```toml
 [[orchestrator.post_batch_filters]]

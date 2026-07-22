@@ -16,6 +16,7 @@ from prime_rl.configs.orchestrator import (
 )
 from prime_rl.configs.orchestrator import (
     OrchestratorConfig,
+    ZeroAdvantageFilterConfig,
 )
 from prime_rl.configs.shared import (
     EnvVars,
@@ -25,6 +26,7 @@ from prime_rl.configs.shared import (
 from prime_rl.configs.trainer import (
     BenchConfig,
     FakeDataLoaderConfig,
+    SPMALossConfig,
     TokenizerConfig,
     TrainerConfig,
 )
@@ -257,6 +259,20 @@ class RLConfig(BaseConfig):
     """Only validate and dump resolved configs, then exit early."""
 
     ### Validate configs (e.g. raise for unsupported (combinations of) configs)
+
+    @model_validator(mode="after")
+    def resolve_spma_filter_default(self):
+        """Retain zero-advantage rollouts unless the user configured the post-filter slot."""
+        if not isinstance(self.trainer.loss, SPMALossConfig):
+            return self
+        if "post_batch_filters" not in self.orchestrator.model_fields_set:
+            self.orchestrator.post_batch_filters = [
+                filter_config.model_copy(update={"enforce": False})
+                if isinstance(filter_config, ZeroAdvantageFilterConfig)
+                else filter_config
+                for filter_config in self.orchestrator.post_batch_filters
+            ]
+        return self
 
     @model_validator(mode="after")
     def resolve_value_function(self):

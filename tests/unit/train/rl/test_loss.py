@@ -1,8 +1,9 @@
 import pytest
 import torch
 
-from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig
+from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, SPMALossConfig
 from prime_rl.trainer.rl.loss import LossInputs, LossOutputs, compute_entropy, compute_loss, setup_rl_loss_fn
+from prime_rl.trainer.rl.token_export import _compute_export_tensors
 
 pytestmark = [pytest.mark.gpu]
 
@@ -55,6 +56,144 @@ def test_gspo_loss():
         ref_kl_scale=1,
     )
     assert loss.shape == ()
+
+
+def test_spma_loss_applies_bounded_linear_weights_and_importance_ratio():
+    trainer_logprobs = torch.log(torch.full((3,), 0.2, device="cuda")).requires_grad_()
+    inputs = LossInputs(
+        trainer_logprobs=trainer_logprobs,
+        inference_logprobs=torch.log(torch.full((3,), 0.1, device="cuda")),
+        ref_logprobs=None,
+        advantages=torch.tensor([-2.0, 0.0, 0.5], device="cuda"),
+        loss_mask=torch.ones(3, dtype=torch.bool, device="cuda"),
+    )
+    rl_loss_fn = setup_rl_loss_fn(SPMALossConfig(eta=0.99, reward_range=(0.0, 1.0), dppo_mask_high=1.0, kl_tau=0.0))
+
+    result = rl_loss_fn(inputs)
+    expected_weights = torch.tensor([0.01, 1.0, 1.495], device="cuda")
+    expected_ratio = torch.tensor(2.0, device="cuda")
+    assert torch.isclose(result.loss, -expected_ratio * expected_weights.sum(), atol=1e-6)
+    assert torch.isclose(result.metrics["spma_weight"], expected_weights.mean(), atol=1e-6)
+    assert torch.isclose(result.metrics["spma_advantage_clipped"], torch.tensor(1 / 3, device="cuda"))
+
+    result.loss.backward()
+    assert torch.allclose(trainer_logprobs.grad, -expected_ratio * expected_weights, atol=1e-6)
+
+
+def test_spma_dppo_mask_follows_nonnegative_policy_weight():
+    inputs = LossInputs(
+        trainer_logprobs=torch.log(torch.tensor([0.5], device="cuda")),
+        inference_logprobs=torch.log(torch.tensor([0.1], device="cuda")),
+        ref_logprobs=None,
+        advantages=torch.tensor([-1.0], device="cuda"),
+        loss_mask=torch.ones(1, dtype=torch.bool, device="cuda"),
+    )
+    rl_loss_fn = setup_rl_loss_fn(SPMALossConfig(eta=0.99, kl_tau=0.0))
+
+    result = rl_loss_fn(inputs)
+    assert result.loss == 0
+    assert result.metrics["is_masked_high"] == 1
+    assert result.metrics["is_masked_low"] == 0
+
+
+def test_default_loss_preserves_zero_advantage_masking_metrics():
+    inputs = LossInputs(
+        trainer_logprobs=torch.log(torch.tensor([0.1], device="cuda")),
+        inference_logprobs=torch.log(torch.tensor([0.5], device="cuda")),
+        ref_logprobs=None,
+        advantages=torch.zeros(1, device="cuda"),
+        loss_mask=torch.ones(1, dtype=torch.bool, device="cuda"),
+    )
+    rl_loss_fn = setup_rl_loss_fn(DefaultLossConfig(kl_tau=0.0))
+
+    result = rl_loss_fn(inputs)
+    assert result.loss == 0
+    assert result.metrics["is_masked"] == 1
+    assert result.metrics["is_masked_high"] == 0
+    assert result.metrics["is_masked_low"] == 0
+
+
+def test_default_loss_matches_pre_refactor_formula_and_gradient():
+    trainer_logprobs = torch.log(torch.tensor([0.5, 0.1, 0.2, 0.3], device="cuda")).requires_grad_()
+    inference_logprobs = torch.log(torch.tensor([0.1, 0.5, 0.2, 0.25], device="cuda"))
+    advantages = torch.tensor([1.0, -1.0, 0.0, 0.5], device="cuda")
+    loss_mask = torch.tensor([True, True, True, False], device="cuda")
+    loss_weights = torch.tensor([1.0, 2.0, 3.0, 4.0], device="cuda")
+    config = DefaultLossConfig(dppo_mask_low=0.2, dppo_mask_high=0.2, adv_tau=0.7, kl_tau=0.003)
+    inputs = LossInputs(
+        trainer_logprobs=trainer_logprobs,
+        inference_logprobs=inference_logprobs,
+        ref_logprobs=None,
+        advantages=advantages,
+        loss_mask=loss_mask,
+        loss_weights=loss_weights,
+    )
+
+    result = setup_rl_loss_fn(config)(inputs)
+    result.loss.backward()
+    actual_gradient = trainer_logprobs.grad.clone()
+
+    legacy_logprobs = trainer_logprobs.detach().clone().requires_grad_()
+    log_ratio = legacy_logprobs - inference_logprobs
+    ratio = torch.exp(log_ratio)
+    probability_delta = torch.exp(legacy_logprobs) - torch.exp(inference_logprobs)
+    positive = advantages > 0
+    invalid = torch.where(
+        positive, probability_delta > config.dppo_mask_high, probability_delta < -config.dppo_mask_low
+    )
+    keep = loss_mask & ~invalid
+    expected_loss = (
+        -(keep * config.adv_tau * advantages * ratio) + config.kl_tau * loss_mask * log_ratio**2
+    ) * loss_weights
+    expected_loss = expected_loss.sum()
+    expected_loss.backward()
+
+    assert torch.isclose(result.loss, expected_loss, atol=1e-6)
+    assert torch.allclose(actual_gradient, legacy_logprobs.grad, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("loss_config", "trainer_probability", "inference_probability", "advantage", "expected_masks"),
+    [
+        (DefaultLossConfig(), 0.5, 0.1, 1.0, (True, True, False)),
+        (DefaultLossConfig(), 0.1, 0.5, -1.0, (True, False, True)),
+        (DefaultLossConfig(), 0.1, 0.5, 0.0, (True, False, False)),
+        (SPMALossConfig(eta=0.99), 0.5, 0.1, -1.0, (True, True, False)),
+    ],
+)
+def test_token_export_masks_match_loss(
+    loss_config,
+    trainer_probability,
+    inference_probability,
+    advantage,
+    expected_masks,
+):
+    trainer_logprobs = torch.log(torch.tensor([trainer_probability], device="cuda"))
+    inference_logprobs = torch.log(torch.tensor([inference_probability], device="cuda"))
+    advantages = torch.tensor([advantage], device="cuda")
+    loss_mask = torch.ones(1, dtype=torch.bool, device="cuda")
+    inputs = LossInputs(
+        trainer_logprobs=trainer_logprobs,
+        inference_logprobs=inference_logprobs,
+        ref_logprobs=None,
+        advantages=advantages,
+        loss_mask=loss_mask,
+    )
+    result = setup_rl_loss_fn(loss_config)(inputs)
+    export = _compute_export_tensors(
+        {
+            "inference_logprobs": inference_logprobs,
+            "advantages": advantages,
+            "loss_mask": loss_mask,
+        },
+        trainer_logprobs,
+        loss_config,
+    )
+
+    exported_masks = tuple(bool(export[name].item()) for name in ("is_masked", "is_masked_high", "is_masked_low"))
+    loss_masks = tuple(bool(result.metrics[name].item()) for name in ("is_masked", "is_masked_high", "is_masked_low"))
+    assert exported_masks == expected_masks
+    assert loss_masks == expected_masks
 
 
 def test_entropy_loss():

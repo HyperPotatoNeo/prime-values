@@ -14,7 +14,7 @@ from prime_rl.configs.rl import RLConfig
 from prime_rl.configs.sft import SFTConfig
 from prime_rl.configs.shared import SlurmConfig
 from prime_rl.configs.trainer import ModelConfig as TrainerModelConfig
-from prime_rl.configs.trainer import TrainerConfig
+from prime_rl.configs.trainer import SPMALossConfig, TrainerConfig
 from prime_rl.configs.value import ClassificationValueLossConfig, ValueFunctionConfig, ValueReplayConfig
 from prime_rl.entrypoints.rl import validate_value_tokenizer_compatibility, write_slurm_script
 from prime_rl.utils.config import BaseConfig, cli
@@ -193,6 +193,77 @@ def test_env_algo_overrides_top_level():
 def test_trainer_enable_token_export_cli_flag():
     assert not cli(TrainerConfig, args=[]).enable_token_export
     assert cli(TrainerConfig, args=["--enable-token-export"]).enable_token_export
+
+
+def test_spma_loss_config_defaults_and_bounds():
+    config = TrainerConfig.model_validate({"loss": {"type": "spma"}})
+
+    assert isinstance(config.loss, SPMALossConfig)
+    assert config.loss.eta == 0.99
+    assert config.loss.reward_range == (0.0, 1.0)
+    assert config.loss.adv_tau == 1.0
+    assert config.loss.kl_tau == 1e-3
+    assert SPMALossConfig(eta=1.0).eta == 1.0
+
+    with pytest.raises(ValidationError, match="less than or equal to 1"):
+        SPMALossConfig(eta=1.01)
+    with pytest.raises(ValidationError, match="reward_range"):
+        SPMALossConfig(reward_range=(1.0, 1.0))
+    with pytest.raises(ValidationError, match="reward_range"):
+        SPMALossConfig(reward_range=(float("nan"), 1.0))
+
+
+def test_spma_defaults_zero_advantage_filter_to_monitor_only():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"loss": {"type": "spma"}},
+            "orchestrator": {},
+        }
+    )
+
+    pre_zero = next(f for f in config.orchestrator.pre_batch_filters if f.type == "zero_advantage")
+    post_zero = next(f for f in config.orchestrator.post_batch_filters if f.type == "zero_advantage")
+    assert pre_zero.enforce is False
+    assert post_zero.enforce is False
+    assert config.orchestrator.max_off_policy_steps == 8
+
+    reloaded = OrchestratorConfig.model_validate(config.orchestrator.model_dump())
+    reloaded_post_zero = next(f for f in reloaded.post_batch_filters if f.type == "zero_advantage")
+    assert reloaded_post_zero.enforce is False
+
+
+@pytest.mark.parametrize("enforce", [None, True, False])
+def test_spma_preserves_explicit_zero_advantage_filter(enforce):
+    zero_filter = {"type": "zero_advantage"}
+    if enforce is not None:
+        zero_filter["enforce"] = enforce
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"loss": {"type": "spma"}},
+            "orchestrator": {"post_batch_filters": [zero_filter]},
+        }
+    )
+
+    assert len(config.orchestrator.post_batch_filters) == 1
+    assert config.orchestrator.post_batch_filters[0].enforce is (True if enforce is None else enforce)
+
+
+@pytest.mark.parametrize("post_filters", [[], [{"type": "repetition"}]])
+def test_spma_does_not_modify_explicit_post_filter_list(post_filters):
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"loss": {"type": "spma"}},
+            "orchestrator": {"post_batch_filters": post_filters},
+        }
+    )
+
+    assert [f.type for f in config.orchestrator.post_batch_filters] == [f["type"] for f in post_filters]
+
+
+def test_default_loss_keeps_zero_advantage_filter_default():
+    config = RLConfig.model_validate({"trainer": {}, "orchestrator": {}})
+    post_zero = next(f for f in config.orchestrator.post_batch_filters if f.type == "zero_advantage")
+    assert post_zero.enforce is True
 
 
 def test_single_node_auto_inference_client_dp_rank_count_matches_local_dp():
