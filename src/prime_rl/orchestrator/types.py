@@ -10,6 +10,7 @@ import verifiers.v1 as vf
 from pydantic import ConfigDict, Field
 from verifiers.v1.task import TaskT
 
+from prime_rl.orchestrator.trajectories import TrainingLayout
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
 
@@ -90,6 +91,7 @@ class Rollout(vf.Trace[TaskT], Generic[TaskT]):
     policy_version: int = Field(default=0, exclude=True)
     off_policy_steps: int = Field(default=0, exclude=True)
     samples: list[TrainingSample] = Field(default_factory=list, exclude=True)
+    training_layout: TrainingLayout | None = Field(default=None, exclude=True)
     # Per-token rl advantage stream, full-length-N (= len(token_ids)) per
     # sample, concatenated across the rollout's samples in order; 0.0 on
     # non-trainable positions. None = no credit assigned (advantage-based

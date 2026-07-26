@@ -12,7 +12,7 @@ from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.orchestrator.algo import EchoAlgorithm, GRPOAlgorithm, stamp_advantages, stamp_loss_routing
 from prime_rl.orchestrator.algo.base import Algorithm
-from prime_rl.orchestrator.trajectories import trace_to_samples
+from prime_rl.orchestrator.trajectories import TrainingLayout, trace_to_samples
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport.types import TrainingSample
@@ -327,9 +327,16 @@ def test_value_group_rescore_mixes_projected_prefix_and_legacy_truncation():
 def test_value_prefix_is_rollout_local_and_excluded_from_trace_wire_data():
     rollout = _make_rollout([_make_sample()])
     rollout.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=1)
+    rollout.training_layout = TrainingLayout(
+        sample_branch_indices=(0,),
+        sample_node_indices=((0,),),
+        trainable_spans=(),
+    )
 
     assert "value_prefix" not in rollout.model_dump()
     assert "value_prefix" not in rollout.model_dump_json()
+    assert "training_layout" not in rollout.model_dump()
+    assert "training_layout" not in rollout.model_dump_json()
 
 
 # --------------------------------------------------------------------------

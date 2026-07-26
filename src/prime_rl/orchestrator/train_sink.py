@@ -25,7 +25,7 @@ from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.envs import TrainEnvs
 from prime_rl.orchestrator.filters import RolloutFilter, apply_filters
 from prime_rl.orchestrator.metrics import TrainRollouts
-from prime_rl.orchestrator.trajectories import trace_to_samples
+from prime_rl.orchestrator.trajectories import materialize_training_data
 from prime_rl.orchestrator.types import Rollout, TrainBatch
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
@@ -158,13 +158,13 @@ class TrainSink:
         level, so skip them here."""
         if rollout.has_error:
             return
-        samples = await asyncio.to_thread(
-            trace_to_samples,
+        materialization = await asyncio.to_thread(
+            materialize_training_data,
             rollout,
             env_name=rollout.env_name,
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
         )
-        samples = samples or []
+        samples = materialization.samples
         algorithm = self.train_envs.get(rollout.env_name).algorithm
         value_prefix = self._build_value_prefix(
             rollout,
@@ -172,6 +172,7 @@ class TrainSink:
             enabled=algorithm.value_evaluator is not None,
         )
         rollout.samples = samples
+        rollout.training_layout = materialization.layout
         rollout.value_prefix = value_prefix
         # Arrival phase: rollout-local scoring (raw reward, echo observation
         # weighting, opd/opsd reference logprobs) runs as soon as the rollout is
