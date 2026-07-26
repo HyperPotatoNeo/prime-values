@@ -222,6 +222,12 @@ class GRPOAlgoConfig(BaseAlgoConfig):
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
 
+    branch_semantics: Literal["sequential"] | None = None
+    """How multiple trainable branches relate in environment time. Set to
+    ``sequential`` only when their sampled nodes are successive segments of one
+    episode; required for discounted/TD(lambda) critic targets or value-baseline
+    policy GAE across branch boundaries."""
+
     baseline: GRPOBaselineConfig = MeanBaselineConfig()
     """Credit baseline. Omitted baselines resolve to ``value`` when the top-level ``value_function`` service is enabled; otherwise they remain ``mean``."""
 

@@ -267,6 +267,8 @@ def test_overflow_escapes_add_before_rollout_or_pending_state_mutates():
         rollout.group_id = uuid.UUID(int=1)
         rollout.task = SimpleNamespace(idx=7, value_function_prompt="private oracle")
         rollout.samples = old_samples
+        old_layout = MagicMock()
+        rollout.training_layout = old_layout
         rollout.value_prefix = old_prefix
 
         algorithm = SimpleNamespace(
@@ -288,14 +290,15 @@ def test_overflow_escapes_add_before_rollout_or_pending_state_mutates():
 
         with (
             patch(
-                "prime_rl.orchestrator.train_sink.trace_to_samples",
-                return_value=[overflow_sample],
+                "prime_rl.orchestrator.train_sink.materialize_training_data",
+                return_value=SimpleNamespace(samples=[overflow_sample], layout=None),
             ),
             pytest.raises(ValueError, match="conditioned value input exceeds"),
         ):
             await sink.add(rollout)
 
         assert rollout.samples is old_samples
+        assert rollout.training_layout is old_layout
         assert rollout.value_prefix is old_prefix
         assert sink.scoring_tasks == {}
         assert sink.pending_rollouts == []
