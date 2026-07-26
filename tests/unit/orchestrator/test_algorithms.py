@@ -12,7 +12,7 @@ from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.orchestrator.algo import EchoAlgorithm, GRPOAlgorithm, stamp_advantages, stamp_loss_routing
 from prime_rl.orchestrator.algo.base import Algorithm
-from prime_rl.orchestrator.trajectories import TrainingLayout, trace_to_samples
+from prime_rl.orchestrator.trajectories import TrainingLayout, materialize_training_data, trace_to_samples
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport.types import TrainingSample
@@ -68,6 +68,14 @@ def test_grpo_declares_minimum_surviving_group_size(baseline, minimum_group_size
         MagicMock(),
     )
     assert algorithm.minimum_group_size == minimum_group_size
+
+
+def test_grpo_branch_semantics_is_an_explicit_sequential_contract():
+    assert _build(type="grpo").branch_semantics is None
+    assert _build(type="grpo", branch_semantics="sequential").branch_semantics == "sequential"
+    assert _build(type="echo", branch_semantics="sequential").branch_semantics == "sequential"
+    with pytest.raises(pydantic.ValidationError, match="branch_semantics"):
+        _build(type="grpo", branch_semantics="forked")
 
 
 def test_echo_role_table():
@@ -320,6 +328,287 @@ def test_value_group_rescore_mixes_projected_prefix_and_legacy_truncation():
         assert rollouts[0].value_predictions == [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]
         assert rollouts[1].value_predictions == [[1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 0.0, 0.0]]
         assert [rollout.value_version for rollout in rollouts] == [3, 3]
+
+    asyncio.run(run_test())
+
+
+def _branched_value_rollout() -> Rollout:
+    # Generate A, generate sibling B, then extend A. Materialized sample order is
+    # B, A2 while sequential generation order is A, B, A2.
+    nodes = [
+        _node(UserMessage(content="root"), parent=None, sampled=False, token_ids=[0]),
+        _node(AssistantMessage(content="A"), parent=0, sampled=True, token_ids=[10]),
+        _node(UserMessage(content="B context"), parent=0, sampled=False, token_ids=[20]),
+        _node(AssistantMessage(content="B"), parent=2, sampled=True, token_ids=[30]),
+        _node(UserMessage(content="A context"), parent=1, sampled=False, token_ids=[40]),
+        _node(AssistantMessage(content="A2"), parent=4, sampled=True, token_ids=[50]),
+    ]
+    rollout = Rollout(
+        task=vf.Task(idx=0, prompt=None),
+        nodes=nodes,
+        rewards={"r": 1.0},
+        env_name="test-env",
+    )
+    materialization = materialize_training_data(rollout)
+    rollout.samples = materialization.samples
+    rollout.training_layout = materialization.layout
+    return rollout
+
+
+@pytest.mark.parametrize(
+    ("gamma", "gae_lambda", "target_lambda", "expected_advantages", "expected_returns"),
+    [
+        (
+            1.0,
+            0.5,
+            0.5,
+            [[0.0, 0.0, 0.1], [0.0, 0.45, 0.0, 0.6]],
+            [[0.0, 0.0, 0.7], [0.0, 0.65, 0.0, 1.0]],
+        ),
+        (
+            1.0,
+            0.0,
+            1.0,
+            [[0.0, 0.0, -0.2], [0.0, 0.4, 0.0, 0.6]],
+            [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
+        ),
+        (
+            0.9,
+            1.0,
+            1.0,
+            [[0.0, 0.0, 0.3], [0.0, 0.61, 0.0, 0.6]],
+            [[0.0, 0.0, 0.9], [0.0, 0.81, 0.0, 1.0]],
+        ),
+    ],
+)
+def test_sequential_branches_stitch_policy_gae_and_value_targets(
+    gamma,
+    gae_lambda,
+    target_lambda,
+    expected_advantages,
+    expected_returns,
+):
+    rollout = _branched_value_rollout()
+    algorithm = Algorithm(
+        _build(type="grpo", baseline={"type": "value"}, branch_semantics="sequential"),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 8, "attn": "sdpa"},
+            gamma=gamma,
+            gae_lambda=gae_lambda,
+            value_target_lambda=target_lambda,
+        ),
+    )
+
+    algorithm._assign_value_result(
+        rollout,
+        [[9.0, 9.0, 0.6], [9.0, 0.2, 9.0, 0.4]],
+        version=4,
+    )
+
+    assert rollout.value_advantages is not None
+    assert rollout.value_returns is not None
+    for actual, expected in zip(rollout.value_advantages, expected_advantages, strict=True):
+        assert actual == pytest.approx(expected)
+    for actual, expected in zip(rollout.value_returns, expected_returns, strict=True):
+        assert actual == pytest.approx(expected)
+    assert rollout.value_version == 4
+
+
+def test_multibranch_monte_carlo_keeps_legacy_behavior_without_declaration():
+    rollout = _branched_value_rollout()
+    algorithm = Algorithm(
+        _build(type="grpo"),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(model={"seq_len": 8, "attn": "sdpa"}),
+    )
+
+    algorithm._assign_value_result(
+        rollout,
+        [[9.0, 9.0, 0.6], [9.0, 0.2, 9.0, 0.4]],
+        version=4,
+    )
+
+    assert rollout.value_advantages is not None
+    assert rollout.value_returns is not None
+    expected_advantages = [[0.0, 0.0, 0.4], [0.0, 0.8, 0.0, 0.6]]
+    expected_returns = [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]]
+    for actual, expected in zip(rollout.value_advantages, expected_advantages, strict=True):
+        assert actual == pytest.approx(expected)
+    for actual, expected in zip(rollout.value_returns, expected_returns, strict=True):
+        assert actual == pytest.approx(expected)
+
+
+def test_temporal_multibranch_credit_requires_declaration_before_value_io():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock()
+        algorithm = Algorithm(
+            _build(type="grpo"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(
+                model={"seq_len": 8, "attn": "sdpa"},
+                value_target_lambda=0.5,
+            ),
+        )
+
+        with pytest.raises(ValueError, match="branch_semantics='sequential'"):
+            await algorithm.finalize_rollout(_branched_value_rollout())
+        evaluator.evaluate.assert_not_awaited()
+
+    asyncio.run(run_test())
+
+
+@pytest.mark.parametrize("baseline", ["mean", "leave_one_out"])
+def test_unused_policy_gae_does_not_constrain_group_baseline_branches(baseline):
+    rollout = _branched_value_rollout()
+    algorithm = Algorithm(
+        _build(type="grpo", baseline={"type": baseline}),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 8, "attn": "sdpa"},
+            gae_lambda=0.5,
+        ),
+    )
+
+    algorithm._assign_value_result(
+        rollout,
+        [[9.0, 9.0, 0.6], [9.0, 0.2, 9.0, 0.4]],
+        version=4,
+    )
+
+    assert rollout.value_returns is not None
+    expected_returns = [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]]
+    for actual, expected in zip(rollout.value_returns, expected_returns, strict=True):
+        assert actual == pytest.approx(expected)
+
+
+def test_sequential_credit_rejects_critic_truncation_before_value_io():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock()
+        algorithm = Algorithm(
+            _build(type="grpo", baseline={"type": "value"}, branch_semantics="sequential"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(
+                model={"seq_len": 2, "attn": "sdpa"},
+                gae_lambda=0.5,
+            ),
+        )
+
+        with pytest.raises(ValueError, match="every trainable token to be visible"):
+            await algorithm.finalize_rollout(_branched_value_rollout())
+        evaluator.evaluate.assert_not_awaited()
+
+    asyncio.run(run_test())
+
+
+def _shared_prefix_value_rollout() -> Rollout:
+    nodes = [
+        _node(UserMessage(content="root"), parent=None, sampled=False, token_ids=[0]),
+        _node(AssistantMessage(content="shared"), parent=0, sampled=True, token_ids=[10]),
+        _node(UserMessage(content="A context"), parent=1, sampled=False, token_ids=[20]),
+        _node(AssistantMessage(content="A"), parent=2, sampled=True, token_ids=[30]),
+        _node(UserMessage(content="B context"), parent=1, sampled=False, token_ids=[40]),
+        _node(AssistantMessage(content="B"), parent=4, sampled=True, token_ids=[50]),
+    ]
+    rollout = Rollout(
+        task=vf.Task(idx=0, prompt=None),
+        nodes=nodes,
+        rewards={"r": 1.0},
+        env_name="test-env",
+    )
+    materialization = materialize_training_data(rollout)
+    rollout.samples = materialization.samples
+    rollout.training_layout = materialization.layout
+    return rollout
+
+
+def test_group_rescore_stitches_shared_prefix_once_at_one_value_version():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value=SimpleNamespace(
+                values=[
+                    [9.0, 0.2, 9.0, 0.4],
+                    [9.0, 9.0, 9.0, 0.6],
+                    [9.0, 0.2, 9.0, 0.4],
+                    [9.0, 9.0, 9.0, 0.6],
+                ],
+                version=7,
+            )
+        )
+        algorithm = Algorithm(
+            _build(type="grpo", branch_semantics="sequential"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(
+                model={"seq_len": 8, "attn": "sdpa"},
+                value_target_lambda=0.5,
+            ),
+        )
+        rollouts = [_shared_prefix_value_rollout(), _shared_prefix_value_rollout()]
+        rollouts[0].value_version = 1
+        rollouts[1].value_version = 2
+
+        await algorithm.finalize_group(rollouts)
+
+        evaluator.evaluate.assert_awaited_once_with(
+            [
+                [0, 10, 20, 30],
+                [0, 10, 40, 50],
+                [0, 10, 20, 30],
+                [0, 10, 40, 50],
+            ]
+        )
+        assert [rollout.value_version for rollout in rollouts] == [7, 7]
+        for rollout in rollouts:
+            assert rollout.value_returns is not None
+            assert rollout.value_returns[0] == pytest.approx([0.0, 0.6, 0.0, 0.8])
+            assert rollout.value_returns[1] == pytest.approx([0.0, 0.0, 0.0, 1.0])
+
+    asyncio.run(run_test())
+
+
+def test_sequential_credit_preserves_branch_contexts_and_projects_value_prefix():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value=SimpleNamespace(
+                values=[
+                    [9.0, 8.0, 9.0, 0.6],
+                    [9.0, 8.0, 0.2, 9.0, 0.4],
+                ],
+                version=5,
+            )
+        )
+        algorithm = Algorithm(
+            _build(type="grpo", branch_semantics="sequential"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(
+                model={"seq_len": 8, "attn": "sdpa"},
+                value_target_lambda=0.5,
+            ),
+        )
+        rollout = _branched_value_rollout()
+        rollout.value_prefix = TokenPrefix(token_ids=(90,), insert_at=1)
+
+        await algorithm.finalize_rollout(rollout)
+
+        evaluator.evaluate.assert_awaited_once_with([[0, 90, 20, 30], [0, 90, 10, 40, 50]])
+        assert rollout.value_predictions == [
+            [9.0, 9.0, 0.6],
+            [9.0, 0.2, 9.0, 0.4],
+        ]
+        assert rollout.value_returns is not None
+        assert rollout.value_returns[0] == pytest.approx([0.0, 0.0, 0.7])
+        assert rollout.value_returns[1] == pytest.approx([0.0, 0.65, 0.0, 1.0])
 
     asyncio.run(run_test())
 
