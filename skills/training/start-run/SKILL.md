@@ -63,6 +63,10 @@ state to the policy trainer.
   `value_function` flag. Conditioned branches are not truncated and must fit
   `value_function.model.seq_len`, or the orchestrator fails before batching or
   evaluator I/O.
+- Branched envs need no declaration at the all-ones return defaults. If their
+  branches are sequential episode segments and discounted or lambda-based
+  credit must cross them, set the per-env algorithm's
+  `branch_semantics = "sequential"`; do not use it for parallel forks.
 - Launch trainer placement through `rl`, not the standalone `value-trainer`
   command; the managed run-done file owns serve-only shutdown.
 - Check `logs/value_trainer.log`, evaluator `/health` and `/version`, plus

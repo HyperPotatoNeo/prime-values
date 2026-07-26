@@ -146,6 +146,32 @@ while `value_target_lambda = 1.0` keeps the critic target Monte Carlo. The
 critic target is not derived from the policy advantage after the two lambdas
 diverge.
 
+### Branched rollouts
+
+Branched traces need no extra setting at the default
+`gamma = gae_lambda = value_target_lambda = 1`: computing each branch
+separately gives every unique trainable token the same Monte Carlo result as
+one stitched sequence.
+
+If branches are successive segments of one episode (for example, after
+context compaction) and temporal credit is enabled, declare that contract on
+the environment's algorithm:
+
+```toml
+[[orchestrator.train.env]]
+id = "..."
+
+[orchestrator.train.env.algo]
+type = "grpo"
+branch_semantics = "sequential"
+```
+
+This is required when `gamma < 1` or `value_target_lambda < 1`, and when
+`gae_lambda < 1` with a value baseline. The critic still evaluates each branch
+in its real context; only GAE and TD(lambda) recurse through unique trainable
+tokens in generation order, so shared sampled prefixes count once. Do not use
+this setting for parallel forks: fork aggregation is not supported.
+
 ## Value head and losses
 
 The default loss is two-bin classification over `[0, 1]`. The head emits two
