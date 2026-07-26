@@ -115,7 +115,7 @@ def _iter_trainable_branches(trace: vf.Trace, branches: list[vf.Branch] | None =
         if any(mask):
             yield _TrainableBranch(
                 branch=branch,
-                node_indices=tuple(range(len(trace.nodes))),
+                node_indices=(),
                 mask=mask,
             )
         return

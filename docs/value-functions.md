@@ -117,7 +117,8 @@ outputs, targets, loss reductions, and advantage math remain FP32.
 ## Trajectory and target contract
 
 The orchestrator is the only component that has both environment reward and
-the value prediction used for policy credit. For every trainable branch it:
+the value prediction used for policy credit. For each effective trainable
+sequence, it:
 
 1. puts the terminal environment reward on the final action token and zero on
    all earlier action tokens;
