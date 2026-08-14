@@ -168,10 +168,11 @@ branch_semantics = "sequential"
 ```
 
 This is required when `gamma < 1` or `value_target_lambda < 1`, and when
-`gae_lambda < 1` with a value baseline. The critic still evaluates each branch
-in its real context; only GAE and TD(lambda) recurse through unique trainable
-tokens in generation order, so shared sampled prefixes count once. Do not use
-this setting for parallel forks: fork aggregation is not supported.
+`gae_lambda < 1` with a policy-GAE baseline (`value` or `tether`). The
+critic still evaluates each branch in its real context; only GAE and TD(lambda)
+recurse through unique trainable tokens in generation order, so shared sampled
+prefixes count once. Do not use this setting for parallel forks: fork
+aggregation is not supported.
 
 ## Value head and losses
 
@@ -230,7 +231,7 @@ than being silently clipped.
 | `value_function.replay.refill_size` | `capacity` | Hysteretic high-water mark: training begins or resumes after the replay reaches this many rollouts. |
 | `value_function.replay.seed` | `0` | Rank-0 RNG seed for uniform rollout selection. |
 | `value_function.transport.max_pending_rollouts` | `2048` | Producer-side queue bound. Admission never blocks policy processing; a full queue drops its oldest pending rollout. |
-| `value_function.warmup_updates` | automatic | Minimum evaluator version allowed in a policy batch. An omitted setting resolves to `1` when an effective GRPO baseline is `value`, otherwise `0`; explicit values are preserved. |
+| `value_function.warmup_updates` | automatic | Minimum evaluator version allowed in a policy batch. An omitted setting resolves to `1` when an effective GRPO baseline is value-backed (`value` or `tether`), otherwise `0`; explicit values are preserved. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
 | `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context plus any environment-provided `value_function_prompt`. |
 | `value_function.evaluator.placement` | `dedicated` | `dedicated` uses a separate serving model; `trainer` queues inference on the value-trainer GPUs. |
@@ -269,15 +270,79 @@ configuration with non-value and value-backed choices:
 
 - `mean`: standard GRPO, `A = R - mean(R)`;
 - `leave_one_out`: `A_i = R_i - mean(R_{j != i})`;
-- `value`: pure per-token GAE.
+- `value`: pure per-token GAE;
+- `tether`: form the critic policy lambda-return
+  `Q_t = V_t + GAE_t(V)`, then subtract the mixed baseline
+  `B_i + rho * (V_t - B_i)`.
 
 Length penalties remain group-credit-only; when `[value_function]` is enabled,
 set `baseline.type` explicitly to `mean` or `leave_one_out` before configuring
 one.
 
-`value` is invalid unless `[value_function]` is enabled. Explicitly selecting
-`mean` or `leave_one_out` with a value function is valid and trains the critic
-for diagnostics or a later baseline change.
+Both value-backed baselines are invalid unless `[value_function]` is
+enabled. Explicitly selecting `mean` or `leave_one_out` with a value function is
+valid and trains the critic for diagnostics or a later baseline change.
+
+TETHER is adaptive by default. It fits on exact rollout windows, applies a
+completed fit only to later groups, and uses an uncorrected coefficient EMA
+with decay `0.95`. Its regression window defaults to
+`value_function.batch_size`, and ridge defaults to `1e-6`. Adaptive mode
+requires the leave-one-out group anchor and starts exactly at that anchor with
+`rho = 0`. Controller state, including a partially filled regression window,
+is saved in the orchestrator checkpoint.
+
+For TETHER, the adaptive fit regresses `Q_t - B_i` on `V_t - B_i`,
+where `Q_t = V_t + GAE_t(V)` uses policy `gae_lambda`. It is deliberately
+independent of `value_target_lambda`; the critic continues to train on its
+separate raw-value lambda returns. At `gae_lambda = 1`, `Q_t` is the discounted
+Monte Carlo return and the score is exactly
+`(1-rho) * (G_t-B_i) + rho * (G_t-V_t)`. Below lambda one, `rho = 0`
+subtracts the group anchor from the fixed critic lambda-return, while
+`rho = 1` is pure critic GAE. The adaptive
+coefficient therefore changes only the causal baseline, not temporal
+bootstrapping.
+
+Position-conditioned adaptive mixing is opt-in. It learns an independent
+coefficient for each fixed-width bucket of native model-sampled action tokens:
+
+```toml
+[orchestrator.algo.baseline]
+type = "tether"
+
+[orchestrator.algo.baseline.adaptive.position]
+bin_size = 1024
+# max_action_tokens = 4096  # fixed horizon; defaults to policy seq_len
+# min_bin_rollouts = 32     # defaults to ceil(adaptive batch_size / 8)
+```
+
+Buckets are zero-based and branch-local. Prompt, tool, and other unsampled
+context tokens do not advance position. A sampled prefix shared by multiple
+materialized branches advances every descendant branch even though its
+training row is deduplicated, and only the unique trainable row contributes to
+the fit. Positions are never normalized by realized response length; tokens
+beyond the configured horizon remain in the final bucket. Each sufficiently
+supported bucket uses the same ridge fit and configured EMA as global adaptive
+mixing (`0.95` decay by default), while sparse or degenerate buckets retain
+their previous coefficient. By default, all buckets start at `rho = 0`. The
+global one-coefficient mode remains the default, and static TETHER continues
+to use one configured coefficient (`rho = 0.5` by default).
+Global and positioned controllers have distinct checkpoint kinds. Enabling or
+disabling position conditioning, or changing its resolved bin size/count,
+requires a fresh adaptive-controller state rather than broadcasting or
+discarding learned coefficients implicitly.
+
+TETHER coefficients remain finite but are not constrained to `[0, 1]`.
+
+To select the static coefficient instead, disable the nested
+adaptive config explicitly:
+
+```toml
+[orchestrator.algo.baseline]
+type = "tether"
+adaptive = "None"
+
+# Static TETHER: rho = 0.5.
+```
 
 ## Staleness and overload
 
@@ -349,6 +414,7 @@ are also logged by the orchestrator.
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
 | `value/privileged_conditioned_fraction`, `value/privileged_prefix_tokens_{mean,max}` | Fraction of value-backed policy rollouts carrying environment-provided privileged context and the number of tokens inserted into each conditioned rollout. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
+| `algorithm/<env>/tether/*` | Adaptive coefficients, raw batch fits, fit validity, exact-window progress, regression MSE, and position-conditioning diagnostics. |
 | `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means the credited response was accepted by ZeroMQ, not acknowledged as replay admission; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
 | `value/rollout_queue_pending_{bytes,tokens}`, `value/rollout_responder_failures` | Encoded host-memory pressure and pull-responder health. The local FIFO remains within its configured rollout capacity while the trainer is not admitting data. |
 

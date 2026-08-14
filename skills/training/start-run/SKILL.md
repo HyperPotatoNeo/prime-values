@@ -63,6 +63,15 @@ state to the policy trainer.
   `value_function` flag. Conditioned branches are not truncated and must fit
   `value_function.model.seq_len`, or the orchestrator fails before batching or
   evaluator I/O.
+- GRPO value-backed baseline choices are `value` and `tether`. TETHER is
+  adaptive by default, uses a leave-one-out anchor, inherits its regression
+  window from `value_function.batch_size`, initializes `rho` at zero, and uses
+  EMA decay `0.95`. It subtracts `B + rho * (V-B)` from the fixed critic policy
+  lambda-return, starting at `Q_lambda - B_LOO` (also exact LOO when policy
+  lambda is one). Set `baseline.adaptive = "None"` to use the static `rho = 0.5`
+  coefficient. To opt into branch-local fixed action buckets, configure
+  `baseline.adaptive.position.bin_size`; sparse buckets hold their previous
+  coefficient, and the global one-coefficient mode remains the default.
 - Branched envs need no declaration at the all-ones return defaults. If their
   branches are sequential episode segments and discounted or lambda-based
   credit must cross them, set the per-env algorithm's

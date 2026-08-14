@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
 
 from prime_rl.configs.algorithm import GRPOAlgoConfig
 from prime_rl.orchestrator.algo.advantage import group_advantages
 from prime_rl.orchestrator.algo.base import Algorithm
+from prime_rl.orchestrator.algo.tether import TetherRuntime
 
 if TYPE_CHECKING:
     from prime_rl.configs.value import ValueFunctionConfig
@@ -27,6 +28,7 @@ class GRPOAlgorithm(Algorithm):
         *,
         value_evaluator: ValueEvaluatorClient | None = None,
         value_config: ValueFunctionConfig | None = None,
+        policy_seq_len: int | None = None,
     ):
         super().__init__(
             config,
@@ -36,10 +38,25 @@ class GRPOAlgorithm(Algorithm):
         )
         self.length_penalty = config.length_penalty
         self.baseline = config.baseline
+        self.baseline_runtime: TetherRuntime | None = None
+        if self.baseline.type == "tether":
+            if value_config is None or value_config.model is None:
+                raise ValueError(f"{self.baseline.type} baseline requires a resolved value config")
+            actor_seq_len = policy_seq_len or value_config.model.seq_len
+            adaptive = self.baseline.adaptive_config
+            adaptive_batch_size = None if adaptive is None else adaptive.batch_size or value_config.batch_size
+            self.baseline_runtime = TetherRuntime(
+                self.baseline,
+                gamma=value_config.gamma,
+                gae_lambda=value_config.gae_lambda,
+                value_seq_len=value_config.model.seq_len,
+                policy_seq_len=actor_seq_len,
+                adaptive_batch_size=adaptive_batch_size,
+            )
 
     @property
     def minimum_group_size(self) -> int:
-        return 2 if self.baseline.type == "leave_one_out" else 1
+        return 2 if self.baseline.effective_group == "leave_one_out" else 1
 
     async def score_group(self, group: list[Rollout]) -> None:
         raw_rewards = [float(rollout.reward) for rollout in group]
@@ -73,4 +90,31 @@ class GRPOAlgorithm(Algorithm):
                 rollout.assign_advantages([value for branch in rollout.value_advantages for value in branch])
             return
 
+        if baseline.type == "tether":
+            assert isinstance(self.baseline_runtime, TetherRuntime)
+            self.baseline_runtime.score_group(group)
+            return
+
         raise TypeError(f"unsupported GRPO baseline {type(baseline).__name__}")
+
+    def metrics(self) -> dict[str, float]:
+        return self.baseline_runtime.metrics() if self.baseline_runtime is not None else {}
+
+    def metric_keys(self) -> list[str]:
+        return self.baseline_runtime.metric_keys() if self.baseline_runtime is not None else []
+
+    def state_dict(self) -> dict[str, Any]:
+        if self.baseline_runtime is None:
+            return {}
+        state = self.baseline_runtime.state_dict()
+        return {self.baseline.type: state} if state else {}
+
+    def load_state_dict(self, state: dict[str, Any]) -> None:
+        if self.baseline_runtime is None:
+            if state:
+                raise ValueError("checkpoint contains baseline state for a stateless GRPO algorithm")
+            return
+        expected = self.baseline.type
+        if set(state) != {expected} or not isinstance(state[expected], dict):
+            raise ValueError(f"GRPO checkpoint must contain exactly the {expected!r} baseline state")
+        self.baseline_runtime.load_state_dict(state[expected])

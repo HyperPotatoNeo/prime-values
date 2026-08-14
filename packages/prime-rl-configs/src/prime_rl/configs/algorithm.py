@@ -33,6 +33,7 @@ count; per-token component weights ship on the wire and the trainer just
 executes them.
 """
 
+import math
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, model_validator
@@ -114,23 +115,142 @@ LengthPenaltyConfig: TypeAlias = LinearLengthPenaltyConfig
 # ---------------------------------------------------------------------------
 
 
-class MeanBaselineConfig(BaseConfig):
+GroupBaselineType: TypeAlias = Literal["mean", "leave_one_out"]
+MAX_BASELINE_POSITION_BINS = 128
+
+
+class AdaptiveBaselineConfig(BaseConfig):
+    """Shared online ridge-regression and EMA controls for adaptive baselines."""
+
+    batch_size: int | None = Field(None, ge=1)
+    """Rollouts per regression fit. None inherits ``value_function.batch_size``."""
+
+    ridge: float = Field(1e-6, ge=0, allow_inf_nan=False)
+    """L2 penalty applied to token-normalized feature moments."""
+
+    ema_decay: float = Field(0.95, ge=0, lt=1, allow_inf_nan=False)
+    """Coefficient EMA decay: ``new = decay * old + (1 - decay) * batch_fit``."""
+
+
+class TetherPositionConfig(BaseConfig):
+    """Fixed causal action-position bins for adaptive TETHER coefficients."""
+
+    bin_size: int = Field(1024, ge=1)
+    """Native model-sampled action tokens per coefficient bin."""
+
+    max_action_tokens: int | None = Field(None, ge=1)
+    """Fixed ex-ante action horizon. None uses the policy sequence length."""
+
+    min_bin_rollouts: int | None = Field(None, ge=1)
+    """Distinct contributing rollouts required to update a bin. None uses one
+    eighth of the adaptive regression batch, rounded up."""
+
+    def resolve(self, *, policy_seq_len: int, batch_size: int) -> tuple[int, int, int]:
+        """Return ``(num_bins, bin_size, min_bin_rollouts)`` after validation."""
+        horizon = self.max_action_tokens or policy_seq_len
+        if horizon > policy_seq_len:
+            raise ValueError("tether position max_action_tokens cannot exceed policy sequence length")
+        num_bins = math.ceil(horizon / self.bin_size)
+        if num_bins < 2:
+            raise ValueError("tether position conditioning needs at least two bins")
+        if num_bins > MAX_BASELINE_POSITION_BINS:
+            raise ValueError(f"tether position config creates {num_bins} bins; maximum is {MAX_BASELINE_POSITION_BINS}")
+        min_bin_rollouts = self.min_bin_rollouts or min(batch_size, max(1, math.ceil(batch_size / 8)))
+        if min_bin_rollouts > batch_size:
+            raise ValueError("tether position min_bin_rollouts cannot exceed adaptive batch_size")
+        return num_bins, self.bin_size, min_bin_rollouts
+
+
+class AdaptiveTetherConfig(AdaptiveBaselineConfig):
+    """Lagged one-factor fit of the mixed group/value baseline."""
+
+    initial_rho: float = Field(0.0, allow_inf_nan=False)
+    """Applied rho before the first fit and the EMA's initial value."""
+
+    position: TetherPositionConfig | None = None
+    """Optional branch-local action-position bins. None keeps one global rho."""
+
+
+class BaseGRPOBaselineConfig(BaseConfig):
+    """Shared capabilities used by config resolution and baseline runtimes."""
+
+    requires_value: ClassVar[bool] = False
+    allows_length_penalty: ClassVar[bool] = True
+    uses_policy_gae: ClassVar[bool] = False
+
+    @property
+    def effective_group(self) -> GroupBaselineType | None:
+        """Group anchor used by this baseline, if any."""
+        return None
+
+    @property
+    def adaptive_config(self) -> AdaptiveBaselineConfig | None:
+        """Resolved adaptive controller config, if adaptive mode is enabled."""
+        return None
+
+
+class MeanBaselineConfig(BaseGRPOBaselineConfig):
     type: Literal["mean"] = "mean"
     """Standard GRPO group-mean baseline."""
 
+    @property
+    def effective_group(self) -> GroupBaselineType:
+        return "mean"
 
-class LeaveOneOutBaselineConfig(BaseConfig):
+
+class LeaveOneOutBaselineConfig(BaseGRPOBaselineConfig):
     type: Literal["leave_one_out"] = "leave_one_out"
     """Mean reward of the other members of the rollout group."""
 
+    @property
+    def effective_group(self) -> GroupBaselineType:
+        return "leave_one_out"
 
-class ValueBaselineConfig(BaseConfig):
+
+class ValueBaselineConfig(BaseGRPOBaselineConfig):
     type: Literal["value"] = "value"
     """Use the value evaluator's per-token GAE directly."""
 
+    requires_value: ClassVar[bool] = True
+    allows_length_penalty: ClassVar[bool] = False
+    uses_policy_gae: ClassVar[bool] = True
+
+
+class TetherBaselineConfig(BaseGRPOBaselineConfig):
+    type: Literal["tether"] = "tether"
+    """Subtract a mixed group/critic baseline from the critic policy lambda-return."""
+
+    requires_value: ClassVar[bool] = True
+    allows_length_penalty: ClassVar[bool] = False
+    uses_policy_gae: ClassVar[bool] = True
+
+    group: GroupBaselineType = "leave_one_out"
+    """Group anchor mixed with the critic prediction."""
+
+    rho: float = Field(0.5, allow_inf_nan=False)
+    """Static critic coefficient, used only when adaptive mode is disabled."""
+
+    adaptive: AdaptiveTetherConfig | None = AdaptiveTetherConfig()
+    """Online lagged coefficient fit. Enabled by default; set to None
+    (``"None"`` in TOML) to use the static ``rho``."""
+
+    @property
+    def effective_group(self) -> GroupBaselineType:
+        return self.group
+
+    @property
+    def adaptive_config(self) -> AdaptiveTetherConfig | None:
+        return self.adaptive
+
+    @model_validator(mode="after")
+    def validate_adaptive_group(self):
+        if self.adaptive is not None and self.group != "leave_one_out":
+            raise ValueError("adaptive tether requires group='leave_one_out'")
+        return self
+
 
 GRPOBaselineConfig: TypeAlias = Annotated[
-    MeanBaselineConfig | LeaveOneOutBaselineConfig | ValueBaselineConfig,
+    MeanBaselineConfig | LeaveOneOutBaselineConfig | ValueBaselineConfig | TetherBaselineConfig,
     Field(discriminator="type"),
 ]
 
@@ -217,7 +337,7 @@ class BaseAlgoConfig(BaseConfig):
 
 class GRPOAlgoConfig(BaseAlgoConfig):
     type: Literal["grpo"] = "grpo"
-    """GRPO with configurable group or pure-value credit,
+    """GRPO with configurable group or value-backed credit,
     consumed by the ``rl`` loss component on the rollout's action tokens."""
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
@@ -225,8 +345,8 @@ class GRPOAlgoConfig(BaseAlgoConfig):
     branch_semantics: Literal["sequential"] | None = None
     """How multiple trainable branches relate in environment time. Set to
     ``sequential`` only when their sampled nodes are successive segments of one
-    episode; required for discounted/TD(lambda) critic targets or value-baseline
-    policy GAE across branch boundaries."""
+    episode; required for discounted/TD(lambda) critic targets or policy GAE
+    across branch boundaries."""
 
     baseline: GRPOBaselineConfig = MeanBaselineConfig()
     """Credit baseline. Omitted baselines resolve to ``value`` when the top-level ``value_function`` service is enabled; otherwise they remain ``mean``."""
@@ -236,7 +356,7 @@ class GRPOAlgoConfig(BaseAlgoConfig):
 
     @model_validator(mode="after")
     def validate_value_baseline_length_penalty(self):
-        if self.length_penalty is not None and self.baseline.type == "value":
+        if self.length_penalty is not None and not self.baseline.allows_length_penalty:
             raise ValueError("value-backed GRPO baselines cannot be combined with length_penalty yet")
         return self
 

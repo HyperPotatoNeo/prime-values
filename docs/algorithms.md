@@ -291,8 +291,9 @@ enabled, an omitted GRPO baseline instead resolves to pure per-token GAE.
 | `mean` | Reward minus the full group mean; the GRPO default without `[value_function]`. |
 | `leave_one_out` | Reward minus the mean of the other group members. |
 | `value` | Per-token GAE from the async critic. |
+| `tether` | Critic policy lambda-return minus `B + rho * (V-B)`, adaptively fit with a leave-one-out anchor by default; optional fixed action-position buckets learn separate coefficients. |
 
-The value baseline requires `[value_function]`. Its topology,
+Both value-backed baselines require `[value_function]`. Their topology,
 losses, targets, configuration, and monitoring are documented in
 [Value Functions](value-functions.md).
 Length penalties are compatible only with `mean` and `leave_one_out`; because

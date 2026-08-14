@@ -32,12 +32,14 @@ class EchoAlgorithm(GRPOAlgorithm):
         *,
         value_evaluator: ValueEvaluatorClient | None = None,
         value_config: ValueFunctionConfig | None = None,
+        policy_seq_len: int | None = None,
     ):
         super().__init__(
             config,
             policy_pool,
             value_evaluator=value_evaluator,
             value_config=value_config,
+            policy_seq_len=policy_seq_len,
         )
         self.role_weights = {
             role: role_config.alpha
