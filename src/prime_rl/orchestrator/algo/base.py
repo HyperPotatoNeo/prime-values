@@ -41,7 +41,7 @@ Every *frozen* model an algorithm needs is an external endpoint it *connects to*
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from prime_rl.configs.algorithm import ActionLossType, AlgoConfig, FrozenModelConfig, GRPOAlgoConfig
 from prime_rl.configs.value import ValueFunctionConfig
@@ -151,6 +151,23 @@ class Algorithm:
         and resolve each reference via :meth:`connect`. The base has nothing
         to connect."""
 
+    def metrics(self) -> dict[str, float]:
+        """Current algorithm-local metrics, without an environment prefix."""
+        return {}
+
+    def metric_keys(self) -> list[str]:
+        """Stable metric names, including keys not yet present in ``metrics``."""
+        return list(self.metrics())
+
+    def state_dict(self) -> dict[str, Any]:
+        """Small orchestrator-owned state persisted with policy checkpoints."""
+        return {}
+
+    def load_state_dict(self, state: dict[str, Any]) -> None:
+        """Restore orchestrator-owned state, rejecting it for stateless algorithms."""
+        if state:
+            raise ValueError(f"{type(self).__name__} is stateless but the checkpoint contains algorithm state")
+
     async def connect(self, reference: FrozenModelConfig) -> InferencePool:
         """Connect a client pool to a frozen model endpoint and track it in
         ``connected_pools`` — the host closes what the algorithm opened, at
@@ -226,7 +243,7 @@ class Algorithm:
         needs_stitching = (
             self.value_config.gamma < 1.0
             or self.value_config.value_target_lambda < 1.0
-            or (config.baseline.type == "value" and self.value_config.gae_lambda < 1.0)
+            or (config.baseline.uses_policy_gae and self.value_config.gae_lambda < 1.0)
         )
         if len(rollout.samples) <= 1 or not needs_stitching:
             return None

@@ -25,7 +25,7 @@ import asyncio
 import math
 import os
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import tomli_w
 
@@ -276,6 +276,7 @@ class Orchestrator:
             renderer_config=config.renderer,
             value_evaluator=self.value_evaluator,
             value_config=config.value_function,
+            policy_seq_len=config.seq_len,
         )
         get_logger().debug(
             f"Loaded {len(self.train_envs)} training environment(s) ({', '.join(self.train_envs.names)})"
@@ -341,7 +342,8 @@ class Orchestrator:
         self.lora_name = config.model.lora.name if config.model.lora else None
 
         if self.resume_step is not None and self.ckpt_manager is not None:
-            self.ckpt_manager.load(self.progress, step=self.resume_step)
+            algorithm_states = self.ckpt_manager.load(self.progress, step=self.resume_step)
+            self._restore_algorithm_states(algorithm_states)
             # The checkpoint finished step ``resume_step``; resume at the next step. Derive the step
             # from ``resume_step`` (not the loaded progress.step) so it stays coordinated with the
             # trainer even when ``ckpt.skip_progress`` left the counter unrestored.
@@ -429,6 +431,7 @@ class Orchestrator:
                 "event_loop_lag/n",
                 *(self.value_publisher.metrics() if self.value_publisher is not None else []),
                 *(self.value_evaluator.metrics() if self.value_evaluator is not None else []),
+                *[f"algorithm/{env.name}/{key}" for env in self.train_envs for key in env.algorithm.metric_keys()],
             ],
             interval=log_interval,
             wandb_enabled=wandb_enabled,
@@ -480,7 +483,11 @@ class Orchestrator:
             if self.ckpt_manager is not None and self.progress.step > 1:
                 self.progress.step -= 1
                 get_logger().info("Writing final checkpoint")
-                self.ckpt_manager.save(self.progress, step=self.progress.step)
+                self.ckpt_manager.save(
+                    self.progress,
+                    step=self.progress.step,
+                    algorithm_states=self._algorithm_states(),
+                )
             await self.stop()
             if clean_exit:
                 get_logger().success("Orchestrator finished.")
@@ -793,6 +800,8 @@ class Orchestrator:
             payload |= self.value_publisher.metrics()
         if self.value_evaluator is not None:
             payload |= self.value_evaluator.metrics()
+        for env in self.train_envs:
+            payload |= {f"algorithm/{env.name}/{key}": value for key, value in env.algorithm.metrics().items()}
         if lag_stats.n > 0:
             payload["event_loop_lag/min"] = lag_stats.min
             payload["event_loop_lag/mean"] = lag_stats.mean
@@ -900,8 +909,28 @@ class Orchestrator:
             return 0.0
         get_logger().info(f"Saving checkpoint at step {step}")
         t = time.perf_counter()
-        await asyncio.to_thread(self.ckpt_manager.save, self.progress, step)
+        algorithm_states = self._algorithm_states()
+        await asyncio.to_thread(
+            self.ckpt_manager.save,
+            self.progress,
+            step,
+            algorithm_states=algorithm_states,
+        )
         return time.perf_counter() - t
+
+    def _algorithm_states(self) -> dict[str, dict[str, Any]]:
+        """Snapshot small per-env algorithm state on the event-loop thread."""
+        return {env.name: state for env in self.train_envs if (state := env.algorithm.state_dict())}
+
+    def _restore_algorithm_states(self, states: dict[str, dict[str, Any]]) -> None:
+        """Restore matching environments while tolerating legacy checkpoints."""
+        current_names = set(self.train_envs.names)
+        unknown = sorted(set(states) - current_names)
+        if unknown:
+            get_logger().warning(f"Ignoring checkpoint algorithm state for unknown envs: {', '.join(unknown)}")
+        for env in self.train_envs:
+            if state := states.get(env.name):
+                env.algorithm.load_state_dict(state)
 
     def update_dispatch_gate(self) -> None:
         """Pause/resume the dispatcher based on how far the in-flight batch runs

@@ -8,10 +8,22 @@ import verifiers.v1 as vf
 from verifiers.v1.graph import MessageNode
 from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
 
-from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
+from prime_rl.configs.algorithm import (
+    AdaptiveTetherConfig,
+    AlgoConfig,
+    FrozenModelConfig,
+    TetherBaselineConfig,
+)
 from prime_rl.configs.value import ValueFunctionConfig
-from prime_rl.orchestrator.algo import EchoAlgorithm, GRPOAlgorithm, stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.algo import (
+    EchoAlgorithm,
+    GRPOAlgorithm,
+    MaxRLAlgorithm,
+    stamp_advantages,
+    stamp_loss_routing,
+)
 from prime_rl.orchestrator.algo.base import Algorithm
+from prime_rl.orchestrator.algo.tether import TetherRuntime
 from prime_rl.orchestrator.trajectories import TrainingLayout, materialize_training_data, trace_to_samples
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.orchestrator.value_context import TokenPrefix
@@ -60,12 +72,26 @@ def test_type_defaults_are_the_vetted_algorithms(algorithm_type, build_kwargs, s
         ({"type": "mean"}, 1),
         ({"type": "value"}, 1),
         ({"type": "leave_one_out"}, 2),
+        ({"type": "tether"}, 2),
     ],
 )
 def test_grpo_declares_minimum_surviving_group_size(baseline, minimum_group_size):
+    value_kwargs = (
+        {
+            "value_evaluator": MagicMock(),
+            "value_config": ValueFunctionConfig(
+                model={"seq_len": 8, "attn": "sdpa"},
+                batch_size=2,
+            ),
+            "policy_seq_len": 8,
+        }
+        if baseline["type"] == "tether"
+        else {}
+    )
     algorithm = GRPOAlgorithm(
         _build(type="grpo", baseline=baseline),
         MagicMock(),
+        **value_kwargs,
     )
     assert algorithm.minimum_group_size == minimum_group_size
 
@@ -76,6 +102,12 @@ def test_grpo_branch_semantics_is_an_explicit_sequential_contract():
     assert _build(type="echo", branch_semantics="sequential").branch_semantics == "sequential"
     with pytest.raises(pydantic.ValidationError, match="branch_semantics"):
         _build(type="grpo", branch_semantics="forked")
+
+
+def test_stateless_algorithm_rejects_checkpoint_state():
+    algorithm = MaxRLAlgorithm(_build(type="max_rl"), MagicMock())
+    with pytest.raises(ValueError, match="stateless"):
+        algorithm.load_state_dict({"tether": {"rho": 0.5}})
 
 
 def test_echo_role_table():
@@ -462,6 +494,157 @@ def test_temporal_multibranch_credit_requires_declaration_before_value_io():
     asyncio.run(run_test())
 
 
+def test_tether_policy_gae_uses_sequential_branch_layout():
+    rollout = _branched_value_rollout()
+    algorithm = Algorithm(
+        _build(
+            type="grpo",
+            baseline={"type": "tether"},
+            branch_semantics="sequential",
+        ),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 8, "attn": "sdpa"},
+            batch_size=2,
+            gae_lambda=0.5,
+        ),
+    )
+
+    algorithm._assign_value_result(
+        rollout,
+        [[9.0, 9.0, 0.6], [9.0, 0.2, 9.0, 0.4]],
+        version=4,
+    )
+
+    assert rollout.value_advantages is not None
+    expected = [[0.0, 0.0, 0.1], [0.0, 0.45, 0.0, 0.6]]
+    for actual, branch_expected in zip(rollout.value_advantages, expected, strict=True):
+        assert actual == pytest.approx(branch_expected)
+
+
+def test_tether_runtime_uses_stitched_value_lambda_return_in_generation_order():
+    success = _branched_value_rollout()
+    failure = _branched_value_rollout()
+    failure.rewards = {"r": 0.0}
+    value_algorithm = Algorithm(
+        _build(
+            type="grpo",
+            baseline={"type": "tether"},
+            branch_semantics="sequential",
+        ),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 8, "attn": "sdpa"},
+            batch_size=2,
+            gae_lambda=0.5,
+        ),
+    )
+    for rollout in (success, failure):
+        value_algorithm._assign_value_result(
+            rollout,
+            [[9.0, 9.0, 0.6], [9.0, 0.2, 9.0, 0.4]],
+            version=4,
+        )
+    runtime = TetherRuntime(
+        TetherBaselineConfig(adaptive=None, rho=0.0),
+        gamma=1.0,
+        gae_lambda=0.5,
+        value_seq_len=8,
+        policy_seq_len=8,
+        adaptive_batch_size=None,
+    )
+
+    runtime.score_group([success, failure])
+
+    assert success.advantages == pytest.approx([0.0, 0.0, 0.7, 0.0, 0.65, 0.0, 1.0])
+    assert failure.advantages == pytest.approx([0.0, 0.0, -0.8, 0.0, -0.6, 0.0, -1.0])
+
+
+def test_tether_lambda_one_preserves_discounted_sequential_formula():
+    success = _branched_value_rollout()
+    failure = _branched_value_rollout()
+    failure.rewards = {"r": 0.0}
+    value_algorithm = Algorithm(
+        _build(
+            type="grpo",
+            baseline={"type": "tether"},
+            branch_semantics="sequential",
+        ),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 8, "attn": "sdpa"},
+            batch_size=2,
+            gamma=0.9,
+            gae_lambda=1.0,
+        ),
+    )
+    for rollout in (success, failure):
+        value_algorithm._assign_value_result(
+            rollout,
+            [[9.0, 9.0, 0.6], [9.0, 0.2, 9.0, 0.4]],
+            version=4,
+        )
+    runtime = TetherRuntime(
+        TetherBaselineConfig(adaptive=None, rho=0.25),
+        gamma=0.9,
+        gae_lambda=1.0,
+        value_seq_len=8,
+        policy_seq_len=8,
+        adaptive_batch_size=None,
+    )
+
+    runtime.score_group([success, failure])
+
+    assert success.advantages == pytest.approx([0.0, 0.0, 0.75, 0.0, 0.76, 0.0, 0.9])
+    assert failure.advantages == pytest.approx([0.0, 0.0, -0.9, 0.0, -0.8, 0.0, -0.85])
+
+
+def test_positioned_tether_uses_branch_local_bins_after_sequential_q_stitching():
+    success = _branched_value_rollout()
+    failure = _branched_value_rollout()
+    failure.rewards = {"r": 0.0}
+    value_algorithm = Algorithm(
+        _build(
+            type="grpo",
+            baseline={"type": "tether"},
+            branch_semantics="sequential",
+        ),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 8, "attn": "sdpa"},
+            batch_size=2,
+            gae_lambda=0.5,
+        ),
+    )
+    for rollout in (success, failure):
+        value_algorithm._assign_value_result(
+            rollout,
+            [[9.0, 9.0, 0.6], [9.0, 0.2, 9.0, 0.4]],
+            version=4,
+        )
+    runtime = TetherRuntime(
+        TetherBaselineConfig(
+            adaptive=AdaptiveTetherConfig(position={"bin_size": 1, "max_action_tokens": 2, "min_bin_rollouts": 1})
+        ),
+        gamma=1.0,
+        gae_lambda=0.5,
+        value_seq_len=8,
+        policy_seq_len=8,
+        adaptive_batch_size=2,
+    )
+    assert runtime.positioned_adaptive is not None
+    runtime.positioned_adaptive._rho = [0.0, 1.0]
+
+    runtime.score_group([success, failure])
+
+    assert success.advantages == pytest.approx([0.0, 0.0, 0.7, 0.0, 0.65, 0.0, 0.6])
+    assert failure.advantages == pytest.approx([0.0, 0.0, -0.8, 0.0, -0.6, 0.0, -0.4])
+
+
 @pytest.mark.parametrize("baseline", ["mean", "leave_one_out"])
 def test_unused_policy_gae_does_not_constrain_group_baseline_branches(baseline):
     rollout = _branched_value_rollout()
@@ -527,6 +710,48 @@ def _shared_prefix_value_rollout() -> Rollout:
     rollout.samples = materialization.samples
     rollout.training_layout = materialization.layout
     return rollout
+
+
+def test_positioned_tether_counts_native_shared_prefix_after_deduplication():
+    success = _shared_prefix_value_rollout()
+    failure = _shared_prefix_value_rollout()
+    failure.rewards = {"r": 0.0}
+    value_algorithm = Algorithm(
+        _build(type="grpo", baseline={"type": "tether"}),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 8, "attn": "sdpa"},
+            batch_size=2,
+        ),
+    )
+    for rollout in (success, failure):
+        value_algorithm._assign_value_result(
+            rollout,
+            [[9.0, 0.7, 9.0, 0.9], [9.0, 0.7, 9.0, 0.9]],
+            version=4,
+        )
+    runtime = TetherRuntime(
+        TetherBaselineConfig(
+            adaptive=AdaptiveTetherConfig(position={"bin_size": 1, "max_action_tokens": 2, "min_bin_rollouts": 1})
+        ),
+        gamma=1.0,
+        gae_lambda=1.0,
+        value_seq_len=8,
+        policy_seq_len=8,
+        adaptive_batch_size=2,
+    )
+    assert runtime.positioned_adaptive is not None
+    runtime.positioned_adaptive._rho = [0.0, 1.0]
+    observe_group = MagicMock(wraps=runtime.positioned_adaptive.observe_group)
+    runtime.positioned_adaptive.observe_group = observe_group
+
+    runtime.score_group([success, failure])
+
+    assert success.advantages == pytest.approx([0.0, 1.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1])
+    assert runtime.positioned_adaptive.last_contributors == [2, 2]
+    observed = observe_group.call_args.args[0]
+    assert [sum(rollout.bins[index].weight for rollout in observed) for index in range(2)] == [2, 4]
 
 
 def test_group_rescore_stitches_shared_prefix_once_at_one_value_version():

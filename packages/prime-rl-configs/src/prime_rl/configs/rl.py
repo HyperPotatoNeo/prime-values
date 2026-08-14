@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 
-from prime_rl.configs.algorithm import AlgoConfig, GRPOAlgoConfig, ValueBaselineConfig
+from prime_rl.configs.algorithm import AlgoConfig, GRPOAlgoConfig, TetherBaselineConfig, ValueBaselineConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.inference import WeightBroadcastConfig as InferenceWeightBroadcastConfig
 from prime_rl.configs.orchestrator import (
@@ -260,7 +260,7 @@ class RLConfig(BaseConfig):
 
     @model_validator(mode="after")
     def resolve_value_function(self):
-        value_baselines: list[tuple[str, str]] = []
+        value_backed_baselines: list[tuple[str, str]] = []
         effective_algorithms = [
             (env.resolved_name, env.algo or self.orchestrator.algo) for env in self.orchestrator.train.env
         ] or [("orchestrator.algo", self.orchestrator.algo)]
@@ -269,18 +269,22 @@ class RLConfig(BaseConfig):
             algorithms.extend(algo for _, algo in effective_algorithms if algo is not self.orchestrator.algo)
             for algo in algorithms:
                 if isinstance(algo, GRPOAlgoConfig) and "baseline" not in algo.model_fields_set:
-                    if algo.length_penalty is not None:
-                        raise ValueError("value-backed GRPO baselines cannot be combined with length_penalty yet")
                     algo.baseline = ValueBaselineConfig()
+                if (
+                    isinstance(algo, GRPOAlgoConfig)
+                    and algo.length_penalty is not None
+                    and not algo.baseline.allows_length_penalty
+                ):
+                    raise ValueError("value-backed GRPO baselines cannot be combined with length_penalty yet")
         for env_name, algo in effective_algorithms:
-            if isinstance(algo, GRPOAlgoConfig) and algo.baseline.type == "value":
-                value_baselines.append((env_name, algo.baseline.type))
+            if isinstance(algo, GRPOAlgoConfig) and algo.baseline.requires_value:
+                value_backed_baselines.append((env_name, algo.baseline.type))
 
         for env_name, algo in effective_algorithms:
             if not isinstance(algo, GRPOAlgoConfig):
                 continue
             baseline = algo.baseline
-            if baseline.type != "leave_one_out":
+            if baseline.effective_group != "leave_one_out":
                 continue
             env = next((item for item in self.orchestrator.train.env if item.resolved_name == env_name), None)
             group_size = env.group_size if env is not None else self.orchestrator.group_size
@@ -288,8 +292,8 @@ class RLConfig(BaseConfig):
                 raise ValueError(f"{env_name}: leave_one_out baseline requires group_size >= 2")
 
         if self.value_function is None:
-            if value_baselines:
-                configured = ", ".join(f"{env}={kind}" for env, kind in value_baselines)
+            if value_backed_baselines:
+                configured = ", ".join(f"{env}={kind}" for env, kind in value_backed_baselines)
                 raise ValueError(f"value-backed baselines require [value_function]; configured: {configured}")
             if self.deployment.type == "single_node" and (
                 self.deployment.num_value_train_gpus or self.deployment.num_value_eval_gpus
@@ -302,7 +306,7 @@ class RLConfig(BaseConfig):
             return self
 
         value = self.value_function
-        if value_baselines and "warmup_updates" not in value.model_fields_set:
+        if value_backed_baselines and "warmup_updates" not in value.model_fields_set:
             value.warmup_updates = 1
         self._resolve_value_algorithm_config(value, effective_algorithms)
         trainer_placed_evaluator = self._resolve_value_model_config(value)
@@ -320,6 +324,25 @@ class RLConfig(BaseConfig):
             if self.orchestrator.batch_size is None:
                 raise ValueError("value_function.batch_size must be set when the policy uses token_batch_size")
             value.batch_size = self.orchestrator.batch_size
+        assert value.batch_size is not None
+        algorithms = [self.orchestrator.algo, *(algo for _, algo in effective_algorithms)]
+        seen: set[int] = set()
+        for algo in algorithms:
+            if id(algo) in seen:
+                continue
+            seen.add(id(algo))
+            if not isinstance(algo, GRPOAlgoConfig):
+                continue
+            adaptive = algo.baseline.adaptive_config
+            if adaptive is not None and adaptive.batch_size is None:
+                adaptive.batch_size = value.batch_size
+            if isinstance(algo.baseline, TetherBaselineConfig) and algo.baseline.adaptive is not None:
+                assert algo.baseline.adaptive.batch_size is not None
+                if algo.baseline.adaptive.position is not None:
+                    algo.baseline.adaptive.position.resolve(
+                        policy_seq_len=self.orchestrator.seq_len,
+                        batch_size=algo.baseline.adaptive.batch_size,
+                    )
         value.replay.resolve(batch_size=value.batch_size)
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
