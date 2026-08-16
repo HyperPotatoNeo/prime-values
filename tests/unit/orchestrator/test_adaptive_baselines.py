@@ -590,6 +590,48 @@ def test_tether_adaptive_group_is_scored_before_its_fit_is_applied():
     assert runtime.rho == pytest.approx(2.0)
 
 
+def test_tether_warmup_scores_rejected_groups_without_fitting_them():
+    baseline = TetherBaselineConfig(adaptive=AdaptiveTetherConfig(batch_size=2, ridge=0.0, ema_decay=0.0))
+    algorithm = GRPOAlgorithm(
+        GRPOAlgoConfig(baseline=baseline),
+        MagicMock(),
+        value_evaluator=MagicMock(),
+        value_config=ValueFunctionConfig(
+            model={"seq_len": 3, "attn": "sdpa"},
+            batch_size=2,
+            warmup_updates=1,
+        ),
+        policy_seq_len=3,
+    )
+
+    rejected = [
+        _rollout(1.0, values=[9.0, 0.5, 0.5]),
+        _rollout(0.0, values=[9.0, 0.5, 0.5]),
+    ]
+    _attach_policy_gae(rejected, gamma=1.0, gae_lambda=1.0)
+    for rollout in rejected:
+        rollout.value_version = 0
+    asyncio.run(algorithm.score_group(rejected))
+
+    assert isinstance(algorithm.baseline_runtime, TetherRuntime)
+    assert rejected[0].advantages == pytest.approx([0.0, 1.0, 1.0])
+    assert rejected[1].advantages == pytest.approx([0.0, -1.0, -1.0])
+    assert algorithm.baseline_runtime.rho == 0.0
+    assert algorithm.baseline_runtime.adaptive is not None
+    assert algorithm.baseline_runtime.adaptive.pending_rollouts == 0
+
+    accepted = [
+        _rollout(1.0, values=[9.0, 0.5, 0.5]),
+        _rollout(0.0, values=[9.0, 0.5, 0.5]),
+    ]
+    _attach_policy_gae(accepted, gamma=1.0, gae_lambda=1.0)
+    for rollout in accepted:
+        rollout.value_version = 1
+    asyncio.run(algorithm.score_group(accepted))
+
+    assert algorithm.baseline_runtime.rho == pytest.approx(2.0)
+
+
 def test_tether_fit_uses_policy_lambda_return_not_critic_targets():
     group = [
         _rollout(1.0, values=[9.0, 0.25, 0.5]),

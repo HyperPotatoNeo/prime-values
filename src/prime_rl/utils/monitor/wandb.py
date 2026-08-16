@@ -18,6 +18,7 @@ from wandb.sdk.mailbox.mailbox_handle import ServerResponseError
 from wandb_gql import gql
 
 from prime_rl.configs.shared import WandbConfig, WandbWithExtrasConfig
+from prime_rl.orchestrator.records import public_task_record
 from prime_rl.utils.config import BaseConfig
 from prime_rl.utils.logger import get_logger
 from prime_rl.utils.monitor.base import Monitor, sample_items_for_logging
@@ -40,7 +41,7 @@ def _loggable_task(task) -> str:
             return [elide(v) for v in obj]
         return obj
 
-    return json.dumps(elide(task.model_dump(mode="json")))
+    return json.dumps(elide(public_task_record(task)))
 
 
 class WandbMonitor(Monitor):

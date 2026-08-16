@@ -149,11 +149,14 @@ class TrainBatch:
     shipped cohort's post-filter survivors) — an empty list means nothing ships, which would stall the
     trainer. Trainable counts derive from ``rollouts`` (``r.is_trainable``) and token totals from
     ``samples``, so neither is carried as a field. ``shipped_value_version_min``
-    is computed from that exact shipped cohort, not from the arrival window."""
+    is computed from that exact shipped cohort, not from the arrival window.
+    ``empty_batch_made_progress`` distinguishes bounded accounting flushes that
+    advanced the queued batch from genuine no-progress empty batches."""
 
     rollouts: TrainRollouts
     samples: list[TrainingSample]
     shipped_value_version_min: int | None
+    empty_batch_made_progress: bool = False
 
 
 @dataclass

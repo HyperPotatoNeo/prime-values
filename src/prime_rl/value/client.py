@@ -35,7 +35,8 @@ class ValueEvaluatorClient:
         self._errors = 0
         self._latency_seconds = 0.0
         self._max_latency_seconds = 0.0
-        self._latest_version = -1
+        self._latest_response_version = -1
+        self._replica_watermark = -1
 
     async def wait_for_ready(self) -> None:
         async def wait(url: str) -> None:
@@ -82,7 +83,7 @@ class ValueEvaluatorClient:
                     raise ValueError(
                         f"value evaluator sequence {index} length {len(values)} does not match token length {len(tokens)}"
                     )
-            self._latest_version = max(self._latest_version, result.version)
+            self._latest_response_version = max(self._latest_response_version, result.version)
             return result
         except Exception:
             self._errors += 1
@@ -103,7 +104,7 @@ class ValueEvaluatorClient:
         # endpoint has adopted at least N, without treating transient skew as
         # a fatal condition.
         watermark = min(versions)
-        self._latest_version = max(self._latest_version, watermark)
+        self._replica_watermark = watermark
         return watermark
 
     def metrics(self) -> dict[str, float]:
@@ -116,7 +117,8 @@ class ValueEvaluatorClient:
             "value/evaluator_error_rate": self._errors / self._requests if self._requests else 0.0,
             "value/evaluator_latency_seconds_mean": (self._latency_seconds / self._requests if self._requests else 0.0),
             "value/evaluator_latency_seconds_max": self._max_latency_seconds,
-            "value/evaluator_version_watermark": float(self._latest_version),
+            "value/evaluator_response_version_latest": float(self._latest_response_version),
+            "value/evaluator_version_watermark": float(self._replica_watermark),
         }
 
     async def wait_for_version(self, minimum: int) -> None:

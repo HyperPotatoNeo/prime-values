@@ -22,6 +22,7 @@ in ``setup()`` and drives them from ``main_loop()``.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import math
 import os
 import time
@@ -51,6 +52,7 @@ from prime_rl.orchestrator.patches import (
     monkey_patch_oai_iterable_types,
 )
 from prime_rl.orchestrator.periodic_logger import PeriodicLogger
+from prime_rl.orchestrator.records import public_rollout_record
 from prime_rl.orchestrator.train_sink import TrainSink
 from prime_rl.orchestrator.train_source import TrainSource
 from prime_rl.orchestrator.types import (
@@ -187,8 +189,18 @@ class Orchestrator:
         self.wait_for_policy_time = 0.0
         self.component_tasks = []
 
-        # Optional attributes — ``setup()`` populates them when the relevant
-        # config is present
+        # Runtime resources are initialized eagerly so partial setup can use
+        # the same teardown path as a running orchestrator.
+        self.policy_inference = None
+        self.monitor = None
+        self.sender = None
+        self.train_envs = None
+        self.train_source = None
+        self.train_sink = None
+        self.dispatcher = None
+        self.watcher = None
+        self.lag_monitor = None
+        self.periodic_logger = None
         self.renderer = None
         self.mm_token_type_ids_mapping = None
         self.heart = None
@@ -262,12 +274,8 @@ class Orchestrator:
         post_filters = setup_filters(config.post_batch_filters, vocab_size=self.tokenizer.vocab_size, kind="post-batch")
 
         if config.value_function is not None:
-            get_logger().info("Connecting to value evaluator")
             self.value_evaluator = ValueEvaluatorClient(config.value_function.evaluator)
-            await self.value_evaluator.wait_for_ready()
             self.value_publisher = ValueRolloutPublisher(config.value_function.transport)
-            await self.value_publisher.start()
-            get_logger().success("Value evaluator ready")
 
         get_logger().info("Loading training environments")
         self.train_envs = TrainEnvs(
@@ -288,6 +296,12 @@ class Orchestrator:
         )
         self.train_envs.validate_group_value_context(config.value_function)
         get_logger().success("Train environment(s) ready")
+
+        if self.value_evaluator is not None and self.value_publisher is not None:
+            get_logger().info("Connecting to value evaluator")
+            await self.value_evaluator.wait_for_ready()
+            await self.value_publisher.start()
+            get_logger().success("Value evaluator ready")
 
         if config.eval is not None:
             get_logger().info("Loading eval environment(s)")
@@ -441,55 +455,69 @@ class Orchestrator:
     async def start(self) -> None:
         """Run the orchestrator until shutdown. Drives setup, spawns the
         background tasks, runs the main loop in this task, then cleans up."""
-        await self.setup()
         config = self.config
-        get_logger().info(f"Starting orchestrator loop (max_steps={config.max_steps or 'infinite'})")
         start_time = time.perf_counter()
-
-        # Spawn background loops (dispatcher schedules, watcher polls). The
-        # pipeline ``main_loop`` runs inline in this task; the single
-        # ``PeriodicLogger`` polls dispatcher / watcher / sinks / lag
-        # monitor each ``log.interval`` seconds for the pipeline-view log
-        self.lag_task = asyncio.create_task(self.lag_monitor.run(), name="event_loop_lag")
-        await self.periodic_logger.start()
-        self.component_tasks = [
-            asyncio.create_task(self.dispatcher.start(), name="dispatcher"),
-            asyncio.create_task(self.watcher.start(), name="watcher"),
-        ]
-
-        # Base-model eval (policy v0) — fires before any train rollouts, logged at the first
-        # step, unless ``eval.skip_first_step=True`` (or this is a resume)
-        self.maybe_trigger_eval(self.progress.step)
-
-        # Anchor step-time clock so the first step measures startup → first batch
-        self.last_batch_at = time.perf_counter()
-
-        # ``clean_exit`` stays False if ``main_loop`` raises (signal-driven
-        # CancelledError, KeyboardInterrupt, or a real error), so the teardown
-        # logs a forced-cleanup warning instead of a clean-exit success.
         clean_exit = False
+        loop_started = False
         try:
+            await self.setup()
+            get_logger().info(f"Starting orchestrator loop (max_steps={config.max_steps or 'infinite'})")
+
+            # Spawn background loops (dispatcher schedules, watcher polls). The
+            # pipeline ``main_loop`` runs inline in this task; the single
+            # ``PeriodicLogger`` polls dispatcher / watcher / sinks / lag
+            # monitor each ``log.interval`` seconds for the pipeline-view log
+            self.lag_task = asyncio.create_task(self.lag_monitor.run(), name="event_loop_lag")
+            await self.periodic_logger.start()
+            self.component_tasks = [
+                asyncio.create_task(self.dispatcher.start(), name="dispatcher"),
+                asyncio.create_task(self.watcher.start(), name="watcher"),
+            ]
+
+            # Base-model eval (policy v0) — fires before any train rollouts, logged at the first
+            # step, unless ``eval.skip_first_step=True`` (or this is a resume)
+            self.maybe_trigger_eval(self.progress.step)
+
+            # Anchor step-time clock so the first step measures startup → first batch
+            self.last_batch_at = time.perf_counter()
+            loop_started = True
             await self.main_loop()
             clean_exit = True
         finally:
+            cleanup_errors: list[Exception] = []
             elapsed = format_time(time.perf_counter() - start_time)
             if clean_exit:
                 get_logger().success(f"Orchestrator step loop done in {elapsed}")
             else:
                 get_logger().warning(f"Orchestrator interrupted after {elapsed} — forcing cleanup (not a clean exit)")
-            self.monitor.save_final_summary()
+            if loop_started and self.monitor is not None:
+                try:
+                    self.monitor.save_final_summary()
+                except Exception as error:
+                    cleanup_errors.append(error)
             # ``progress.step`` points at the next (unshipped) step; the last finished step is
             # ``progress.step - 1``. Checkpoint it as ``step_{progress.step - 1}`` (no-op before the
             # first ship).
-            if self.ckpt_manager is not None and self.progress.step > 1:
+            if loop_started and self.ckpt_manager is not None and self.progress.step > 1:
                 self.progress.step -= 1
                 get_logger().info("Writing final checkpoint")
-                self.ckpt_manager.save(
-                    self.progress,
-                    step=self.progress.step,
-                    algorithm_states=self._algorithm_states(),
-                )
-            await self.stop()
+                try:
+                    self.ckpt_manager.save(
+                        self.progress,
+                        step=self.progress.step,
+                        algorithm_states=self._algorithm_states(),
+                    )
+                except Exception as error:
+                    cleanup_errors.append(error)
+            try:
+                await self.stop()
+            except Exception as error:
+                cleanup_errors.append(error)
+            if cleanup_errors:
+                if clean_exit:
+                    raise ExceptionGroup("orchestrator finalization failed", cleanup_errors)
+                for error in cleanup_errors:
+                    get_logger().error(f"Orchestrator cleanup also failed: {error!r}")
             if clean_exit:
                 get_logger().success("Orchestrator finished.")
             else:
@@ -523,7 +551,8 @@ class Orchestrator:
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():
                 if (
-                    self.value_evaluator is not None
+                    train_batch.samples
+                    and self.value_evaluator is not None
                     and self.config.value_function is not None
                     and not await self._passes_value_warmup(train_batch)
                 ):
@@ -534,10 +563,9 @@ class Orchestrator:
     async def _passes_value_warmup(self, batch: TrainBatch) -> bool:
         """Gate on the value version that scored this batch, with a live fallback."""
         assert self.value_evaluator is not None and self.config.value_function is not None
-        evaluator_version = await self.value_evaluator.version()
         gate_version = batch.shipped_value_version_min
         if gate_version is None:
-            gate_version = evaluator_version
+            gate_version = await self.value_evaluator.version()
         warmup_updates = self.config.value_function.warmup_updates
         if gate_version < warmup_updates:
             if gate_version != self.last_warmup_value_version:
@@ -576,6 +604,15 @@ class Orchestrator:
             return
 
         if not batch.samples:
+            if batch.empty_batch_made_progress:
+                self.consecutive_empty_batches = 0
+                current, target, unit = self.train_sink.batch_progress()
+                get_logger().warning(
+                    f"Step {step}: discarded {len(batch.rollouts)} untrainable rollout(s) while "
+                    f"the train batch advanced to {current}/{target} {unit}"
+                )
+                self.train_sink.reset_pre_filter_stats()
+                return
             self.consecutive_empty_batches += 1
             get_logger().warning(
                 f"Step {step}: empty train batch (0 of {len(batch.rollouts)} generated rollouts shipped — "
@@ -587,6 +624,7 @@ class Orchestrator:
                     f"{self.consecutive_empty_batches} consecutive empty train batches — "
                     "check filter config (pre_batch_filters / post_batch_filters) or task difficulty."
                 )
+            self.train_sink.reset_pre_filter_stats()
             return
         self.consecutive_empty_batches = 0
         n_trainable = sum(1 for r in batch.rollouts if r.is_trainable)
@@ -599,7 +637,7 @@ class Orchestrator:
         # Serialize the typed Trace at the I/O boundary (disk + wandb sample tables); to_record
         # drops the per-node training tensors — they're for training, not the rollout record, and
         # can't round-trip json (raw numpy bytes).
-        rollout_dicts = [r.to_record() for r in batch.rollouts]
+        rollout_dicts = [public_rollout_record(r) for r in batch.rollouts]
         step_path = get_step_path(get_rollout_dir(config.output_dir), step)
         await asyncio.to_thread(save_rollouts, rollout_dicts, step_path / "train_rollouts.jsonl")
 
@@ -860,7 +898,7 @@ class Orchestrator:
             get_logger().warning(f"Eval @ step={batch.step} env={batch.env_name}: no rollouts returned, skipping log")
             return
 
-        rollout_dicts = [r.to_record() for r in batch.rollouts]
+        rollout_dicts = [public_rollout_record(r) for r in batch.rollouts]
         step_path = get_step_path(get_rollout_dir(self.config.output_dir), batch.step)
         await asyncio.to_thread(
             save_rollouts,
@@ -973,41 +1011,56 @@ class Orchestrator:
         training artifacts are already persisted before this is reached."""
 
         async def teardown() -> None:
+            errors: list[Exception] = []
+
+            async def attempt(label: str, cleanup) -> None:
+                try:
+                    result = cleanup()
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception as error:
+                    errors.append(error)
+                    get_logger().warning(f"Failed to clean up {label}: {error!r}")
+
             if self.sender is not None:
-                self.sender.close()
+                await attempt("training batch sender", self.sender.close)
             if self.dispatcher is not None:
-                await self.dispatcher.stop()
+                await attempt("dispatcher", self.dispatcher.stop)
             if self.train_sink is not None:
-                await self.train_sink.stop()
+                await attempt("train sink", self.train_sink.stop)
             if self.value_publisher is not None:
-                await self.value_publisher.close()
+                await attempt("value rollout publisher", self.value_publisher.close)
                 self.value_publisher = None
             if self.watcher is not None:
-                await self.watcher.stop()
+                await attempt("weight watcher", self.watcher.stop)
             if self.periodic_logger is not None:
-                await self.periodic_logger.stop()
+                await attempt("periodic logger", self.periodic_logger.stop)
             if self.lag_task is not None:
-                await safe_cancel(self.lag_task)
+                await attempt("event-loop lag monitor", lambda: safe_cancel(self.lag_task))
                 self.lag_task = None
             for task in self.component_tasks:
-                await safe_cancel(task)
+                await attempt(f"component task {task.get_name()!r}", lambda task=task: safe_cancel(task))
             self.component_tasks.clear()
             if self.inference_metrics is not None:
-                await self.inference_metrics.stop()
+                await attempt("inference metrics", self.inference_metrics.stop)
             if getattr(self, "policy_inference", None) is not None:
-                await self.policy_inference.stop()
+                await attempt("policy inference pool", self.policy_inference.stop)
             if self.value_evaluator is not None:
-                await self.value_evaluator.close()
+                await attempt("value evaluator", self.value_evaluator.close)
                 self.value_evaluator = None
             if self.train_envs is not None:
                 for env in self.train_envs:
                     for pool in (*env.sampler.connected_pools, *env.algorithm.connected_pools):
-                        await pool.stop()
-                self.train_envs.shutdown()
+                        await attempt(f"training environment pool {env.name!r}", pool.stop)
+                await attempt("training environment servers", self.train_envs.shutdown)
             if self.eval_envs is not None:
-                self.eval_envs.shutdown()
+                await attempt("evaluation environment servers", self.eval_envs.shutdown)
             if self.usage_reporter is not None:
-                self.usage_reporter.close()
+                await attempt("usage reporter", self.usage_reporter.close)
+            if self.monitor is not None:
+                await attempt("monitor", self.monitor.close)
+            if errors:
+                raise ExceptionGroup("orchestrator cleanup failed", errors)
 
         task = asyncio.create_task(teardown())
         _, pending = await asyncio.wait({task}, timeout=SHUTDOWN_TIMEOUT_S)

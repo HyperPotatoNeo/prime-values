@@ -82,6 +82,36 @@ def test_version_uses_minimum_replica_watermark_during_update_skew():
         )
 
         assert await client.version() == 4
+        metrics = client.metrics()
+        assert metrics["value/evaluator_version_watermark"] == 4
+        assert metrics["value/evaluator_response_version_latest"] == -1
+        await client.close()
+
+    asyncio.run(run_test())
+
+
+def test_version_metric_tracks_the_latest_coherent_replica_poll():
+    async def run_test() -> None:
+        client = ValueEvaluatorClient(ValueEvaluatorConfig(base_url=["http://eval:1"]))
+        encoder = msgspec.msgpack.Encoder()
+        client._client.get = AsyncMock(
+            side_effect=[
+                httpx.Response(
+                    200,
+                    content=encoder.encode(ValueVersionResponse(version=4)),
+                    request=httpx.Request("GET", "http://eval:1/version"),
+                ),
+                httpx.Response(
+                    200,
+                    content=encoder.encode(ValueVersionResponse(version=3)),
+                    request=httpx.Request("GET", "http://eval:1/version"),
+                ),
+            ]
+        )
+
+        assert await client.version() == 4
+        assert await client.version() == 3
+        assert client.metrics()["value/evaluator_version_watermark"] == 3
         await client.close()
 
     asyncio.run(run_test())
@@ -109,7 +139,8 @@ def test_evaluation_metrics_cover_volume_latency_errors_and_version():
         assert metrics["value/evaluator_error_rate"] == 0
         assert metrics["value/evaluator_latency_seconds_mean"] > 0
         assert metrics["value/evaluator_latency_seconds_max"] > 0
-        assert metrics["value/evaluator_version_watermark"] == 7
+        assert metrics["value/evaluator_response_version_latest"] == 7
+        assert metrics["value/evaluator_version_watermark"] == -1
         await client.close()
 
     asyncio.run(run_test())

@@ -64,6 +64,9 @@ class TrainSink:
         self.mm_token_type_ids_mapping = mm_token_type_ids_mapping
         self.batch_size = batch_size
         self.token_batch_size = token_batch_size
+        assert config.max_inflight_rollouts is not None
+        self._empty_batch_rollout_limit = config.max_inflight_rollouts
+        self._last_empty_batch_progress = 0
         self.pre_filters = pre_filters
         self.post_filters = post_filters
         self._value_publisher = value_publisher
@@ -143,8 +146,10 @@ class TrainSink:
         env_name = rollout.env_name
         self.pending_rollouts.append(rollout)
         self.pending_groups[rollout.group_id].append(rollout)
+        group_completed = False
         if len(self.pending_groups[rollout.group_id]) >= self.group_size_for(env_name):
             await self.process_group(rollout.group_id)
+            group_completed = True
         ready = (
             len(self.pending_batch) >= self.batch_size
             if self.batch_size is not None
@@ -152,7 +157,34 @@ class TrainSink:
         )
         if ready:
             return self.process_batch()
+        if group_completed:
+            settled = self._pop_settled_rollouts(minimum=self._empty_batch_rollout_limit)
+            if settled:
+                progress = self._queued_batch_progress()
+                made_progress = progress > self._last_empty_batch_progress
+                self._last_empty_batch_progress = progress
+                return TrainBatch(
+                    rollouts=settled,
+                    samples=[],
+                    shipped_value_version_min=None,
+                    empty_batch_made_progress=made_progress,
+                )
         return None
+
+    def _queued_batch_progress(self) -> int:
+        return len(self.pending_batch) if self.batch_size is not None else self.pending_tokens
+
+    def _pop_settled_rollouts(self, *, minimum: int = 1) -> TrainRollouts:
+        """Pop finalized arrivals that are no longer eligible for a future batch."""
+        retained_ids = {id(rollout) for rollout in self.pending_batch}
+        retained_ids.update(id(rollout) for group in self.pending_groups.values() for rollout in group)
+        settled = TrainRollouts([rollout for rollout in self.pending_rollouts if id(rollout) not in retained_ids])
+        if len(settled) < minimum:
+            return TrainRollouts()
+        self.pending_rollouts = TrainRollouts(
+            [rollout for rollout in self.pending_rollouts if id(rollout) in retained_ids]
+        )
+        return settled
 
     async def process_rollout(self, rollout: Rollout) -> None:
         """Build training samples from the rollout's Trace (one per branch), walking the
@@ -251,16 +283,7 @@ class TrainSink:
             return
 
         if group_value_context:
-            prompts = group_leave_one_out_prompts(
-                survivors,
-                special_tokens=getattr(self.tokenizer, "all_special_tokens", ()),
-            )
-            prefixes = [
-                self._build_value_prefix(rollout, rollout.samples, prompt=prompt, enabled=True)
-                for rollout, prompt in zip(survivors, prompts, strict=True)
-            ]
-            if any(prefix is None for prefix in prefixes):
-                raise RuntimeError("group_leave_one_out prompt unexpectedly produced no value prefix")
+            prefixes = await asyncio.to_thread(self._build_group_value_prefixes, survivors)
             for rollout, prefix in zip(survivors, prefixes, strict=True):
                 rollout.value_prefix = prefix
 
@@ -371,6 +394,19 @@ class TrainSink:
                 )
         return prefix
 
+    def _build_group_value_prefixes(self, rollouts: list[Rollout]) -> list[TokenPrefix]:
+        prompts = group_leave_one_out_prompts(
+            rollouts,
+            special_tokens=getattr(self.tokenizer, "all_special_tokens", ()),
+        )
+        prefixes = [
+            self._build_value_prefix(rollout, rollout.samples, prompt=prompt, enabled=True)
+            for rollout, prompt in zip(rollouts, prompts, strict=True)
+        ]
+        if any(prefix is None for prefix in prefixes):
+            raise RuntimeError("group_leave_one_out prompt unexpectedly produced no value prefix")
+        return [prefix for prefix in prefixes if prefix is not None]
+
     def _publish_value_rollouts(self, rollouts: list[Rollout]) -> None:
         if self._value_publisher is None:
             return
@@ -445,12 +481,15 @@ class TrainSink:
 
         # ``rollouts`` is the whole arrival window (errored + filtered + survivors); ``samples`` is
         # the shipped cohort's trainable payload. ``rollouts.effective`` / ``rollouts.metrics`` derive
-        # the clean subset + metric views on demand. Reset the window only when the batch actually
-        # ships (non-empty samples) — an empty batch is dropped unlogged by the orchestrator, so keep
-        # accumulating its arrivals (and any overflow) into the next shipped batch's window.
-        rollouts = self.pending_rollouts
+        # the clean subset + metric views on demand. Successful batches consume the full arrival
+        # window. Empty batches consume only finalized drops, retaining partial groups and overflow
+        # survivors for the batch they may eventually join.
         if samples:
+            rollouts = self.pending_rollouts
             self.pending_rollouts = TrainRollouts()
+        else:
+            rollouts = self._pop_settled_rollouts()
+        self._last_empty_batch_progress = self._queued_batch_progress()
         return TrainBatch(
             rollouts=rollouts,
             samples=samples,

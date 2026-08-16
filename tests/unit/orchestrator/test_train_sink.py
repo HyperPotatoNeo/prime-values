@@ -494,6 +494,78 @@ def test_process_batch_tracks_actual_shipped_value_versions():
     assert sink.process_batch().shipped_value_version_min == 0
 
 
+def test_dropped_groups_emit_bounded_empty_batches_without_consuming_survivors():
+    async def run_test() -> None:
+        algorithm = SimpleNamespace(
+            minimum_group_size=1,
+            value_evaluator=None,
+            finalize_group=AsyncMock(),
+            finalize_rollout=AsyncMock(),
+        )
+        env = SimpleNamespace(
+            algorithm=algorithm,
+            config=SimpleNamespace(group_size=1),
+            requires_group_scoring=False,
+            sampling_args={"temperature": 1.0},
+        )
+        sink = TrainSink.__new__(TrainSink)
+        sink.train_envs = SimpleNamespace(get=lambda _name: env)
+        sink.pending_rollouts = TrainRollouts()
+        sink.pending_groups = defaultdict(list)
+        sink.pending_batch = []
+        sink.pending_tokens = 0
+        sink.scoring_tasks = {}
+        sink.batch_size = 4
+        sink.token_batch_size = None
+        sink._empty_batch_rollout_limit = 1
+        sink._last_empty_batch_progress = 0
+        sink._value_publisher = None
+        sink._value_seq_len = None
+        sink._value_privileged_context = "task"
+        sink._next_value_rollout_id = 0
+        sink.pre_filters = []
+        sink.post_filters = []
+        sink.pre_filter_seen = 0
+        sink.pre_filter_dropped = 0
+        sink.pre_filter_dropped_by_name = {}
+
+        survivor = _rollout()
+        survivor.group_id = uuid.uuid4()
+        with patch.object(sink, "process_rollout", AsyncMock()):
+            assert await sink.add(survivor) is None
+
+            dropped = [_rollout(has_error=True), _rollout(has_error=True)]
+            for rollout in dropped:
+                rollout.group_id = uuid.uuid4()
+            progress_batch = await sink.add(dropped[0])
+
+            assert progress_batch is not None
+            assert progress_batch.samples == []
+            assert list(progress_batch.rollouts) == [dropped[0]]
+            assert progress_batch.empty_batch_made_progress
+            assert sink.pending_batch == [survivor]
+            assert list(sink.pending_rollouts) == [survivor]
+
+            stalled_batch = await sink.add(dropped[1])
+
+            assert stalled_batch is not None
+            assert list(stalled_batch.rollouts) == [dropped[1]]
+            assert not stalled_batch.empty_batch_made_progress
+
+            additions = [_rollout() for _ in range(3)]
+            for rollout in additions:
+                rollout.group_id = uuid.uuid4()
+            assert await sink.add(additions[0]) is None
+            assert await sink.add(additions[1]) is None
+            batch = await sink.add(additions[2])
+
+        assert batch is not None
+        assert batch.samples == [sample for rollout in [survivor, *additions] for sample in rollout.samples]
+        assert list(batch.rollouts) == [survivor, *additions]
+
+    asyncio.run(run_test())
+
+
 def test_stop_cancels_scoring_for_incomplete_groups():
     async def run_test() -> None:
         started = asyncio.Event()

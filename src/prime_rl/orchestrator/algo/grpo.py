@@ -52,6 +52,7 @@ class GRPOAlgorithm(Algorithm):
                 value_seq_len=value_config.model.seq_len,
                 policy_seq_len=actor_seq_len,
                 adaptive_batch_size=adaptive_batch_size,
+                adaptive_min_value_version=value_config.warmup_updates,
             )
 
     @property
