@@ -286,6 +286,7 @@ class Orchestrator:
             log_level=config.log.vf_level,
             json_logging=config.log.json_logging,
         )
+        self.train_envs.validate_group_value_context(config.value_function)
         get_logger().success("Train environment(s) ready")
 
         if config.eval is not None:

@@ -347,6 +347,65 @@ def test_value_function_resolves_separate_model_and_gpu_roles():
     assert config.deployment.num_value_eval_gpus == 1
 
 
+def test_group_value_context_defaults_from_largest_affected_group():
+    config = RLConfig.model_validate(
+        {
+            "seq_len": 300_000,
+            "trainer": {},
+            "orchestrator": {
+                "train": {
+                    "env": [
+                        {"id": "grpo-env", "group_size": 2, "algo": {"type": "grpo"}},
+                        {"id": "echo-env", "group_size": 5, "algo": {"type": "echo"}},
+                        {"id": "max-env", "group_size": 8, "algo": {"type": "max_rl"}},
+                    ]
+                }
+            },
+            "value_function": {"privileged_context": "group_leave_one_out"},
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None and config.value_function.model is not None
+    assert config.value_function.model.seq_len == 5 * 300_000
+    assert config.value_function.evaluator.max_pending_tokens == 5 * config.value_function.model.seq_len
+    assert config.orchestrator.value_function is not None
+    assert config.orchestrator.value_function.model is not None
+    assert config.orchestrator.value_function.model.seq_len == config.value_function.model.seq_len
+
+
+def test_group_value_context_preserves_explicit_value_limits():
+    config = RLConfig.model_validate(
+        {
+            "seq_len": 128,
+            "trainer": {},
+            "orchestrator": {"group_size": 4, "algo": {"type": "grpo"}},
+            "value_function": {
+                "privileged_context": "group_leave_one_out",
+                "model": {"seq_len": 256},
+                "evaluator": {"max_pending_tokens": 999},
+            },
+            "deployment": {"type": "single_node", "gpus_per_node": 4},
+        }
+    )
+
+    assert config.value_function is not None and config.value_function.model is not None
+    assert config.value_function.model.seq_len == 256
+    assert config.value_function.evaluator.max_pending_tokens == 999
+
+
+def test_group_value_context_requires_siblings_for_every_affected_environment():
+    with pytest.raises(ValidationError, match="group_leave_one_out value context requires group_size >= 2"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {"group_size": 1, "algo": {"type": "grpo"}},
+                "value_function": {"privileged_context": "group_leave_one_out"},
+                "deployment": {"type": "single_node", "gpus_per_node": 4},
+            }
+        )
+
+
 def test_trainer_placed_value_evaluator_uses_no_extra_gpu():
     config = RLConfig.model_validate(
         {
@@ -537,6 +596,7 @@ def test_value_function_defaults_to_binary_classification_and_independent_lambda
     assert config.replay.refill_size is None
     assert config.replay.seed == 0
     assert config.transport.max_pending_rollouts == 2048
+    assert config.privileged_context == "task"
     assert config.gae_lambda == 1.0
     assert config.value_target_lambda == 1.0
     assert config.warmup_updates == 0

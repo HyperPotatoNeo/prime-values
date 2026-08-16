@@ -113,3 +113,27 @@ def test_evaluation_metrics_cover_volume_latency_errors_and_version():
         await client.close()
 
     asyncio.run(run_test())
+
+
+def test_evaluate_rejects_oversized_request_before_http():
+    async def run_test() -> None:
+        client = ValueEvaluatorClient(
+            ValueEvaluatorConfig(
+                base_url=["http://eval:1"],
+                max_pending_tokens=4,
+            )
+        )
+        client._client.post = AsyncMock()
+
+        with pytest.raises(ValueError, match="5 tokens across 2 sequences"):
+            await client.evaluate([[1, 2, 3], [4, 5]])
+
+        client._client.post.assert_not_awaited()
+        metrics = client.metrics()
+        assert metrics["value/evaluator_requests"] == 1
+        assert metrics["value/evaluator_sequences"] == 2
+        assert metrics["value/evaluator_tokens"] == 5
+        assert metrics["value/evaluator_errors"] == 1
+        await client.close()
+
+    asyncio.run(run_test())

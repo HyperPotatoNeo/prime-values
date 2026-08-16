@@ -197,6 +197,9 @@ class ValueFunctionConfig(BaseConfig):
     tokenizer_name: str | None = None
     """Tokenizer vocabulary expected by the value backbone. Defaults to ``model.name`` and must match the policy tokenizer."""
 
+    privileged_context: Literal["task", "group_leave_one_out"] = "task"
+    """Critic-only context source: an optional task prompt, or the other completed rollouts in the GRPO group."""
+
     loss: ValueLossConfig = ClassificationValueLossConfig()
     """Value-head objective. Defaults to two-bin classification over ``[0, 1]``."""
 

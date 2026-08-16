@@ -88,6 +88,13 @@ def test_request_above_batch_ceiling_runs_alone_but_admission_limit_is_enforced(
     _complete(service, following_batch)
 
 
+def test_request_byte_limit_scales_with_token_capacity():
+    config = ValueEvaluatorConfig(max_pending_tokens=4_000_000)
+    service = ValueRequestService(config, seq_len=1_000_000, vocab_size=200_000, version=0)
+
+    assert service.max_request_bytes > service_module.MAX_VALUE_REQUEST_BYTES
+
+
 def test_capacity_counts_running_work_and_cancel_releases_only_queued_work():
     service = _service(max_pending_requests=2, max_pending_tokens=10)
     running_ticket = service._submit(_request((6, 1)))

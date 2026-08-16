@@ -41,7 +41,12 @@ def test_real_renderer_prefix_preserves_complete_multiturn_policy_sequence(
     sink.tokenizer = tokenizer
     sink._value_seq_len = 1_000_000
 
-    prefix = sink._build_value_prefix(rollout, [sample], enabled=True)
+    prefix = sink._build_value_prefix(
+        rollout,
+        [sample],
+        prompt=rollout.task.value_function_prompt,
+        enabled=True,
+    )
 
     assert prefix is not None
     assert prefix.insert_at == expected_insert_at

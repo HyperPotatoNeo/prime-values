@@ -306,10 +306,24 @@ class RLConfig(BaseConfig):
             return self
 
         value = self.value_function
+        loo_group_size = 1
+        if value.privileged_context == "group_leave_one_out":
+            group_sizes: list[int] = []
+            for env_name, algo in effective_algorithms:
+                if not isinstance(algo, GRPOAlgoConfig):
+                    continue
+                env = next((item for item in self.orchestrator.train.env if item.resolved_name == env_name), None)
+                group_size = env.group_size if env is not None else self.orchestrator.group_size
+                if group_size < 2:
+                    raise ValueError(f"{env_name}: group_leave_one_out value context requires group_size >= 2")
+                group_sizes.append(group_size)
+            if not group_sizes:
+                raise ValueError("group_leave_one_out value context requires a GRPO training environment")
+            loo_group_size = max(group_sizes)
         if value_backed_baselines and "warmup_updates" not in value.model_fields_set:
             value.warmup_updates = 1
         self._resolve_value_algorithm_config(value, effective_algorithms)
-        trainer_placed_evaluator = self._resolve_value_model_config(value)
+        trainer_placed_evaluator = self._resolve_value_model_config(value, loo_group_size=loo_group_size)
         self._resolve_value_deployment(value, trainer_placed_evaluator)
         return self
 
@@ -347,7 +361,8 @@ class RLConfig(BaseConfig):
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("value functions currently require trainer.max_concurrent_runs=1")
 
-    def _resolve_value_model_config(self, value: ValueFunctionConfig) -> bool:
+    def _resolve_value_model_config(self, value: ValueFunctionConfig, *, loo_group_size: int) -> bool:
+        explicit_seq_len = value.model is not None and "seq_len" in value.model.model_fields_set
         if value.model is None:
             value.model = self.trainer.model.model_copy(deep=True)
             # Shared-field propagation descends into dict inputs only, so
@@ -356,6 +371,8 @@ class RLConfig(BaseConfig):
                 value.model.name = self.model.name
             if self.seq_len is not None and "seq_len" not in self.trainer.model.model_fields_set:
                 value.model.seq_len = self.seq_len
+        if value.privileged_context == "group_leave_one_out" and not explicit_seq_len:
+            value.model.seq_len = max(value.model.seq_len, loo_group_size * self.orchestrator.seq_len)
         validate_value_model_capabilities(value.model)
         if value.model.seq_len < self.orchestrator.seq_len:
             raise ValueError("value_function.model.seq_len must be at least orchestrator.seq_len")
@@ -372,6 +389,14 @@ class RLConfig(BaseConfig):
             raise ValueError("trainer-placed value evaluation does not support DeepEP")
         if "output_dir" not in value.model_fields_set:
             value.output_dir = self.output_dir / "value"
+        if (
+            value.privileged_context == "group_leave_one_out"
+            and "max_pending_tokens" not in value.evaluator.model_fields_set
+        ):
+            value.evaluator.max_pending_tokens = max(
+                value.evaluator.max_pending_tokens,
+                loo_group_size * value.model.seq_len,
+            )
         self.orchestrator.value_function = value.model_copy(deep=True)
         return trainer_placed_evaluator
 

@@ -27,7 +27,7 @@ from prime_rl.orchestrator.filters import RolloutFilter, apply_filters
 from prime_rl.orchestrator.metrics import TrainRollouts
 from prime_rl.orchestrator.trajectories import materialize_training_data
 from prime_rl.orchestrator.types import Rollout, TrainBatch
-from prime_rl.orchestrator.value_context import TokenPrefix
+from prime_rl.orchestrator.value_context import TokenPrefix, group_leave_one_out_prompts
 from prime_rl.transport import TrainingSample
 from prime_rl.utils.async_utils import safe_cancel_all
 from prime_rl.utils.logger import get_logger
@@ -68,6 +68,9 @@ class TrainSink:
         self.post_filters = post_filters
         self._value_publisher = value_publisher
         self._value_seq_len: int | None = None
+        self._value_privileged_context = (
+            config.value_function.privileged_context if config.value_function is not None else "task"
+        )
         self._next_value_rollout_id = 0
         if value_publisher is not None:
             assert config.value_function is not None
@@ -158,6 +161,15 @@ class TrainSink:
         level, so skip them here."""
         if rollout.has_error:
             return
+        algorithm = self.train_envs.get(rollout.env_name).algorithm
+        value_enabled = algorithm.value_evaluator is not None
+        task_prompt = getattr(rollout.task, "value_function_prompt", None) if value_enabled else None
+        if value_enabled and self._value_privileged_context == "group_leave_one_out" and task_prompt is not None:
+            raise ValueError(
+                "task value_function_prompt cannot be combined with "
+                "value_function.privileged_context='group_leave_one_out' "
+                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+            )
         materialization = await asyncio.to_thread(
             materialize_training_data,
             rollout,
@@ -165,11 +177,11 @@ class TrainSink:
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
         )
         samples = materialization.samples
-        algorithm = self.train_envs.get(rollout.env_name).algorithm
         value_prefix = self._build_value_prefix(
             rollout,
             samples,
-            enabled=algorithm.value_evaluator is not None,
+            prompt=task_prompt if self._value_privileged_context == "task" else None,
+            enabled=value_enabled,
         )
         rollout.samples = samples
         rollout.training_layout = materialization.layout
@@ -213,6 +225,23 @@ class TrainSink:
                 "dropped: no trainable survivors"
             )
             return
+        group_value_context = (
+            self._value_privileged_context == "group_leave_one_out" and env.algorithm.value_evaluator is not None
+        )
+        if group_value_context:
+            expected = self.group_size_for(env_name)
+            if len(group) != expected:
+                raise RuntimeError(
+                    "group_leave_one_out value context reached an invalid group barrier "
+                    f"(env={env_name!r}, task={task_idx}, rollouts={len(group)}, expected={expected})"
+                )
+            if len(survivors) != expected:
+                get_logger().debug(
+                    f"Finished group | env={env_name} task_idx={task_idx} | "
+                    f"rollouts={len(group)} (survivors={len(survivors)}, required={expected}) | "
+                    "dropped: privileged context requires the complete group"
+                )
+                return
         if len(survivors) < env.algorithm.minimum_group_size:
             get_logger().debug(
                 f"Finished group | env={env_name} task_idx={task_idx} | "
@@ -220,6 +249,20 @@ class TrainSink:
                 f"required={env.algorithm.minimum_group_size}) | dropped: insufficient siblings"
             )
             return
+
+        if group_value_context:
+            prompts = group_leave_one_out_prompts(
+                survivors,
+                special_tokens=getattr(self.tokenizer, "all_special_tokens", ()),
+            )
+            prefixes = [
+                self._build_value_prefix(rollout, rollout.samples, prompt=prompt, enabled=True)
+                for rollout, prompt in zip(survivors, prompts, strict=True)
+            ]
+            if any(prefix is None for prefix in prefixes):
+                raise RuntimeError("group_leave_one_out prompt unexpectedly produced no value prefix")
+            for rollout, prefix in zip(survivors, prefixes, strict=True):
+                rollout.value_prefix = prefix
 
         # Advantages + per-sample wire stamping (advantage stream, loss
         # routing) are the algorithm's job (finalize_group); the sink only
@@ -272,20 +315,20 @@ class TrainSink:
         rollout: Rollout,
         samples: list[TrainingSample],
         *,
+        prompt: str | None,
         enabled: bool,
     ) -> TokenPrefix | None:
         if not enabled or self._value_seq_len is None or not samples:
             return None
-        prompt = getattr(rollout.task, "value_function_prompt", None)
         if prompt is None:
             return None
         if not isinstance(prompt, str):
             raise TypeError(
-                f"task value_function_prompt must be a string (env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"value context prompt must be a string (env={rollout.env_name!r}, task={rollout.task.idx})"
             )
         if not prompt.strip():
             raise ValueError(
-                "task value_function_prompt must contain non-whitespace text "
+                "value context prompt must contain non-whitespace text "
                 f"(env={rollout.env_name!r}, task={rollout.task.idx})"
             )
 
@@ -303,14 +346,13 @@ class TrainSink:
         rendered_has_bos = bos_token_id is not None and rendered[:1] == [bos_token_id]
         if rendered_has_bos != branch_has_bos[0]:
             raise ValueError(
-                "rendered value_function_prompt and policy branches must use the same BOS convention "
+                "rendered value context and policy branches must use the same BOS convention "
                 f"(env={rollout.env_name!r}, task={rollout.task.idx})"
             )
         prefix_token_ids = tuple(rendered[1:] if rendered_has_bos else rendered)
         if not prefix_token_ids:
             raise ValueError(
-                "value_function_prompt rendered to no prefix tokens "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"value context rendered to no prefix tokens (env={rollout.env_name!r}, task={rollout.task.idx})"
             )
         prefix = TokenPrefix(
             token_ids=prefix_token_ids,
@@ -324,7 +366,7 @@ class TrainSink:
                     f"(env={rollout.env_name!r}, task={rollout.task.idx}, branch={branch}, "
                     f"original_tokens={len(sample.token_ids)}, prefix_tokens={len(prefix.token_ids)}, "
                     f"merged_tokens={merged_length}, seq_len={self._value_seq_len}); "
-                    "increase the critic sequence length, shorten value_function_prompt, "
+                    "increase the critic sequence length, shorten the privileged context, "
                     "or reduce the policy rollout length"
                 )
         return prefix

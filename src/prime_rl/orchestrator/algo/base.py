@@ -113,9 +113,10 @@ class Algorithm:
         streams): group-relative credit. Default: nothing — rollouts keep
         ``advantages=None``, so advantage-based filters skip them.
 
-    Model I/O lives in :meth:`score_rollout`: it runs at arrival, *before* the
-    pre-batch filters, so it pays compute on rollouts that may then be filtered
-    out — accepted for the simpler one-rollout-at-a-time shape.
+    Rollout-local model I/O lives in :meth:`score_rollout` and runs at arrival,
+    *before* pre-batch filters. Group-conditioned value evaluation waits for
+    :meth:`finalize_group`, when every sibling trajectory is available. Both
+    paths therefore pay compute on rollouts that may later be filtered.
 
     Constructed with the algorithm config it interprets plus the live policy
     pool (``self.policy_pool`` — always available, never closed by the
@@ -193,7 +194,11 @@ class Algorithm:
         tokenized."""
         if rollout.samples:
             await self.score_rollout(rollout)
-            if self.value_evaluator is not None:
+            if (
+                self.value_evaluator is not None
+                and self.value_config is not None
+                and self.value_config.privileged_context != "group_leave_one_out"
+            ):
                 await self._evaluate_value(rollout)
 
     async def finalize_group(self, rollouts: list[Rollout]) -> None:
@@ -201,26 +206,53 @@ class Algorithm:
         sample's wire fields (the advantage stream + loss routing). After this
         the records are frozen — groups die at stamping."""
         if self.value_evaluator is not None:
+            assert self.value_config is not None
+            group_conditioned = self.value_config.privileged_context == "group_leave_one_out"
+            if group_conditioned and any(rollout.value_prefix is None for rollout in rollouts):
+                raise RuntimeError("group_leave_one_out value context was not attached before group finalization")
             versions = {rollout.value_version for rollout in rollouts if rollout.samples}
-            if len(versions) > 1:
-                # A critic update landed while siblings were completing. Re-score
-                # the group in one request so one coherent version defines credit.
-                token_ids = [
-                    self._value_input(sample.token_ids, rollout.value_prefix)
-                    for rollout in rollouts
-                    for sample in rollout.samples
-                ]
-                response = await self.value_evaluator.evaluate(token_ids)
-                offset = 0
-                for rollout in rollouts:
-                    count = len(rollout.samples)
-                    self._assign_value_result(rollout, response.values[offset : offset + count], response.version)
-                    offset += count
+            if group_conditioned or len(versions) > 1:
+                # Group-conditioned critics first become evaluable here. Other
+                # critics are re-scored only when sibling versions diverged.
+                await self._evaluate_value_group(rollouts)
         await self.score_group(rollouts)
         for rollout in rollouts:
             stamp_advantages(rollout)
             for sample in rollout.samples:
                 stamp_loss_routing(sample, self.action_loss_type)
+
+    async def _evaluate_value_group(self, rollouts: list[Rollout]) -> None:
+        assert self.value_evaluator is not None
+        assert self.value_config is not None
+        layouts = [self._sequential_value_layout(rollout) for rollout in rollouts]
+        token_ids = [
+            self._value_input(sample.token_ids, rollout.value_prefix)
+            for rollout in rollouts
+            for sample in rollout.samples
+        ]
+        response = await self.value_evaluator.evaluate(token_ids)
+        if len(response.values) != len(token_ids):
+            raise ValueError(
+                f"value evaluator returned {len(response.values)} branches for group request with {len(token_ids)}"
+            )
+
+        updates = []
+        offset = 0
+        for rollout, layout in zip(rollouts, layouts, strict=True):
+            count = len(rollout.samples)
+            updates.append(
+                self._compute_value_result(
+                    rollout,
+                    response.values[offset : offset + count],
+                    layout=layout,
+                )
+            )
+            offset += count
+        for rollout, (predictions, advantages, returns) in zip(rollouts, updates, strict=True):
+            rollout.value_predictions = predictions
+            rollout.value_advantages = advantages
+            rollout.value_returns = returns
+            rollout.value_version = response.version
 
     async def _evaluate_value(self, rollout: Rollout) -> None:
         assert self.value_evaluator is not None
@@ -281,6 +313,23 @@ class Algorithm:
         *,
         layout: TrainingLayout | None = None,
     ) -> None:
+        value_predictions, advantages, returns = self._compute_value_result(
+            rollout,
+            predictions,
+            layout=layout,
+        )
+        rollout.value_predictions = value_predictions
+        rollout.value_advantages = advantages
+        rollout.value_returns = returns
+        rollout.value_version = version
+
+    def _compute_value_result(
+        self,
+        rollout: Rollout,
+        predictions: list[list[float]],
+        *,
+        layout: TrainingLayout | None = None,
+    ) -> tuple[list[list[float]], list[list[float]], list[list[float]]]:
         assert self.value_config is not None
         if len(predictions) != len(rollout.samples):
             raise ValueError(
@@ -343,10 +392,8 @@ class Algorithm:
                 advantages[span.sample_index][span.sample_start : sample_end] = flat_advantages[offset:end]
                 returns[span.sample_index][span.sample_start : sample_end] = flat_returns[offset:end]
                 offset = end
-        rollout.value_predictions = [
+        value_predictions = [
             values + [0.0] * (len(sample.token_ids) - len(values))
             for sample, values in zip(rollout.samples, projected_predictions, strict=True)
         ]
-        rollout.value_advantages = advantages
-        rollout.value_returns = returns
-        rollout.value_version = version
+        return value_predictions, advantages, returns

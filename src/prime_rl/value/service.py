@@ -66,6 +66,13 @@ class ValueRequestService:
         self.config = config
         self.seq_len = seq_len
         self.vocab_size = vocab_size
+        token_bytes = len(msgspec.msgpack.encode(max(vocab_size - 1, 0)))
+        # One-token sequences maximize MsgPack array-header overhead. The
+        # fixed allowance covers the struct key and outer-array envelope.
+        self.max_request_bytes = max(
+            MAX_VALUE_REQUEST_BYTES,
+            64 + config.max_pending_tokens * (token_bytes + 1),
+        )
         self._condition = threading.Condition()
         self._queue: deque[_RequestTicket] = deque()
         self._version = version
@@ -339,8 +346,9 @@ class ValueRequestHandler(BaseHTTPRequestHandler):
             length = int(raw_length)
             if length <= 0:
                 raise ValueError("content-length must be positive")
-            if length > MAX_VALUE_REQUEST_BYTES:
-                raise ValueRequestTooLarge(f"value request body exceeds {MAX_VALUE_REQUEST_BYTES} bytes")
+            max_request_bytes = self.value_server.service.max_request_bytes
+            if length > max_request_bytes:
+                raise ValueRequestTooLarge(f"value request body exceeds {max_request_bytes} bytes")
             request = self.request_decoder.decode(self.rfile.read(length))
             response = self.value_server.service.submit_and_wait(request)
             status, payload, content_type = HTTPStatus.OK, self.encoder.encode(response), "application/msgpack"
