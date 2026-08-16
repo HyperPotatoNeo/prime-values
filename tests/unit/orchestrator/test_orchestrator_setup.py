@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from renderers import DefaultRenderer, Qwen3VLRendererConfig
@@ -124,13 +124,13 @@ def test_group_value_context_rejects_opaque_renderer_before_pool_startup():
 
 
 @pytest.mark.parametrize(
-    ("shipped_version", "live_version", "warmup_updates", "expected"),
+    ("shipped_version", "live_version", "warmup_updates", "expected", "queries_live_version"),
     [
-        pytest.param(0, 1, 1, False, id="stale-shipped-version-wins"),
-        pytest.param(1, 0, 1, True, id="fresh-shipped-version-wins"),
-        pytest.param(0, 1, 0, True, id="explicit-zero-disables-warmup"),
-        pytest.param(None, 1, 1, True, id="unscored-batch-uses-live-version"),
-        pytest.param(None, 0, 1, False, id="unscored-stale-live-version-blocks"),
+        pytest.param(0, 1, 1, False, False, id="stale-shipped-version-wins"),
+        pytest.param(1, 0, 1, True, False, id="fresh-shipped-version-wins"),
+        pytest.param(0, 1, 0, True, False, id="explicit-zero-disables-warmup"),
+        pytest.param(None, 1, 1, True, True, id="unscored-batch-uses-live-version"),
+        pytest.param(None, 0, 1, False, True, id="unscored-stale-live-version-blocks"),
     ],
 )
 def test_value_warmup_uses_shipped_provenance(
@@ -138,6 +138,7 @@ def test_value_warmup_uses_shipped_provenance(
     live_version: int,
     warmup_updates: int,
     expected: bool,
+    queries_live_version: bool,
 ):
     async def run() -> None:
         orchestrator = Orchestrator.__new__(Orchestrator)
@@ -151,6 +152,106 @@ def test_value_warmup_uses_shipped_provenance(
         batch = SimpleNamespace(shipped_value_version_min=shipped_version)
 
         assert await orchestrator._passes_value_warmup(batch) is expected
-        orchestrator.value_evaluator.version.assert_awaited_once_with()
+        if queries_live_version:
+            orchestrator.value_evaluator.version.assert_awaited_once_with()
+        else:
+            orchestrator.value_evaluator.version.assert_not_awaited()
+
+    asyncio.run(run())
+
+
+def test_start_cleans_up_when_setup_fails():
+    async def run() -> None:
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = SimpleNamespace(max_steps=None)
+        orchestrator.progress = SimpleNamespace(step=1)
+        orchestrator.ckpt_manager = None
+        orchestrator.monitor = None
+        orchestrator.setup = AsyncMock(side_effect=RuntimeError("setup failed"))
+        orchestrator.stop = AsyncMock(side_effect=RuntimeError("cleanup failed"))
+
+        with pytest.raises(RuntimeError, match="setup failed"):
+            await orchestrator.start()
+
+        orchestrator.stop.assert_awaited_once_with()
+
+    asyncio.run(run())
+
+
+def test_start_preserves_main_loop_error_when_final_summary_fails():
+    async def run() -> None:
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = SimpleNamespace(max_steps=None)
+        orchestrator.progress = SimpleNamespace(step=1)
+        orchestrator.ckpt_manager = None
+        orchestrator.setup = AsyncMock()
+        orchestrator.lag_monitor = SimpleNamespace(run=AsyncMock())
+        orchestrator.periodic_logger = SimpleNamespace(start=AsyncMock())
+        orchestrator.dispatcher = SimpleNamespace(start=AsyncMock())
+        orchestrator.watcher = SimpleNamespace(start=AsyncMock())
+        orchestrator.maybe_trigger_eval = MagicMock()
+        orchestrator.main_loop = AsyncMock(side_effect=RuntimeError("main loop failed"))
+        orchestrator.monitor = SimpleNamespace(save_final_summary=MagicMock(side_effect=RuntimeError("summary failed")))
+        orchestrator.stop = AsyncMock()
+
+        with pytest.raises(RuntimeError, match="main loop failed"):
+            await orchestrator.start()
+
+        orchestrator.stop.assert_awaited_once_with()
+
+    asyncio.run(run())
+
+
+def test_empty_accounting_flush_with_batch_progress_does_not_count_as_stalled():
+    async def run() -> None:
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = SimpleNamespace(max_steps=None)
+        orchestrator.progress = SimpleNamespace(step=1)
+        orchestrator.last_batch_at = None
+        orchestrator.consecutive_empty_batches = 4
+        orchestrator.train_sink = SimpleNamespace(
+            batch_progress=lambda: (3, 8, "rollouts"),
+            reset_pre_filter_stats=MagicMock(),
+        )
+        batch = SimpleNamespace(
+            samples=[],
+            rollouts=[object()],
+            empty_batch_made_progress=True,
+        )
+
+        await orchestrator.finalize_train_batch(batch)
+
+        assert orchestrator.consecutive_empty_batches == 0
+        orchestrator.train_sink.reset_pre_filter_stats.assert_called_once_with()
+
+    asyncio.run(run())
+
+
+def test_stop_continues_after_a_cleanup_failure():
+    async def run() -> None:
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        sender = SimpleNamespace(close=MagicMock(side_effect=RuntimeError("sender failed")))
+        monitor = SimpleNamespace(close=MagicMock())
+        orchestrator.sender = sender
+        orchestrator.dispatcher = None
+        orchestrator.train_sink = None
+        orchestrator.value_publisher = None
+        orchestrator.watcher = None
+        orchestrator.periodic_logger = None
+        orchestrator.lag_task = None
+        orchestrator.component_tasks = []
+        orchestrator.inference_metrics = None
+        orchestrator.policy_inference = None
+        orchestrator.value_evaluator = None
+        orchestrator.train_envs = None
+        orchestrator.eval_envs = None
+        orchestrator.usage_reporter = None
+        orchestrator.monitor = monitor
+
+        with pytest.raises(ExceptionGroup, match="orchestrator cleanup failed"):
+            await orchestrator.stop()
+
+        sender.close.assert_called_once_with()
+        monitor.close.assert_called_once_with()
 
     asyncio.run(run())

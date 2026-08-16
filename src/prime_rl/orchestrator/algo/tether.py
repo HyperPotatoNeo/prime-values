@@ -544,12 +544,14 @@ class TetherRuntime:
         value_seq_len: int,
         policy_seq_len: int,
         adaptive_batch_size: int | None,
+        adaptive_min_value_version: int = 0,
     ) -> None:
         self.config = config
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.value_seq_len = value_seq_len
         self.policy_seq_len = policy_seq_len
+        self.adaptive_min_value_version = adaptive_min_value_version
         self.adaptive: AdaptiveTetherCoefficient | None = None
         self.positioned_adaptive: AdaptivePositionTetherCoefficients | None = None
         if config.adaptive is not None:
@@ -645,7 +647,7 @@ class TetherRuntime:
                     )
                 )
 
-        if self.adaptive is not None:
+        if self.adaptive is not None and self._adaptive_observation_ready(group):
             self.adaptive.observe_group(regression_stats)
 
     def _score_positioned_group(self, group: list[Rollout]) -> None:
@@ -715,7 +717,14 @@ class TetherRuntime:
             rollout.assign_advantages(rollout_advantages)
             regression_stats.append(TetherRolloutStats(tuple(rollout_bins)))
 
-        self.positioned_adaptive.observe_group(regression_stats)
+        if self._adaptive_observation_ready(group):
+            self.positioned_adaptive.observe_group(regression_stats)
+
+    def _adaptive_observation_ready(self, group: list[Rollout]) -> bool:
+        minimum = self.adaptive_min_value_version
+        return minimum == 0 or all(
+            rollout.value_version is not None and rollout.value_version >= minimum for rollout in group
+        )
 
     def _critic_visible_length(self, rollout: Rollout, sample_length: int) -> int:
         critic_length = sample_length if rollout.value_prefix is not None else self.value_seq_len

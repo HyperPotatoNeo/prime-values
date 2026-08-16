@@ -20,6 +20,7 @@ from verifiers.v1.push import trace_to_sample
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.configs.shared import PrimeMonitorConfig
+from prime_rl.orchestrator.records import redact_task_record
 from prime_rl.utils.logger import get_logger
 from prime_rl.utils.monitor.base import Monitor, sample_items_for_logging
 
@@ -337,6 +338,7 @@ class PrimeMonitor(Monitor):
 
         for sample_id, rollout in enumerate(rollouts):
             sample = trace_to_sample(rollout, rollout_number=sample_id + 1)
+            sample["task"] = redact_task_record(sample["task"])
             trajectory = sample["trajectory"]
             if not trajectory:  # no branches (e.g. a rollout that errored before any message)
                 continue
