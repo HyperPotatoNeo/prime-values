@@ -55,10 +55,16 @@ class ValueEvaluatorClient:
 
     async def evaluate(self, token_ids: list[list[int]]) -> ValueEvaluationResponse:
         started_at = time.perf_counter()
+        tokens = sum(map(len, token_ids))
         self._requests += 1
         self._sequences += len(token_ids)
-        self._tokens += sum(map(len, token_ids))
+        self._tokens += tokens
         try:
+            if tokens > self.config.max_pending_tokens:
+                raise ValueError(
+                    f"value request has {tokens} tokens across {len(token_ids)} sequences; "
+                    f"value_function.evaluator.max_pending_tokens is {self.config.max_pending_tokens}"
+                )
             async with self._semaphore:
                 url = next(self._urls)
                 payload = self._request_encoder.encode(ValueEvaluationRequest(token_ids=token_ids))

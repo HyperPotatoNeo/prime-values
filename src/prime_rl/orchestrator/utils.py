@@ -10,6 +10,7 @@ from pathlib import Path
 import orjson
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
+from prime_rl.orchestrator.value_context import validate_group_leave_one_out_renderer
 from prime_rl.utils.client import setup_inference_pool
 from prime_rl.utils.logger import InterceptHandler, get_logger, setup_logger
 from prime_rl.utils.utils import (
@@ -34,6 +35,9 @@ async def setup_policy_inference_pool(*, config: OrchestratorConfig, tokenizer):
     client_config = config.model.client
     model_name = config.model.name
     renderer = create_renderer(tokenizer, config.renderer)
+    value_config = getattr(config, "value_function", None)
+    if value_config is not None and value_config.privileged_context == "group_leave_one_out":
+        validate_group_leave_one_out_renderer(renderer)
     get_logger().info(f"Initialized {type(renderer).__name__} for {model_name}")
     if config.any_policy_sourced:
         get_logger().info("Using direct renderer rollout client")

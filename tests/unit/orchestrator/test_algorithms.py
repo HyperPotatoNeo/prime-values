@@ -364,6 +364,128 @@ def test_value_group_rescore_mixes_projected_prefix_and_legacy_truncation():
     asyncio.run(run_test())
 
 
+def test_group_leave_one_out_value_evaluation_is_one_aligned_group_request():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value=SimpleNamespace(
+                values=[
+                    [10.0, 999.0, 20.0, 30.0],
+                    [40.0, 998.0, 997.0, 50.0],
+                    [60.0, 996.0, 995.0, 70.0, 80.0, 90.0],
+                    [994.0, 100.0, 110.0, 120.0],
+                ],
+                version=11,
+            )
+        )
+        algorithm = Algorithm(
+            _build(type="grpo"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(
+                privileged_context="group_leave_one_out",
+                model={"seq_len": 8, "attn": "sdpa"},
+            ),
+        )
+
+        def sample(token_ids, mask):
+            return TrainingSample(
+                token_ids=token_ids,
+                mask=mask,
+                logprobs=[0.0] * len(token_ids),
+                temperatures=[],
+                env_name="test-env",
+            )
+
+        rollouts = [
+            _make_rollout([sample([1, 2, 3], [False, True, True])]),
+            _make_rollout(
+                [
+                    sample([1, 4], [False, True]),
+                    sample([1, 5, 6, 7], [False, True, False, True]),
+                ]
+            ),
+            _make_rollout([sample([8, 9, 10], [False, True, True])]),
+        ]
+        for rollout, reward in zip(rollouts, (0.3, 0.6, 0.9), strict=True):
+            rollout.rewards = {"score": reward}
+        rollouts[0].value_prefix = TokenPrefix(token_ids=(90,), insert_at=1)
+        rollouts[1].value_prefix = TokenPrefix(token_ids=(91, 92), insert_at=1)
+        rollouts[2].value_prefix = TokenPrefix(token_ids=(93,), insert_at=0)
+        policy_streams = [
+            [(list(sample.token_ids), list(sample.mask), list(sample.logprobs)) for sample in rollout.samples]
+            for rollout in rollouts
+        ]
+
+        await asyncio.gather(*(algorithm.finalize_rollout(rollout) for rollout in rollouts))
+        evaluator.evaluate.assert_not_awaited()
+
+        await algorithm.finalize_group(rollouts)
+
+        evaluator.evaluate.assert_awaited_once_with(
+            [
+                [1, 90, 2, 3],
+                [1, 91, 92, 4],
+                [1, 91, 92, 5, 6, 7],
+                [93, 8, 9, 10],
+            ]
+        )
+        assert [rollout.value_predictions for rollout in rollouts] == [
+            [[10.0, 20.0, 30.0]],
+            [[40.0, 50.0], [60.0, 70.0, 80.0, 90.0]],
+            [[100.0, 110.0, 120.0]],
+        ]
+        assert [rollout.value_version for rollout in rollouts] == [11, 11, 11]
+        for rollout, reward in zip(rollouts, (0.3, 0.6, 0.9), strict=True):
+            assert rollout.value_returns is not None
+            for sample, returns in zip(rollout.samples, rollout.value_returns, strict=True):
+                assert [
+                    value for value, trainable in zip(returns, sample.mask, strict=True) if trainable
+                ] == pytest.approx([reward] * sum(sample.mask))
+        assert [
+            [(sample.token_ids, sample.mask, sample.logprobs) for sample in rollout.samples] for rollout in rollouts
+        ] == policy_streams
+
+    asyncio.run(run_test())
+
+
+def test_group_value_results_are_committed_atomically():
+    async def run_test() -> None:
+        evaluator = MagicMock()
+        evaluator.evaluate = AsyncMock(
+            return_value=SimpleNamespace(
+                values=[
+                    [0.1, 9.0, 0.2, 0.3, 0.4, 0.5, 0.6],
+                    [1.0, 8.0],
+                ],
+                version=5,
+            )
+        )
+        algorithm = Algorithm(
+            _build(type="grpo"),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(
+                privileged_context="group_leave_one_out",
+                model={"seq_len": 8, "attn": "sdpa"},
+            ),
+        )
+        rollouts = [_make_rollout([_make_sample()]), _make_rollout([_make_sample()])]
+        for rollout in rollouts:
+            rollout.value_prefix = TokenPrefix(token_ids=(90,), insert_at=1)
+
+        with pytest.raises(ValueError, match="conditioned value input"):
+            await algorithm.finalize_group(rollouts)
+
+        for rollout in rollouts:
+            assert rollout.value_predictions is None
+            assert rollout.value_advantages is None
+            assert rollout.value_returns is None
+            assert rollout.value_version is None
+
+    asyncio.run(run_test())
+
+
 def _branched_value_rollout() -> Rollout:
     # Generate A, generate sibling B, then extend A. Materialized sample order is
     # B, A2 while sequential generation order is A, B, A2.

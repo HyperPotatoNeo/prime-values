@@ -232,14 +232,15 @@ than being silently clipped.
 | `value_function.replay.seed` | `0` | Rank-0 RNG seed for uniform rollout selection. |
 | `value_function.transport.max_pending_rollouts` | `2048` | Producer-side queue bound. Admission never blocks policy processing; a full queue drops its oldest pending rollout. |
 | `value_function.warmup_updates` | automatic | Minimum evaluator version allowed in a policy batch. An omitted setting resolves to `1` when an effective GRPO baseline is value-backed (`value` or `tether`), otherwise `0`; explicit values are preserved. |
+| `value_function.privileged_context` | `task` | `task` reads the optional environment-owned `value_function_prompt`; `group_leave_one_out` conditions each GRPO-family rollout on the other K-1 completed group trajectories and rewards. |
 | `value_function.model` | policy model copy | Optional distinct critic backbone. Its tokenizer IDs must exactly match the policy tokenizer. |
-| `value_function.model.seq_len` | policy `seq_len` | Critic context length; must cover the orchestrator context plus any environment-provided `value_function_prompt`. |
+| `value_function.model.seq_len` | policy `seq_len` | Critic context length. Group LOO mode defaults an omitted value to at least `Kmax * orchestrator.seq_len`; rendered inputs still receive an exact runtime fit check. |
 | `value_function.evaluator.placement` | `dedicated` | `dedicated` uses a separate serving model; `trainer` queues inference on the value-trainer GPUs. |
 | `value_function.evaluator.dtype` | `bfloat16` | Dedicated serving-copy parameter dtype; inactive in trainer placement. |
 | `value_function.evaluator.double_buffer_weights` | `true` | Dedicated placement only: atomically swap weight versions without pausing inference; needs roughly two model copies of GPU memory. |
 | `value_function.evaluator.max_batch_tokens` | `32768` | FIFO coalescing ceiling. A larger single request is served alone. |
 | `value_function.evaluator.max_pending_requests` | `64` | Maximum queued plus running requests accepted by one endpoint. |
-| `value_function.evaluator.max_pending_tokens` | `1048576` | Maximum unpadded tokens across queued plus running requests. |
+| `value_function.evaluator.max_pending_tokens` | `1048576` | Maximum unpadded tokens across queued plus running requests. Group LOO mode raises an omitted value to at least `Kmax * value_function.model.seq_len`. |
 | `value_function.max_steps` | unset | Optional independent cap on critic updates. |
 | `value_function.ckpt.interval` | unset | Optional periodic value checkpoint interval; normal completion always writes the latest version. |
 | `deployment.num_value_train_gpus` / `num_value_train_nodes` | `1` | Single-node GPU count or multi-node critic-trainer node count. |
@@ -412,7 +413,7 @@ are also logged by the orchestrator.
 | `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
 | `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
-| `value/privileged_conditioned_fraction`, `value/privileged_prefix_tokens_{mean,max}` | Fraction of value-backed policy rollouts carrying environment-provided privileged context and the number of tokens inserted into each conditioned rollout. |
+| `value/privileged_conditioned_fraction`, `value/privileged_prefix_tokens_{mean,max}` | Fraction of value-backed policy rollouts carrying privileged context and the number of tokens inserted into each conditioned rollout. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
 | `algorithm/<env>/tether/*` | Adaptive coefficients, raw batch fits, fit validity, exact-window progress, regression MSE, and position-conditioning diagnostics. |
 | `value/rollout_queue_{enqueued,sent,dropped_oldest,pending,capacity}`, `value/rollout_queue_drop_rate` | Producer-side rollout flow and bounded-queue pressure. `sent` means the credited response was accepted by ZeroMQ, not acknowledged as replay admission; a nonzero drop rate means critic training lost old pending rollouts, not that policy inference stopped. |
@@ -505,7 +506,8 @@ own `max_steps` in serve-only mode until the policy run finishes.
 
 ## Optional privileged value context
 
-A native Verifiers v1 task may expose the following optional typed field:
+With the default `value_function.privileged_context = "task"`, a native
+Verifiers v1 task may expose the following optional typed field:
 
 ```python
 import verifiers.v1 as vf
@@ -551,6 +553,50 @@ information. Batch logs report `value/privileged_conditioned_fraction`,
 
 Failure diagnostics report lengths and task coordinates without including the
 prompt content.
+
+For generally available leave-one-out group context, configure:
+
+```toml
+[value_function]
+privileged_context = "group_leave_one_out"
+```
+
+At the complete-group barrier, every affected GRPO-family rollout receives one
+critic-only system prefix containing the other K-1 trajectories and their
+finite scalar rewards. The versioned JSON preserves sampled reasoning and
+output, later user/environment/tool turns, branch parent links, and finish
+reasons. It omits the target rollout and reward, replaces the maximal unsampled
+prompt shared by all K members with content-free structural stubs, and excludes
+trace/task metadata, provider state and IDs, token and usage streams, routing
+data, and image contents. Peer records are canonically sorted, so arrival order
+does not change the prompt. Tokenizer control strings inside peer data are
+Unicode-escaped, and a trusted postamble closes the payload. This mode requires
+a typed renderer; the opaque `DefaultRenderer` fallback is rejected because its
+chat-template control strings cannot be enumerated safely. Its leading shape is:
+
+```text
+You are estimating token-level values for the current attempt.
+
+The JSON below contains K-1 independent attempts at the same task. ...
+The current attempt and its reward are omitted. ...
+
+BEGIN_PRIVILEGED_PEER_DATA
+{"group_size":K,"peers":[{"nodes":[...],"reward":...}],
+ "schema":"prime_rl.loo_group_context.v1"}
+END_PRIVILEGED_PEER_DATA
+
+The privileged peer data ends above. ...
+```
+
+This mode requires `group_size >= 2` and every member to finish with trainable
+samples; partial groups are dropped before critic I/O. It is incompatible with
+a task `value_function_prompt` and with environments whose rewards require
+group scoring. All K targets are evaluated in one request and receive one value
+version. The automatic sequence-length and queue-token defaults are capacity
+heuristics only: JSON overhead and branched trajectories can be larger, and
+conditioned inputs are still never truncated. For multi-branch groups, set
+`value_function.evaluator.max_pending_tokens` to cover the sum of every
+conditioned branch in the group; the evaluator client checks this before HTTP I/O.
 
 ## Scope
 

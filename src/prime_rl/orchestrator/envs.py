@@ -25,7 +25,7 @@ import sys
 from collections.abc import Iterator, Sequence
 from multiprocessing.process import BaseProcess
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import verifiers.v1 as vf
 from verifiers.v1.serve import EnvClient
@@ -35,6 +35,9 @@ from prime_rl.orchestrator.algo import Algorithm, build_algorithm
 from prime_rl.orchestrator.sampler import Sampler
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from prime_rl.configs.value import ValueFunctionConfig
 
 # Every wire trace validates into this type. WireTask (extra="allow") preserves task fields
 # without importing the env package; consumers access only explicit wire-level contracts.
@@ -305,6 +308,19 @@ class TrainEnvs(Envs[TrainEnv]):
                 ),
             )
             self._envs[env.name] = env
+
+    def validate_group_value_context(self, value_config: ValueFunctionConfig | None) -> None:
+        """Reject runtime reward semantics that can reveal the omitted rollout."""
+        if value_config is None or value_config.privileged_context != "group_leave_one_out":
+            return
+        group_scored = [
+            env.name for env in self if env.algorithm.value_evaluator is not None and env.requires_group_scoring
+        ]
+        if group_scored:
+            raise ValueError(
+                "group_leave_one_out value context does not support environments with group-dependent rewards: "
+                + ", ".join(group_scored)
+            )
 
 
 class EvalEnvs(Envs[EvalEnv]):

@@ -58,11 +58,11 @@ state to the policy trainer.
   nodes only in dedicated placement. Start from
   `examples/value_function/rl.toml` and set the multi-node deployment and
   scheduler fields for the target environment.
-- Native-v1 tasksets may attach one static `value_function_prompt` to a task.
-  The environment owns activation and wording; there is no matching
-  `value_function` flag. Conditioned branches are not truncated and must fit
-  `value_function.model.seq_len`, or the orchestrator fails before batching or
-  evaluator I/O.
+- Privileged value context defaults to an optional static native-v1 task
+  `value_function_prompt`. Set `value_function.privileged_context =
+  "group_leave_one_out"` to use each complete GRPO group member's K-1 peer
+  trajectories and rewards instead. Conditioned branches are never truncated
+  and must fit `value_function.model.seq_len`.
 - GRPO value-backed baseline choices are `value` and `tether`. TETHER is
   adaptive by default, uses a leave-one-out anchor, inherits its regression
   window from `value_function.batch_size`, initializes `rho` at zero, and uses

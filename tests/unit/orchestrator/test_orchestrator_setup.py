@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from renderers import Qwen3VLRendererConfig
+from renderers import DefaultRenderer, Qwen3VLRendererConfig
 
 from prime_rl.orchestrator.orchestrator import Orchestrator
 from prime_rl.orchestrator.utils import setup_policy_inference_pool
@@ -96,6 +96,29 @@ def test_setup_policy_inference_pool_keeps_renderer_without_policy_sampling():
             renderer_config=renderer_settings,
             pool_size=None,
         )
+
+    asyncio.run(run())
+
+
+def test_group_value_context_rejects_opaque_renderer_before_pool_startup():
+    async def run() -> None:
+        config = SimpleNamespace(
+            model=SimpleNamespace(client=SimpleNamespace(), name="policy-model"),
+            renderer=SimpleNamespace(),
+            pool_size=None,
+            any_policy_sourced=True,
+            value_function=SimpleNamespace(privileged_context="group_leave_one_out"),
+        )
+        renderer = object.__new__(DefaultRenderer)
+
+        with (
+            patch("renderers.base.create_renderer", return_value=renderer),
+            patch("prime_rl.orchestrator.utils.setup_inference_pool", new=AsyncMock()) as setup_pool_mock,
+            pytest.raises(ValueError, match="requires a typed renderer"),
+        ):
+            await setup_policy_inference_pool(config=config, tokenizer=object())
+
+        setup_pool_mock.assert_not_awaited()
 
     asyncio.run(run())
 
