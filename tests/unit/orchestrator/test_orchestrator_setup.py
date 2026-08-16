@@ -207,6 +207,7 @@ def test_empty_accounting_flush_with_batch_progress_does_not_count_as_stalled():
         orchestrator = Orchestrator.__new__(Orchestrator)
         orchestrator.config = SimpleNamespace()
         orchestrator.progress = SimpleNamespace(step=1)
+        orchestrator.last_batch_at = None
         orchestrator.consecutive_empty_batches = 4
         orchestrator.train_sink = SimpleNamespace(
             batch_progress=lambda: (3, 8, "rollouts"),
