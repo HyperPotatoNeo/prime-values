@@ -205,7 +205,7 @@ def test_start_preserves_main_loop_error_when_final_summary_fails():
 def test_empty_accounting_flush_with_batch_progress_does_not_count_as_stalled():
     async def run() -> None:
         orchestrator = Orchestrator.__new__(Orchestrator)
-        orchestrator.config = SimpleNamespace()
+        orchestrator.config = SimpleNamespace(max_steps=None)
         orchestrator.progress = SimpleNamespace(step=1)
         orchestrator.last_batch_at = None
         orchestrator.consecutive_empty_batches = 4
