@@ -315,9 +315,9 @@ uv run pytest -v -m "not gpu"       # CPU-only (inverse of the gpu marker)
 
 This project is licensed under the Apache 2.0 license, as found in the [License](LICENSE) file.
 
-## Citation
+## Upstream PRIME-RL Citation
 
-If you find our work useful, feel free to cite it using
+Prime Values extends PRIME-RL. To cite the upstream project, use:
 
 ```tex
 @misc{primeintellect2025prime-rl,
