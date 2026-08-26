@@ -1,5 +1,21 @@
 # Prime Values
 
+[**arXiv Paper**](https://arxiv.org/abs/2608.16739) · [**Project Page**](https://privileged-value-functions.github.io/)
+
+## Citation
+
+```bibtex
+@misc{venkatraman2026lecritiqueprivilegedvalue,
+      title={Le Critique: Privileged Value Functions for LLM Reinforcement Learning},
+      author={Siddarth Venkatraman and Matthieu Dinot and Laurence Aitchison},
+      year={2026},
+      eprint={2608.16739},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2608.16739},
+}
+```
+
 Prime Values extends [PRIME-RL](https://github.com/PrimeIntellect-ai/prime-rl)
 with asynchronous value functions and rollout replay. It keeps critic learning
 outside the policy trainer: a value evaluator scores each rollout's causal
