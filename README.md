@@ -2,8 +2,6 @@
 
 [**arXiv Paper**](https://arxiv.org/abs/2608.16739) · [**Project Page**](https://privileged-value-functions.github.io/)
 
-## Citation
-
 ```bibtex
 @misc{venkatraman2026lecritiqueprivilegedvalue,
       title={Le Critique: Privileged Value Functions for LLM Reinforcement Learning},
