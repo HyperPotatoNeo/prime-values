@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -213,7 +214,7 @@ class AdaptiveTetherCoefficient:
             "tether/regression_batch_size": float(self.batch_size),
             "tether/mse_group": self.last_mse_group,
             "tether/mse_batch_fit": self.last_mse_fit,
-            "tether/mse_ema": self.last_mse_ema,
+            "tether/mse_post_fit_ema": self.last_mse_ema,
             "tether/feature_power": self.last_feature_power,
         }
 
@@ -395,7 +396,7 @@ class AdaptivePositionTetherCoefficients:
             "tether/regression_batch_size": float(self.batch_size),
             "tether/mse_group": self.last_mse_group,
             "tether/mse_batch_fit": self.last_mse_fit,
-            "tether/mse_ema": self.last_mse_ema,
+            "tether/mse_post_fit_ema": self.last_mse_ema,
             "tether/feature_power": self.last_feature_power,
             "tether/fit_token_fraction": self.last_fit_token_fraction,
             "tether/position/num_bins": float(self.num_bins),
@@ -552,6 +553,7 @@ class TetherRuntime:
         self.value_seq_len = value_seq_len
         self.policy_seq_len = policy_seq_len
         self.adaptive_min_value_version = adaptive_min_value_version
+        self._applied_metrics = {"tether/mse_applied": 0.0, "tether/mse_group_applied": 0.0}
         self.adaptive: AdaptiveTetherCoefficient | None = None
         self.positioned_adaptive: AdaptivePositionTetherCoefficients | None = None
         if config.adaptive is not None:
@@ -647,8 +649,10 @@ class TetherRuntime:
                     )
                 )
 
-        if self.adaptive is not None and self._adaptive_observation_ready(group):
-            self.adaptive.observe_group(regression_stats)
+        if self.adaptive is not None:
+            self._record_applied_metrics((stats, rho) for stats in regression_stats)
+            if self._adaptive_observation_ready(group):
+                self.adaptive.observe_group(regression_stats)
 
     def _score_positioned_group(self, group: list[Rollout]) -> None:
         assert self.positioned_adaptive is not None
@@ -717,8 +721,27 @@ class TetherRuntime:
             rollout.assign_advantages(rollout_advantages)
             regression_stats.append(TetherRolloutStats(tuple(rollout_bins)))
 
+        self._record_applied_metrics(
+            (stats, rho)
+            for rollout_stats in regression_stats
+            for stats, rho in zip(rollout_stats.bins, coefficients.rho, strict=True)
+        )
         if self._adaptive_observation_ready(group):
             self.positioned_adaptive.observe_group(regression_stats)
+
+    def _record_applied_metrics(self, rows: Iterable[tuple[TetherRegressionStats, float]]) -> None:
+        """Measure the scored group with its applied coefficients before any fit."""
+        weight = 0
+        residual = 0.0
+        group_residual = 0.0
+        for stats, rho in rows:
+            weight += stats.weight
+            residual += _residual_sum(stats, rho)
+            group_residual += stats.target_target
+        self._applied_metrics = {
+            "tether/mse_applied": residual / max(weight, 1),
+            "tether/mse_group_applied": group_residual / max(weight, 1),
+        }
 
     def _adaptive_observation_ready(self, group: list[Rollout]) -> bool:
         minimum = self.adaptive_min_value_version
@@ -732,13 +755,11 @@ class TetherRuntime:
 
     def metrics(self) -> dict[str, float]:
         if self.positioned_adaptive is not None:
-            return self.positioned_adaptive.metrics()
-        return self.adaptive.metrics() if self.adaptive is not None else {}
+            return self.positioned_adaptive.metrics() | self._applied_metrics
+        return self.adaptive.metrics() | self._applied_metrics if self.adaptive is not None else {}
 
     def metric_keys(self) -> list[str]:
-        if self.positioned_adaptive is not None:
-            return self.positioned_adaptive.metric_keys()
-        return list(self.adaptive.metrics()) if self.adaptive is not None else []
+        return list(self.metrics())
 
     def state_dict(self) -> dict[str, Any]:
         if self.positioned_adaptive is not None:

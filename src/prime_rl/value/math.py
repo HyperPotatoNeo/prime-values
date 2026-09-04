@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from itertools import accumulate
+
 import torch
 import torch.nn.functional as F
 from jaxtyping import Bool, Float
@@ -21,16 +23,10 @@ def align_value_logits(
     flat = logits.reshape(-1, output_size)
     if sum(sequence_lengths) != flat.shape[0]:
         raise ValueError(f"sequence_lengths sum {sum(sequence_lengths)} does not match packed length {flat.shape[0]}")
-    # Keep a zero-gradient path even when every packed sequence has length one
-    # (the padding-only microbatch used to equalize work across DP ranks).
-    # ``zeros_like`` would detach that rank from the graph and make its
-    # collective backward fail before other ranks can reduce gradients.
-    aligned = flat * 0.0
-    offset = 0
-    for length in sequence_lengths:
-        if length > 1:
-            aligned[offset + 1 : offset + length] = flat[offset : offset + length - 1]
-        offset += length
+    starts = torch.tensor(list(accumulate(sequence_lengths, initial=0))[:-1], device=logits.device, dtype=torch.long)
+    # Preserve the zero-gradient path and non-finite boundary behavior.
+    boundary_values = flat.index_select(0, starts) * 0.0
+    aligned = flat.roll(1, dims=0).index_copy(0, starts, boundary_values)
     return aligned.reshape_as(logits)
 
 
