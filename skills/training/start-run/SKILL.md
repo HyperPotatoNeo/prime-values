@@ -51,6 +51,9 @@ rollout-granular replay buffer. Dedicated evaluation is the default and adds a
 the live value trainer between updates. Do not add value loss or value-model
 state to the policy trainer.
 
+- Task-context rollouts are evaluated on arrival through the dynamic batcher.
+  Sibling value versions may differ; group completion does not re-evaluate
+  them. Leave-one-out peer context waits for the group for its first evaluation.
 - Local runs reserve `deployment.num_value_train_gpus` after the policy GPUs.
   Dedicated placement also reserves `num_value_eval_gpus`; trainer placement
   requires it to resolve to zero.
@@ -72,6 +75,9 @@ state to the policy trainer.
   coefficient. To opt into branch-local fixed action buckets, configure
   `baseline.adaptive.position.bin_size`; sparse buckets hold their previous
   coefficient, and the global one-coefficient mode remains the default.
+- Compare `algorithm/<env>/tether/mse_applied` with `mse_group_applied` for
+  the latest scored group's applied coefficients versus the group anchor.
+  `mse_batch_fit` and `mse_post_fit_ema` are same-window fitting diagnostics.
 - Branched envs need no declaration at the all-ones return defaults. If their
   branches are sequential episode segments and discounted or lambda-based
   credit must cross them, set the per-env algorithm's

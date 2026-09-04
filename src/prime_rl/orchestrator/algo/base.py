@@ -210,10 +210,9 @@ class Algorithm:
             group_conditioned = self.value_config.privileged_context == "group_leave_one_out"
             if group_conditioned and any(rollout.value_prefix is None for rollout in rollouts):
                 raise RuntimeError("group_leave_one_out value context was not attached before group finalization")
-            versions = {rollout.value_version for rollout in rollouts if rollout.samples}
-            if group_conditioned or len(versions) > 1:
-                # Group-conditioned critics first become evaluable here. Other
-                # critics are re-scored only when sibling versions diverged.
+            if group_conditioned:
+                # Peer context first becomes available here. Task-conditioned
+                # rollouts retain their arrival-time values and versions.
                 await self._evaluate_value_group(rollouts)
         await self.score_group(rollouts)
         for rollout in rollouts:

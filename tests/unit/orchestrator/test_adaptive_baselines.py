@@ -412,6 +412,9 @@ def test_positioned_tether_uses_native_action_bins_without_changing_q_lambda(
 
     assert group[0].advantages == pytest.approx(success)
     assert group[1].advantages == pytest.approx(failure)
+    expected_mse = sum(value * value for value in [*success, *failure]) / 8
+    assert runtime.metrics()["tether/mse_applied"] == pytest.approx(expected_mse)
+    assert set(runtime.metric_keys()) == set(runtime.metrics())
 
 
 def test_positioned_tether_runtime_fits_distinct_rhos_from_fixed_policy_lambda_return():
@@ -570,24 +573,33 @@ def test_tether_actor_cutoff_does_not_create_a_false_temporal_terminal(
         assert runtime.rho == pytest.approx(expected_rho)
 
 
-def test_tether_adaptive_group_is_scored_before_its_fit_is_applied():
+@pytest.mark.parametrize("batch_size", [1, 2, 3])
+def test_tether_adaptive_group_is_scored_before_its_fit_is_applied(batch_size):
     group = [
         _rollout(1.0, values=[9.0, 0.5, 0.5]),
         _rollout(0.0, values=[9.0, 0.5, 0.5]),
     ]
     _attach_policy_gae(group, gamma=1.0, gae_lambda=1.0)
     runtime = TetherRuntime(
-        TetherBaselineConfig(adaptive=AdaptiveTetherConfig(batch_size=2, ridge=0.0, ema_decay=0.0)),
+        TetherBaselineConfig(adaptive=AdaptiveTetherConfig(batch_size=batch_size, ridge=0.0, ema_decay=0.0)),
         gamma=1.0,
         gae_lambda=1.0,
         value_seq_len=3,
         policy_seq_len=3,
-        adaptive_batch_size=2,
+        adaptive_batch_size=batch_size,
     )
     runtime.score_group(group)
     assert group[0].advantages == pytest.approx([0.0, 1.0, 1.0])
     assert group[1].advantages == pytest.approx([0.0, -1.0, -1.0])
-    assert runtime.rho == pytest.approx(2.0)
+    assert runtime.rho == pytest.approx(2.0 if batch_size <= 2 else 0.0)
+    assert runtime.metrics()["tether/mse_applied"] == pytest.approx(1.0)
+    assert runtime.metrics()["tether/mse_group_applied"] == pytest.approx(1.0)
+    assert runtime.metrics()["tether/mse_post_fit_ema"] == pytest.approx(0.0)
+    assert "tether/mse_ema" not in runtime.metrics()
+    if batch_size <= 2:
+        runtime.score_group(group)
+        assert runtime.metrics()["tether/mse_applied"] == pytest.approx(0.0)
+        assert runtime.metrics()["tether/mse_group_applied"] == pytest.approx(1.0)
 
 
 def test_tether_warmup_scores_rejected_groups_without_fitting_them():

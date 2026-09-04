@@ -317,20 +317,17 @@ def test_value_evaluation_applies_prefix_and_projects_predictions():
     asyncio.run(run_test())
 
 
-def test_value_group_rescore_mixes_projected_prefix_and_legacy_truncation():
+def test_value_group_preserves_arrival_values_and_mixed_versions():
     async def run_test() -> None:
         evaluator = MagicMock()
         evaluator.evaluate = AsyncMock(
-            return_value=SimpleNamespace(
-                values=[
-                    [0.1, 9.0, 8.0, 0.2, 0.3, 0.4, 0.5, 0.6],
-                    [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7],
-                ],
-                version=3,
-            )
+            side_effect=[
+                SimpleNamespace(values=[[0.1, 9.0, 8.0, 0.2, 0.3, 0.4, 0.5, 0.6]], version=1),
+                SimpleNamespace(values=[[1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7]], version=2),
+            ]
         )
-        algorithm = Algorithm(
-            _build(type="grpo"),
+        algorithm = GRPOAlgorithm(
+            _build(type="grpo", baseline={"type": "value"}),
             MagicMock(),
             value_evaluator=evaluator,
             value_config=ValueFunctionConfig(model={"seq_len": 8, "attn": "sdpa"}),
@@ -344,22 +341,27 @@ def test_value_group_rescore_mixes_projected_prefix_and_legacy_truncation():
         )
         conditioned = _make_rollout([_make_sample()])
         conditioned.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=1)
-        conditioned.value_version = 1
         unconditioned = _make_rollout([long_sample])
-        unconditioned.value_version = 2
         rollouts = [conditioned, unconditioned]
 
+        for rollout in rollouts:
+            await algorithm.finalize_rollout(rollout)
+        arrival_returns = [rollout.value_returns for rollout in rollouts]
+        arrival_advantages = [rollout.value_advantages for rollout in rollouts]
         await algorithm.finalize_group(rollouts)
 
-        evaluator.evaluate.assert_awaited_once_with(
-            [
-                [1, 90, 91, 2, 3, 4, 5, 6],
-                [1, 2, 3, 4, 5, 6, 7, 8],
-            ]
-        )
+        assert evaluator.evaluate.await_count == 2
+        assert [call.args[0] for call in evaluator.evaluate.await_args_list] == [
+            [[1, 90, 91, 2, 3, 4, 5, 6]],
+            [[1, 2, 3, 4, 5, 6, 7, 8]],
+        ]
         assert rollouts[0].value_predictions == [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]
         assert rollouts[1].value_predictions == [[1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 0.0, 0.0]]
-        assert [rollout.value_version for rollout in rollouts] == [3, 3]
+        assert [rollout.value_version for rollout in rollouts] == [1, 2]
+        for rollout, returns, advantages in zip(rollouts, arrival_returns, arrival_advantages, strict=True):
+            assert rollout.value_returns is returns
+            assert rollout.value_advantages is advantages
+            assert rollout.advantages == [value for branch in advantages for value in branch]
 
     asyncio.run(run_test())
 
@@ -876,19 +878,14 @@ def test_positioned_tether_counts_native_shared_prefix_after_deduplication():
     assert [sum(rollout.bins[index].weight for rollout in observed) for index in range(2)] == [2, 4]
 
 
-def test_group_rescore_stitches_shared_prefix_once_at_one_value_version():
+def test_async_value_group_preserves_sequential_credit_and_versions():
     async def run_test() -> None:
         evaluator = MagicMock()
         evaluator.evaluate = AsyncMock(
-            return_value=SimpleNamespace(
-                values=[
-                    [9.0, 0.2, 9.0, 0.4],
-                    [9.0, 9.0, 9.0, 0.6],
-                    [9.0, 0.2, 9.0, 0.4],
-                    [9.0, 9.0, 9.0, 0.6],
-                ],
-                version=7,
-            )
+            side_effect=[
+                SimpleNamespace(values=[[9.0, 0.2, 9.0, 0.4], [9.0, 9.0, 9.0, 0.6]], version=version)
+                for version in (6, 7)
+            ]
         )
         algorithm = Algorithm(
             _build(type="grpo", branch_semantics="sequential"),
@@ -900,20 +897,14 @@ def test_group_rescore_stitches_shared_prefix_once_at_one_value_version():
             ),
         )
         rollouts = [_shared_prefix_value_rollout(), _shared_prefix_value_rollout()]
-        rollouts[0].value_version = 1
-        rollouts[1].value_version = 2
+        for rollout in rollouts:
+            await algorithm.finalize_rollout(rollout)
 
         await algorithm.finalize_group(rollouts)
 
-        evaluator.evaluate.assert_awaited_once_with(
-            [
-                [0, 10, 20, 30],
-                [0, 10, 40, 50],
-                [0, 10, 20, 30],
-                [0, 10, 40, 50],
-            ]
-        )
-        assert [rollout.value_version for rollout in rollouts] == [7, 7]
+        assert evaluator.evaluate.await_count == 2
+        assert all(call.args[0] == [[0, 10, 20, 30], [0, 10, 40, 50]] for call in evaluator.evaluate.await_args_list)
+        assert [rollout.value_version for rollout in rollouts] == [6, 7]
         for rollout in rollouts:
             assert rollout.value_returns is not None
             assert rollout.value_returns[0] == pytest.approx([0.0, 0.6, 0.0, 0.8])

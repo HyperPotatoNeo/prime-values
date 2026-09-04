@@ -52,7 +52,7 @@ training and serving throughput.
 With the default `evaluator.placement = "dedicated"`, enabling
 `[value_function]` adds two roles:
 
-1. After a rollout group has been finalized coherently, the orchestrator puts
+1. After a rollout group has been finalized, the orchestrator puts
    each completed trajectory on a bounded, nonblocking FIFO destined for the
    **value trainer**. The trainer pulls bounded FIFO slices as replay space is
    available, admits trajectories into a rollout-granular
@@ -129,8 +129,10 @@ sequence, it:
 
 Context, prompt, and tool-response tokens are never value-loss members. Packed
 sequences reset both the causal value shift and GAE recursion at every sequence
-boundary. Value predictions are versioned; if an update lands while siblings
-are being scored, the whole group is re-evaluated at one coherent version.
+boundary. Each rollout retains its arrival-time value predictions and their
+version. Siblings may use different value versions; group completion does not
+trigger another evaluation. With leave-one-out privileged context, the first
+evaluation waits for the complete group and includes all siblings in one request.
 
 The policy GAE and critic target have independent lambda values:
 
@@ -292,6 +294,16 @@ requires the leave-one-out group anchor and starts exactly at that anchor with
 `rho = 0`. Controller state, including a partially filled regression window,
 is saved in the orchestrator checkpoint.
 
+For each scored group, `tether/mse_applied` measures the token-weighted
+squared residual using the coefficients actually applied to that group;
+`tether/mse_group_applied` measures the same rows with the group anchor alone.
+These latest-group diagnostics include groups scored during critic warmup and
+are collected before any coefficient update. They restart at zero on resume
+and do not enter the fit or change the saved controller state.
+`tether/mse_batch_fit` and `tether/mse_post_fit_ema` instead describe the most
+recent completed regression window using its fitted and updated EMA
+coefficients. Those are fitting diagnostics, not performance on unseen groups.
+
 For TETHER, the adaptive fit regresses `Q_t - B_i` on `V_t - B_i`,
 where `Q_t = V_t + GAE_t(V)` uses policy `gae_lambda`. It is deliberately
 independent of `value_target_lambda`; the critic continues to train on its
@@ -350,10 +362,10 @@ adaptive = "None"
 Value staleness is independent of policy off-policy level. Each evaluator
 response records one `value_version`; every replayed rollout retains its source
 policy and evaluator versions, and an optimizer batch reports their ranges.
-Evaluator coherence is enforced within every rollout group used for policy
-credit, while uniformly mixing independently labeled groups in a critic update
-is allowed. Lambda-return targets are frozen when the rollout is finalized, so
-the source-value lag is important when `value_target_lambda < 1`.
+Each rollout's branches are evaluated together at one version, while siblings
+and replay batches may contain different versions. Lambda-return targets are
+frozen when the rollout is finalized, so the source-value lag is important
+when `value_target_lambda < 1`.
 
 The producer queue and replay buffer have deliberately different jobs. The
 producer queue prevents critic throughput from backpressuring inference. It is
@@ -412,7 +424,7 @@ are also logged by the orchestrator.
 | `optim/lr`, `optim/grad_norm`, `optim/zero_grad_ratio` | Critic optimizer health. |
 | `value/evaluator_{requests,sequences,tokens,errors,error_rate}` | Cumulative evaluator service volume and failures. |
 | `value/evaluator_latency_seconds_{mean,max}` | End-to-end HTTP evaluation latency, including dynamic-batcher waiting. |
-| `value/evaluator_version`, `value/evaluator_version_spread` | Evaluator versions represented in a policy batch. A nonzero spread is corrected by coherent group re-evaluation before advantages are stamped. |
+| `value/evaluator_version`, `value/evaluator_version_spread` | Maximum evaluator version and version spread represented in a policy batch. Siblings can retain different arrival-time versions without re-evaluation. |
 | `value/privileged_conditioned_fraction`, `value/privileged_prefix_tokens_{mean,max}` | Fraction of value-backed policy rollouts carrying privileged context and the number of tokens inserted into each conditioned rollout. |
 | `value/rollout_{prediction,advantage,target}_{mean,std,min,max}` | Values used on the actual policy rollouts, before the critic optimizer update. |
 | `algorithm/<env>/tether/*` | Adaptive coefficients, raw batch fits, fit validity, exact-window progress, regression MSE, and position-conditioning diagnostics. |
