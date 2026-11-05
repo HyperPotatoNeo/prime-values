@@ -155,3 +155,14 @@ curl http://localhost:8000/v1/chat/completions \
 - `packages/prime-rl-configs/src/prime_rl/configs/` — all config classes
 - `configs/debug/` — minimal debug configs
 - `examples/` — full example configs (e.g. `reverse_text/`)
+
+## Value behavior checks
+
+Before changing shared training infrastructure around the value plane, use
+`experiments/value-baseline/README.md` for independent numerical comparisons,
+source-verified regression checks, mutation sensitivity and real FSDP restart
+checks. Run pytest in an isolated test pod: its cleanup fixture terminates
+matching training processes. Keep test source, output directories and runtime
+environments separate from active experiments. Use a fresh process for critic
+checkpoint resume; runtime monitoring is process-global. Tiny-model checks do
+not replace model-specific or live evaluator/transport validation.

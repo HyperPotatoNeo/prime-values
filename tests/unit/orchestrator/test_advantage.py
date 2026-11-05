@@ -1,4 +1,5 @@
 import asyncio
+import math
 
 import pytest
 import verifiers.v1 as vf
@@ -59,6 +60,49 @@ def test_policy_gae_and_value_target_use_independent_lambdas():
 
     assert advantages == pytest.approx([0.0, 0.2, 0.0, 0.6])
     assert returns == pytest.approx([0.0, 1.0, 0.0, 1.0])
+
+
+@pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+@pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+    """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+    action_values = [0.15, -0.4, 0.9, 0.25]
+    reward = -0.6
+
+    def lambda_returns(lam):
+        result = []
+        for start in range(len(action_values)):
+            remaining = len(action_values) - start
+            bootstraps = [
+                (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                for horizon in range(1, remaining)
+            ]
+            terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+            result.append(math.fsum([*bootstraps, terminal]))
+        return result
+
+    expected_targets = lambda_returns(target_lambda)
+    expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+    for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+        values, mask = [], []
+        for gap, value in zip(gaps, action_values, strict=True):
+            values.extend([1000.0] * gap + [value])
+            mask.extend([False] * gap + [True])
+        values.extend([-1000.0, 999.0])
+        mask.extend([False, False])
+
+        advantages, targets = compute_gae(
+            reward=reward,
+            values=values,
+            mask=mask,
+            gamma=gamma,
+            gae_lambda=policy_lambda,
+            value_target_lambda=target_lambda,
+        )
+
+        assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+        assert [q for q, active in zip(targets, mask, strict=True) if active] == pytest.approx(expected_targets)
+        assert all(a == q == 0.0 for a, q, active in zip(advantages, targets, mask, strict=True) if not active)
 
 
 def test_leave_one_out_group_advantage_excludes_own_reward():

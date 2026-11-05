@@ -1,0 +1,25 @@
+{
+  "world_size": 2,
+  "checkpoint_restore": {
+    "model": {
+      "max_parameter_relative_l2": 0.0,
+      "max_element_absolute": 0.0
+    },
+    "moments": {
+      "max_parameter_relative_l2": 0.0,
+      "max_element_absolute": 0.0
+    }
+  },
+  "resume_step2": {
+    "model": {
+      "max_parameter_relative_l2": 0.0,
+      "max_element_absolute": 0.0
+    },
+    "moments": {
+      "max_parameter_relative_l2": 0.0,
+      "max_element_absolute": 0.0
+    }
+  },
+  "total_tokens": 20,
+  "total_samples": 6
+}
