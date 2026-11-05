@@ -459,6 +459,15 @@ class Orchestrator:
         start_time = time.perf_counter()
         clean_exit = False
         loop_started = False
+        main_task = asyncio.current_task()
+        supervising = True
+
+        def on_component_done(task: asyncio.Task) -> None:
+            if not supervising or task.cancelled() or task.exception() is None or main_task.done():
+                return
+            get_logger().opt(exception=task.exception()).error(f"Orchestrator component {task.get_name()} failed")
+            main_task.cancel()
+
         try:
             await self.setup()
             get_logger().info(f"Starting orchestrator loop (max_steps={config.max_steps or 'infinite'})")
@@ -474,6 +483,9 @@ class Orchestrator:
                 asyncio.create_task(self.watcher.start(), name="watcher"),
             ]
 
+            for task in self.component_tasks:
+                task.add_done_callback(on_component_done)
+
             # Base-model eval (policy v0) — fires before any train rollouts, logged at the first
             # step, unless ``eval.skip_first_step=True`` (or this is a resume)
             self.maybe_trigger_eval(self.progress.step)
@@ -482,8 +494,15 @@ class Orchestrator:
             self.last_batch_at = time.perf_counter()
             loop_started = True
             await self.main_loop()
+            self._raise_if_component_failed()
             clean_exit = True
+        except asyncio.CancelledError:
+            self._raise_if_component_failed()
+            raise
         finally:
+            supervising = False
+            for task in self.component_tasks:
+                task.remove_done_callback(on_component_done)
             cleanup_errors: list[Exception] = []
             elapsed = format_time(time.perf_counter() - start_time)
             if clean_exit:
@@ -523,6 +542,11 @@ class Orchestrator:
             else:
                 get_logger().warning("Orchestrator cleanup complete (forced).")
             trim_process_memory()
+
+    def _raise_if_component_failed(self) -> None:
+        for task in self.component_tasks:
+            if task.done() and not task.cancelled() and task.exception() is not None:
+                raise task.exception()
 
     async def main_loop(self) -> None:
         """Consume ``Rollout``\\ s from the dispatcher and route them

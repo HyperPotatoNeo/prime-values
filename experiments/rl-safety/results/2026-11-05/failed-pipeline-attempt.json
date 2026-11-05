@@ -1,0 +1,13 @@
+{
+  "attempt": "pipeline-dedicated-3",
+  "job": "pv-rl-safety-001",
+  "pod": "pv-rl-safety-001-q9wrn",
+  "reason": "OOMKilled",
+  "exit_code": 137,
+  "finished_at": "2026-11-05T23:07:48Z",
+  "host_memory_limit_gib": 128,
+  "source": "Observed Kubernetes container termination status",
+  "completed": false,
+  "replacement_host_memory_gib": 512,
+  "precision_changed": false
+}

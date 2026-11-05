@@ -543,6 +543,54 @@ def flexible_all_gather(tensor: Tensor) -> Tensor:
     return all_tensors_unpadded
 
 
+class TensorSummaries:
+    """Streaming token statistics with storage and communication independent of token count."""
+
+    def __init__(self, device: torch.device | str = "cuda"):
+        self.device = torch.device(device)
+        self.summaries: dict[str, Tensor] = {}
+
+    @torch.no_grad()
+    def add(self, key: str, values: Tensor) -> None:
+        values = values.detach().to(device=self.device, dtype=torch.float64)
+        summary = torch.stack(
+            (
+                values.new_tensor(values.numel()),
+                values.sum(),
+                values.min() if values.numel() else values.new_tensor(float("inf")),
+                values.max() if values.numel() else values.new_tensor(-float("inf")),
+            )
+        )
+        if key in self.summaries:
+            previous = self.summaries[key]
+            summary[:2] += previous[:2]
+            summary[2] = torch.minimum(summary[2], previous[2])
+            summary[3] = torch.maximum(summary[3], previous[3])
+        self.summaries[key] = summary
+
+    def compute_stats(self) -> dict[str, float | int]:
+        gathered_keys: list[list[str] | None] = [None] * dist.get_world_size()
+        dist.all_gather_object(gathered_keys, list(self.summaries))
+        keys = sorted({key for rank_keys in gathered_keys if rank_keys is not None for key in rank_keys})
+        if not keys:
+            return {}
+        empty = torch.tensor([0.0, 0.0, float("inf"), -float("inf")], device=self.device, dtype=torch.float64)
+        rows = torch.stack([self.summaries.get(key, empty) for key in keys])
+        totals, minima, maxima = rows[:, :2].contiguous(), rows[:, 2].contiguous(), rows[:, 3].contiguous()
+        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
+        dist.all_reduce(minima, op=dist.ReduceOp.MIN)
+        dist.all_reduce(maxima, op=dist.ReduceOp.MAX)
+        rows = torch.cat((totals, minima[:, None], maxima[:, None]), dim=1).cpu().tolist()
+        self.summaries.clear()
+        metrics = {}
+        for key, (count, total, minimum, maximum) in zip(keys, rows):
+            metrics[f"{key}/count"] = int(count)
+            metrics[f"{key}/mean"] = total / count if count else float("nan")
+            metrics[f"{key}/min"] = minimum if count else float("nan")
+            metrics[f"{key}/max"] = maximum if count else float("nan")
+        return metrics
+
+
 class Tensors(defaultdict):
     """A class to accumulate tensors and compute statistics (mean, median, std, min, max) across multiple steps and ranks."""
 
@@ -562,7 +610,13 @@ class Tensors(defaultdict):
         for key in keys:
             # All-gather tensors across steps and ranks (get global distribution)
             values = self.pop(key, [])
-            tensors = torch.cat(values, dim=0).to("cuda") if values else torch.empty(0, device="cuda")
+            # A shared dtype also covers ranks without this metric. FP64 avoids
+            # overflow in the variance of large importance-ratio diagnostics.
+            tensors = (
+                torch.cat(values, dim=0).to(device="cuda", dtype=torch.float64)
+                if values
+                else torch.empty(0, device="cuda", dtype=torch.float64)
+            )
             assert tensors.ndim == 1, "Can only aggregate 1D tensors"
             tensors = flexible_all_gather(tensors)
             assert tensors.ndim == 1, "Can only aggregate 1D tensors"

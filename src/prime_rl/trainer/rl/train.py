@@ -29,12 +29,14 @@ from prime_rl.utils.logger import format_time, setup_logger
 from prime_rl.trainer.rl.loss import (
     compute_entropy,
     compute_loss,
-    compute_importance_ratio_and_mismatch_kl,
+    compute_mismatch_kl,
+    DIAGNOSTIC_RATIO_LIMIT,
     selective_log_softmax,
     setup_rl_loss_fn,
     shift_tensor_left,
     shift_tensor_right,
 )
+from prime_rl.trainer.rl.normalization import global_loss_scales
 from prime_rl.trainer.rl.token_export import setup_token_exporter
 from prime_rl.trainer.model import (
     forward,
@@ -49,6 +51,7 @@ from prime_rl.trainer.utils import (
     build_bin_cost,
     GarbageCollection,
     MemoryProfiler,
+    TensorSummaries,
     Tensors,
     export_benchmark_json,
     filter_rl_trainer_tensor_stats_for_wandb,
@@ -293,26 +296,13 @@ def train(config: TrainerConfig):
         # FSDP's per-rank divide is undone after the microbatch loop via
         # fsdp_gradient_divide_factor. One batched collective keeps every rank issuing the same
         # op regardless of which components its samples carry.
-        local_rl_scale = 0
-        local_ce_scale = 0
-        local_ref_kl_scale = 0
-        for micro_batch in micro_batches:
-            mask = micro_batch["loss_mask"]
-            rl_w = micro_batch["rl_weights"]
-            local_rl_scale += int((mask & (rl_w != 0)).sum()) if rl_w is not None else int(mask.sum())
-            if micro_batch["ce_weights"] is not None:
-                local_ce_scale += int((micro_batch["ce_weights"] != 0).sum())
-            if micro_batch["ref_kl_weights"] is not None:
-                local_ref_kl_scale += int((micro_batch["ref_kl_weights"] != 0).sum())
-        global_scales = torch.tensor(
-            [local_rl_scale, local_ce_scale, local_ref_kl_scale], dtype=torch.int64, device="cuda"
+        rl_scale, ce_scale, ref_kl_scale = global_loss_scales(
+            micro_batches, device="cuda", group=parallel_dims.get_mesh("dp_cp").get_group()
         )
-        dp_cp_group = parallel_dims.get_mesh("dp_cp").get_group()
-        dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
-        rl_scale, ce_scale, ref_kl_scale = (max(scale, 1) for scale in global_scales.tolist())
 
         logger.debug(f"Starting forward and backward pass ({batch_size=})")
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
+        diagnostic_summaries = TensorSummaries()
         cp_enabled = parallel_dims.cp_enabled
         cp_rank = parallel_dims.world_mesh["cp"].get_local_rank() if cp_enabled else 0
         cp_group = parallel_dims.world_mesh["cp"].get_group() if cp_enabled else None
@@ -465,7 +455,7 @@ def train(config: TrainerConfig):
             # whose action component is ce (frozen-model tokens).
             if rl_weights is None and ref_kl_weights is None:
                 mismatch_mask = loss_mask
-                has_mismatch_tokens = True
+                has_mismatch_tokens = bool(mismatch_mask.any())
             else:
                 sampled_mask = (rl_weights != 0) if rl_weights is not None else loss_mask
                 if ref_kl_weights is not None:
@@ -474,8 +464,10 @@ def train(config: TrainerConfig):
                 has_mismatch_tokens = bool(mismatch_mask.any())
             if has_mismatch_tokens:
                 with torch.no_grad():
-                    _, _, mismatch_kl = compute_importance_ratio_and_mismatch_kl(out["logprobs"], inference_logprobs)
-                mismatch_kl = mismatch_kl[mismatch_mask].detach().to("cpu")
+                    log_ratio = out["logprobs"][mismatch_mask] - inference_logprobs[mismatch_mask]
+                    mismatch_kl = compute_mismatch_kl(log_ratio)
+                    diagnostic_summaries.add("mismatch_kl/all/saturated", mismatch_kl >= DIAGNOSTIC_RATIO_LIMIT)
+                mismatch_kl = mismatch_kl.detach().to("cpu")
                 tensors["mismatch_kl/all"].append(mismatch_kl)
                 mismatch_env_names = [
                     env_name for env_name, keep in zip(env_names, mismatch_mask.flatten().tolist()) if keep
@@ -503,7 +495,19 @@ def train(config: TrainerConfig):
 
             # Add loss tensors to tensor dict for logging purposes
             for key, loss_tensor in loss_tensors.items():
-                tensors[key].append(loss_tensor.detach().to("cpu"))
+                if key.startswith(
+                    (
+                        "importance_ratio/",
+                        "log_importance_ratio/",
+                        "loss_mismatch_kl/",
+                        "ref_kl/importance_ratio/",
+                        "ref_kl/log_importance_ratio/",
+                        "ref_kl/loss_mismatch_kl/",
+                    )
+                ):
+                    diagnostic_summaries.add(key, loss_tensor)
+                else:
+                    tensors[key].append(loss_tensor.detach().to("cpu"))
 
             # Debug log with *local, micro step* stats
             micro_step_message = f"Micro Step {micro_step}/{len(micro_batches)} | Loss {tensors['loss'][-1].mean().item():.4f} | Entropy {tensors['entropy/all'][-1].mean().item():.4f}"
@@ -581,6 +585,12 @@ def train(config: TrainerConfig):
                 for idx in multi_run_manager.used_idxs:
                     multi_run_manager.ready_to_update[idx] = False
 
+        # Include this completed step in the counters saved with its checkpoint.
+        num_local_tokens = seq_len * batch_size
+        num_tokens = parallel_dims.get_mesh("dp").size() * num_local_tokens
+        progress.total_tokens += num_tokens
+        progress.total_samples += batch_size
+
         # Checkpoint the step we just finished (model = policy v{progress.step}).
         if config.max_concurrent_runs > 1:
             # Multi-run: save per-run checkpoints every step (interval-gated inside
@@ -623,12 +633,9 @@ def train(config: TrainerConfig):
 
         # Synchronize the tensor metrics across all steps and ranks
         tensor_stats = tensors.compute_stats()
+        tensor_stats.update(diagnostic_summaries.compute_stats())
 
         # Compute step metrics
-        num_local_tokens = seq_len * batch_size
-        num_tokens = parallel_dims.get_mesh("dp").size() * num_local_tokens
-        progress.total_tokens += num_tokens
-        progress.total_samples += batch_size
         perf_counter = get_perf_counter(model, seq_len)
         throughput = perf_counter.get_step_tokens_per_second(num_tokens, forward_backward_time)
         mfu = perf_counter.get_step_mfu(num_tokens, forward_backward_time)

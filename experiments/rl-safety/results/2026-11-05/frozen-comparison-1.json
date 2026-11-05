@@ -1,0 +1,17 @@
+{
+  "world_size": 1,
+  "exact_matches": {
+    "initial": {
+      "model": 22,
+      "moments": 0
+    },
+    "step1": {
+      "model": 22,
+      "moments": 66
+    },
+    "step2": {
+      "model": 22,
+      "moments": 66
+    }
+  }
+}

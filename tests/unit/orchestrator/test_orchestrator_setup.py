@@ -167,6 +167,7 @@ def test_start_cleans_up_when_setup_fails():
         orchestrator.progress = SimpleNamespace(step=1)
         orchestrator.ckpt_manager = None
         orchestrator.monitor = None
+        orchestrator.component_tasks = []
         orchestrator.setup = AsyncMock(side_effect=RuntimeError("setup failed"))
         orchestrator.stop = AsyncMock(side_effect=RuntimeError("cleanup failed"))
 
@@ -253,5 +254,63 @@ def test_stop_continues_after_a_cleanup_failure():
 
         sender.close.assert_called_once_with()
         monitor.close.assert_called_once_with()
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("failure_source", ["dispatcher", "watcher", None])
+def test_component_failure_interrupts_blocked_main_loop_and_preserves_cleanup(failure_source):
+    async def run():
+        entered = asyncio.Event()
+        cleanup = []
+        error = RuntimeError(f"{failure_source} failed")
+
+        async def component(name):
+            await entered.wait()
+            if name == failure_source:
+                raise error
+            await asyncio.Event().wait()
+
+        async def setup():
+            pass
+
+        async def main_loop():
+            entered.set()
+            await asyncio.Event().wait()
+
+        async def stop():
+            for task in orchestrator.component_tasks:
+                task.cancel()
+            await asyncio.gather(*orchestrator.component_tasks, return_exceptions=True)
+            orchestrator.lag_task.cancel()
+            await asyncio.gather(orchestrator.lag_task, return_exceptions=True)
+            cleanup.append("value and policy resources closed")
+
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = SimpleNamespace(max_steps=2)
+        orchestrator.setup = setup
+        orchestrator.dispatcher = SimpleNamespace(start=lambda: component("dispatcher"))
+        orchestrator.watcher = SimpleNamespace(start=lambda: component("watcher"))
+        orchestrator.lag_monitor = SimpleNamespace(run=lambda: asyncio.Event().wait())
+        orchestrator.periodic_logger = SimpleNamespace(start=setup)
+        orchestrator.component_tasks = []
+        orchestrator.progress = SimpleNamespace(step=0)
+        orchestrator.monitor = None
+        orchestrator.ckpt_manager = None
+        orchestrator.maybe_trigger_eval = lambda step: None
+        orchestrator.main_loop = main_loop
+        orchestrator.stop = stop
+        if failure_source is None:
+            task = asyncio.create_task(orchestrator.start())
+            await asyncio.wait_for(entered.wait(), timeout=2)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        else:
+            with pytest.raises(RuntimeError) as raised:
+                await asyncio.wait_for(orchestrator.start(), timeout=2)
+            assert raised.value is error
+        assert cleanup == ["value and policy resources closed"]
+        assert all(task.done() for task in orchestrator.component_tasks)
 
     asyncio.run(run())

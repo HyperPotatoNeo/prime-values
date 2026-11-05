@@ -34,6 +34,8 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
 - SLURM: single- and multi-node
+- Validate launcher serialization, not only `RLConfig` JSON roundtrips: `write_subconfigs` omits `None` fields in TOML. Default-enabled optional sections such as model compilation, activation checkpointing and activation offloading therefore restore their defaults when child CLIs reload the file. Reload each generated component config through `cli(ComponentConfig, args=["@", path])` and compare with the intended resolved config before claiming these features are disabled. The safety pipeline harness records and checks both generated and actual child configs.
+- Native v1 tasksets use `taskset = { id = "reverse-text-v1" }`, not a top-level `id` (which selects the legacy `load_environment` interface). For reverse text, also set `harness = { id = "null", runtime = { type = "subprocess" } }`; see `configs/debug/v1/reverse_text.toml`. Preflight the actual native `EnvServer` constructor and dataset loading before launching model processes. Monitor `logs/` recursively: environment failures appear in nested `envs/train/<env>.log`, not necessarily the top-level orchestrator log.
 - Environment packages: before launching a config with a non-core verifier env id,
   verify the package imports under `uv run` (for example
   `uv run python -c "import importlib.util; print(importlib.util.find_spec('r2e_gym_v1'))"`).
@@ -50,6 +52,10 @@ rollout-granular replay buffer. Dedicated evaluation is the default and adds a
 `value_function.evaluator.placement = "trainer"` instead queues evaluation on
 the live value trainer between updates. Do not add value loss or value-model
 state to the policy trainer.
+
+The evaluator's `/version` endpoint returns MessagePack `ValueVersionResponse`,
+not JSON. Use `ValueEvaluatorClient` or decode the response bytes with
+`msgspec.msgpack.decode(payload, type=ValueVersionResponse)` when probing it.
 
 - Task-context rollouts are evaluated on arrival through the dynamic batcher.
   Sibling value versions may differ; group completion does not re-evaluate

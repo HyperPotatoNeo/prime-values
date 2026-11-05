@@ -125,6 +125,20 @@ Pulled from the console logs and mirrored to W&B.
 - `masked_advantage_{positive,negative}/mean` — fraction of DPPO-masked tokens, split by sign.
 - `optim/grad_norm` — spikes precede divergence; check the loss config or lower the LR.
 
+Importance diagnostics use `importance_ratio/{all,accepted}` and
+`log_importance_ratio/{all,accepted}`, with `count`, `mean`, `min` and `max`.
+`all` means component-eligible tokens; `accepted` additionally applies the
+component's trust-region gate. The `/above_5/mean`, `/above_10/mean`,
+`/above_100/mean` and `/above_10000/mean` series are globally token-weighted
+fractions. Reference-KL diagnostics add the `ref_kl/` prefix.
+
+Ratio and mismatch diagnostics saturate at `1e30`; this does not cap the policy
+objective. Inspect ratio `/saturated/mean`, `/nonfinite/mean`, raw log ratios,
+`loss_mismatch_kl/{all,accepted}/saturated/mean`, and
+`mismatch_kl/all/saturated/mean` alongside their averages. Empty populations
+have count zero and undefined statistics. New importance diagnostics use
+streaming summaries, without per-token gathering or median/std estimates.
+
 **Performance** (trainer + orchestrator step independently):
 
 | Source | Metric | Reading |
@@ -207,9 +221,14 @@ Checkpointing is split across processes because the orchestrator and trainer can
 | Process | What's saved | Where |
 |---|---|---|
 | Trainer | FSDP-sharded model (DCP), optimizer, scheduler, progress | `<output_dir>/checkpoints/step_N/trainer/` |
-| Orchestrator | Step counter, total tokens / samples / problems | `<output_dir>/checkpoints/step_N/orchestrator/` |
+| Orchestrator | Step counter, total tokens / samples / problems, adaptive algorithm state | `<output_dir>/checkpoints/step_N/orchestrator/` |
 | Inference | _nothing_ — re-pushed from the latest checkpoint on restart | n/a |
 | Trainer (HF weights) | HF-compatible weight snapshot for serving | `<output_dir>/weights/step_N/` |
+
+RL trainer checkpoints include counters for the completed update: samples count
+packed microbatches and tokens count their padded lengths. Orchestrator progress
+and algorithm state are published together through atomic file replacement.
+Policy and critic checkpoint versions remain independent; see [Value Functions](value-functions.md).
 
 ### Enabling Checkpoints
 

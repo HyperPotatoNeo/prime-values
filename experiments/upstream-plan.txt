@@ -1,0 +1,91 @@
+ARCHIVED PLANNING RECORD
+The following is the initial November 5 analysis, before implementation. Its references to pending authorization and unrun tests describe that earlier stage. Baseline and selective safety/reliability work have since been implemented and validated; see experiments/README.md and experiments/rl-safety/results/2026-11-05/README.md for current status and limitations. The broader episode/runtime migration remains future work.
+
+Prime Values upstream integration plan
+November 5, 2026 — planning only
+
+Recommendation
+
+Proceed in stages: useful isolated fixes first, followed by a controlled migration of shared infrastructure behind explicit value-owned interfaces. Preserve the independent critic trainer, evaluator, replay and mathematical routines. Treat new loss functions and sampling/admission changes as separate experiments. A clean architecture is feasible; behavioral preservation requires numerical and distributed validation, not merely conflict resolution.
+
+Scope and evidence
+
+Compared freshly fetched HyperPotatoNeo/prime-values main 30bfbf301335e8ce24c62fa5fd24bcc37a633bd3 with PrimeIntellect-ai/prime-rl main 3c96816de9a2a906649a04026a46517840a0f4a6. Common ancestor db04385acf34c039b292a2a9a363a6a3fff1b851 (July 9). Fork has 51 unique commits; upstream 662. Fork changed 85 files from the ancestor, upstream 821, with 40 paths changed on both sides. Git's merge-tree preview reports 39 conflict paths. These counts measure history/textual divergence, not semantic compatibility.
+
+Three specialist agents audited value contracts, upstream algorithms/mismatch, and upstream systems. Their findings were reconciled and challenged in a second pass. This is a focused audit of relevant code and history, not an exhaustive proof of every upstream commit. No tests, GPU jobs, implementation branches, commits or PRs were created. Existing dirty experiment checkout was untouched. The analysis clone is disposable.
+
+Already present
+
+Prime Values already has DPPO with KL, optional IPO, RL/CE/reference-KL routing, renderer-based exact token trajectories and router replay. These are not new benefits of a synchronization.
+
+Recommended feature bundles
+
+1. Numerical safety and diagnostics. Adapt mask-before-ratio arithmetic and stable probability-difference calculations from e3dd6763; add importance-ratio tails and accepted/all-token diagnostics from f7e88f73. Preserve existing loss formula, normalization and defaults. The same safety commit adds importance-ratio caps: those alter valid-token gradients and must be separated. Test entire loss computation, including all-masked backward anchors, against invalid excluded logprobs. Staleness-binned mismatch metrics (b2df580d) follow token provenance.
+
+2. Reliability. Candidates: atomic checkpoint writing b127f037; incomplete conversion-cache rebuilding 0c199a75; immediate component-failure propagation 8dede158; failed-rank exit 855a2b81. Include value workers in supervision. Distinguish durable checkpoints from transient weight publication.
+
+3. Sampling-distribution alignment. Native bounded top-p/top-k replay (84e7312f) records actual sampler support and normalizes trainer probabilities consistently. Requires coordinated inference capture, renderer/verifier wire data, packing, label shifting, context parallelism and fused/plain LM heads. Capture requires vLLM >=0.28; latest upstream uses >=0.32. This corrects a distribution mismatch when bounded sampling is used; it does not guarantee lower measured KL, better reward or faster steps. It is not urgent for the current full-vocabulary baseline. Fail clearly if bounded sampling is configured without required support evidence.
+
+4. Policy provenance and scheduling. Per-token policy versions (a22eeb32) distinguish ages within multi-turn episodes. Add observability first, then separately enable stale-token masking (cde40c64). Adaptive concurrency/KV-pressure control (0630b7bf, c2a25f06, d7339fcf) should start opt-in with fixed-concurrency fallback. Its cancellations must not starve critic warmup or invalidate complete LOO groups.
+
+5. General efficiency. Explicit sequence lengths (8dcf55ac) precede newer packing and array transport (87ddbcf0, 00f3e395), plus GPU-side metric accumulation (1bdf9d66). Adapt both critic training and evaluation forward paths. Benchmark effective trained tokens per second, memory, stale-token rejection and critic queue drops; episode throughput alone is insufficient.
+
+6. Optional research features. IcePop (1e7c6888) and score centering (90fbb8db, bounded-support completion 735496e3) are relevant to importance weighting and baseline dependence under masking. Keep off by default and evaluate separately with value/TETHER baselines. Prompt-mean aggregation, length-weighted group baselines and specialized hierarchical/self-play algorithms change the objective or group semantics and belong in later named modes.
+
+Defer FP8/MXFP8, MoE-specific kernels, new model families, NIXL/ModelExpress, advanced prefill/decode offload, CPU optimizer overlap, and live value-critical reconfiguration. These are not established wins for the current dense Qwen3 setup. Preserve optimization_dtype and reduce_dtype exactly as required by AGENTS.md.
+
+Value contracts to preserve
+
+- Policy trainer consumes stamped advantages and remains critic-agnostic.
+- Value for action t comes from state t-1; shifts reset at packed sequence boundaries.
+- Policy GAE and critic TD(lambda) retain independent lambdas and targets. Prompt/tool/context tokens do not become temporal actions.
+- Scalar regression stays unbounded; categorical support expectation and two-hot target behavior remain unchanged.
+- Ordinary rollouts are evaluated once on arrival with values/version retained. Group-LOO evaluates a complete group atomically with target trajectory/reward excluded from its own context.
+- Privileged prefixes remain critic-only and project back to policy token coordinates without silent truncation.
+- Sequential branches stitch unique sampled actions in generation order, preserve actual branch contexts and deduplicate shared prefixes. Parallel-fork temporal credit remains unsupported unless separately designed.
+- TETHER preserves fitting equations, lagged coefficient application, warmup exclusion, positional bookkeeping and controller checkpoint state.
+- Warmup uses minimum critic version of the actual shipped cohort. Critic training publication must still proceed during policy warmup withholding.
+- Critic replay owns whole rollouts, frozen targets, bounded queues and independent critic/policy version provenance. Restart preserves existing intentional cold replay/queue/RNG behavior rather than silently adding exact replay resume.
+- Critic publication and coherent evaluator adoption remain independent of policy weight updates.
+
+Architecture and migration blockers
+
+Upstream has removed Prime Values' finalize_group lifecycle, changed Algorithm to score_episode/score_group, and made episodes capable of containing multiple agents/traces. A one-to-one rename is incorrect. Initially support the existing single-eligible-trace value episode contract and fail explicitly on ambiguous multi-trace credit. Do not flatten same-episode traces into LOO siblings. Complete LOO means the configured number of successful eligible episodes, not a dispatch group completed by failures or cancellations.
+
+Use one canonical branch materialization and a narrow value-owned adapter containing original action provenance, deduplicated masks, token projection, rewards and versions. Freeze critic snapshots before policy staleness or zero-advantage pruning. Stale actions must not disappear from GAE/TD recurrences or shift terminal rewards. Excluded branches must be handled before shared-prefix ownership is assigned.
+
+Upstream policy payload cleanup cannot own critic replay lifetime. Materialize the critic's needed data into independently owned samples before policy release; do not retain borrowed mutable arrays or remote payload references.
+
+Shared APIs also changed: setup_optimizer now returns a tuple; model forward needs explicit seq_lens; checkpoint/monitor helpers and Progress moved or disappeared. value/weights.py imports removed private broadcast helpers. Keep small adapters for model setup/forward, checkpoint services, tensor-transfer primitives and monitoring. Upstream policy transport's lockstep handshake must not replace critic publication by assumption or omit the value head. Avoid a second orchestrator, a second generic trainer framework, or scattered value conditionals.
+
+Numerical compatibility requires preserving existing defaults. Upstream removed the old DPPO/default loss and KL parameter, defaults to IPO eps 0.3 with a ratio cap (fork optional IPO eps 0.1), and normalizes RL by sum of weights rather than token count. Do not import these changes as plumbing. Zero-advantage pruning and weighted normalization also require explicit comparison.
+
+Dependencies are a coordinated migration. Latest upstream removes v0 compatibility, moves env servers, and changes config names and dependency versions. Existing RG experiment environment uses a legacy bridge. Preserve that capability through an explicit environment migration or bounded bridge before claiming existing experiments work. Preserve value trainer/evaluator entrypoints and config validation; do not replace the manifest wholesale.
+
+Execution sequence and acceptance gates
+
+0. Freeze baseline. When implementation is requested, create an isolated branch from then-current Prime Values main (suggested chore/upstream-rl-sync); recheck both remote heads and pin the selected target. Keep current experiment changes separate. Inventory supported configs, environment bridges, evaluator placements, checkpoint behavior and numerical defaults. Establish baseline test results and fixed trace/gradient fixtures before editing.
+
+1. Small independent safety/reliability changes. Separate reviewable commits for masking, diagnostics and applicable failure/checkpoint fixes. Require finite excluded-token behavior and matching normal-case loss/gradients, targets, advantages and TETHER state. Caps and changed objectives remain off.
+
+2. Prove one bounded migration slice. Modern dependencies and canonical episode representation -> value adapter -> one critic update/evaluator adoption -> policy batch. Begin with existing single-trace dense-model configuration. Explicitly preserve arrival scoring, LOO barrier, owned replay snapshots, shipped-version warmup and policy/critic clocks. If this slice needs broad duplicated infrastructure, revise the design before expansion.
+
+3. Complete the shared-infrastructure migration in coherent bundles. Adapt model/packing, transports, checkpoint/monitor services and environment APIs with new algorithms disabled. Restore all currently claimed value modes and both evaluator placements. Keep the dependency lock and algorithm-default decisions separately reviewable. Import coherent source bundles rather than blindly cherry-picking history that repeatedly changes defaults.
+
+4. Add sampling replay/provenance and measured performance features. Enable one at a time. Stale-token eligibility, adaptive cancellation and packing efficiency each have separate acceptance gates. Sampling replay could be backported before phase 2 if urgently needed, but its broad wire-format dependencies make implementing it once on the canonical representation preferable here.
+
+5. Evaluate new objectives separately. IcePop/centering, ratio caps, aggregation and baseline alternatives need controlled ablations, not implicit activation by synchronization. For score centering, enumerate a tiny known distribution to check constant-baseline sensitivity and complete/partial support before training comparisons.
+
+Validation before a merge claim
+
+- Preserve existing value math/replay/service/transport tests and orchestrator algorithm, adaptive baseline, context, train-sink and config tests. Add focused cases only for genuine new seams.
+- Golden fixtures: same tokens, prefix projection, branch ownership, values, versions, policy GAE, critic targets and TETHER updates. Include stale intermediate actions, excluded shared-prefix branches, incomplete LOO, unequal lengths and mixed loss weights.
+- Whole-loss/gradient comparisons with fixed weights, including all-masked ranks and extreme invalid excluded values.
+- Packed versus unpacked critic predictions/loss/gradient scaling; single versus distributed update; value-head save/load and dummy ranks.
+- Real small component runs: critic warmup, policy updates, replica skew, backpressure/drops, cancellation, failure propagation, shutdown and checkpoint/resume. Validate both dedicated and colocated evaluation if both remain supported.
+- Resume independently restores policy state, critic state/version and partial TETHER controller state; replay remains intentionally cold.
+- Compare value-disabled and value-enabled behavior with new options off. Only then compare throughput and held-out reward under isolated new options, using a genuine held-out dataset rather than a training subset.
+
+Decision requested next
+
+Agree on this staged scope and the first bundle. The first implementation milestone should be baseline preservation plus isolated numerical/reliability fixes, followed by a review of the episode/value adapter before broad synchronization. A full merge is a later outcome contingent on these gates, not a promise made from this source audit.
