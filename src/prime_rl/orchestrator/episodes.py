@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import verifiers.v1 as vf
 from verifiers.v1.types import TextContentPart
 
+from prime_rl.orchestrator.provenance import clip_weight_versions, validate_weight_versions
 from prime_rl.orchestrator.types import Rollout
 
 if TYPE_CHECKING:
@@ -43,11 +44,14 @@ def validate_training_trace(trace: vf.WireTrace) -> None:
             call.namespace for call in node.message.tool_calls or []
         ):
             reject("namespaced tool calls require explicit privileged-context serialization")
+        try:
+            validate_weight_versions(node)
+        except ValueError as exc:
+            reject(str(exc))
         if any(
             value is not None
             for value in (
                 node.sampling_mask,
-                node.weight_versions,
                 node.advantages,
                 node.reference_logprobs,
                 node.trainer_logprobs,
@@ -55,7 +59,7 @@ def validate_training_trace(trace: vf.WireTrace) -> None:
                 node.loss_weights,
             )
         ):
-            reject("producer-stamped sampling/version/credit streams require explicit training alignment")
+            reject("producer-stamped sampling/credit streams require explicit training alignment")
     if any(tool.namespace for tool in trace.tools):
         reject("namespaced tools require explicit privileged-context serialization")
 
@@ -119,6 +123,7 @@ def project_training_trace(trace: vf.WireTrace, *, max_seq_len: int) -> vf.WireT
     remaining = max_seq_len
     for node in projected.nodes:
         retained = min(len(node.token_ids), remaining)
+        node.weight_versions = clip_weight_versions(node, sum(node.mask[:retained]))
         node.token_ids = node.token_ids[:retained]
         node.mask = node.mask[:retained]
         node.is_content = node.is_content[:retained]

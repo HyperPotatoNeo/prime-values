@@ -361,7 +361,11 @@ def test_overflow_escapes_add_before_rollout_or_pending_state_mutates():
         )
         sink = TrainSink.__new__(TrainSink)
         sink.mm_token_type_ids_mapping = None
-        sink.train_envs = SimpleNamespace(get=lambda _name: SimpleNamespace(algorithm=algorithm))
+        sink.train_envs = SimpleNamespace(
+            get=lambda _name: SimpleNamespace(
+                algorithm=algorithm, sampler=SimpleNamespace(samples_from_live_policy=True)
+            )
+        )
         sink._value_seq_len = 3
         sink._value_privileged_context = "task"
         sink.renderer = MagicMock()
@@ -433,7 +437,11 @@ def test_group_value_context_rejects_task_prompt_before_materialization():
         rollout.task = SimpleNamespace(data=SimpleNamespace(idx=7, value_function_prompt="conflicting oracle"))
         algorithm = SimpleNamespace(value_evaluator=MagicMock())
         sink = TrainSink.__new__(TrainSink)
-        sink.train_envs = SimpleNamespace(get=lambda _name: SimpleNamespace(algorithm=algorithm))
+        sink.train_envs = SimpleNamespace(
+            get=lambda _name: SimpleNamespace(
+                algorithm=algorithm, sampler=SimpleNamespace(samples_from_live_policy=True)
+            )
+        )
         sink._value_privileged_context = "group_leave_one_out"
 
         with (

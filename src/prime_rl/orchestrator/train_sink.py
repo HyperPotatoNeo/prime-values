@@ -210,6 +210,7 @@ class TrainSink:
             env_name=rollout.env_name,
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
             capture_sampled_masks=value_enabled,
+            capture_policy_versions=self.train_envs.get(rollout.env_name).sampler.samples_from_live_policy,
         )
         samples = materialization.samples
         value_prefix = self._build_value_prefix(

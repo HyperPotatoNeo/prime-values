@@ -21,7 +21,9 @@ from dataclasses import dataclass
 import numpy as np
 import verifiers.v1 as vf
 
+from prime_rl.orchestrator.provenance import node_policy_versions
 from prime_rl.transport import TrainingSample
+from prime_rl.transport.provenance import encode_policy_versions
 from prime_rl.transport.types import EncodedTensor, RoutedExperts
 from prime_rl.utils.logger import get_logger
 
@@ -175,6 +177,7 @@ def materialize_training_data(
     env_name: str = "",
     mm_token_type_ids_mapping: dict[int, int] | None = None,
     capture_sampled_masks: bool = False,
+    capture_policy_versions: bool = False,
 ) -> TrainingMaterialization:
     """Convert a v1 `Trace` into `TrainingSample`s — one per branch.
 
@@ -211,6 +214,11 @@ def materialize_training_data(
         samples.append(
             TrainingSample(
                 token_ids=token_ids,
+                token_policy_versions=(
+                    encode_policy_versions(np.concatenate([node_policy_versions(node) for node in branch.nodes]))
+                    if capture_policy_versions and any(node.weight_versions for node in branch.nodes)
+                    else None
+                ),
                 mask=mask,
                 logprobs=branch.logprobs,
                 temperatures=[],  # filled by TrainSink.process_group

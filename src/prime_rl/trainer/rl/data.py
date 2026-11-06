@@ -16,6 +16,7 @@ from prime_rl.transport import (
     TransportConfig,
     setup_micro_batch_receiver,
 )
+from prime_rl.transport.provenance import decode_policy_versions
 
 
 class TensorMicroBatch(TypedDict):
@@ -56,6 +57,8 @@ class TensorMicroBatch(TypedDict):
     # Packer-derived metadata used for run-local debug exports.
     run_id: str | None
     run_step: int | None
+    # Observation-only, full physical axis; deliberately stays on CPU.
+    token_policy_versions: Int[Tensor, "batch seq"] | None
 
 
 class FakeDataLoader:
@@ -137,6 +140,7 @@ class FakeDataLoader:
             "ref_kl_weights": None,
             "run_id": None,
             "run_step": None,
+            "token_policy_versions": None,
         }
 
     def _get_micro_batch(self, generator: torch.Generator) -> TensorMicroBatch:
@@ -169,6 +173,7 @@ class FakeDataLoader:
             "ref_kl_weights": None,
             "run_id": None,
             "run_step": None,
+            "token_policy_versions": None,
         }
 
 
@@ -243,6 +248,13 @@ class DataLoader:
                 .to(torch.int32)
                 .unsqueeze(0)
             )
+        policy_versions = (
+            torch.from_numpy(
+                decode_policy_versions(micro_batch.token_policy_versions, len(micro_batch.input_ids)).copy()
+            ).unsqueeze(0)
+            if micro_batch.token_policy_versions is not None
+            else None
+        )
         return TensorMicroBatch(
             input_ids=torch.tensor(micro_batch.input_ids, dtype=torch.long).unsqueeze(0),
             position_ids=torch.tensor(micro_batch.position_ids, dtype=torch.long).unsqueeze(0),
@@ -272,6 +284,7 @@ class DataLoader:
             else None,
             run_id=micro_batch.run_id,
             run_step=micro_batch.run_step,
+            token_policy_versions=policy_versions,
         )
 
 

@@ -59,9 +59,10 @@ host, so do not add author-host existence requirements. Use prompt_text for
 inline text explicitly.
 
 A successful lock or import alone does not establish GPU backend compatibility
-or token weight-version provenance. Carrier support for sampling_mask and
-weight_versions must precede or accompany the backend transition; current
-explicit rejection cannot remain when an engine starts emitting those streams.
+or token weight-version provenance. The later `experiments/weight-versions` unit admits
+validated weight spans before the backend transition. Sampling-mask replay is a
+separate distribution-changing feature and remains disabled/rejected; official
+vLLM0.32 defaults it off. The original unit11 acceptance did not cover carriers.
 
 Renderer parity is limited to the tested default single-turn RG/reverse cases.
 A supplemental disabled-thinking multi-turn fixture intentionally changes its

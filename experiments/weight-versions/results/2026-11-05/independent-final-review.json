@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "harness_sha256": "f0a2c9f6e1939710befe2742f1830d2d9b6d126a787cc16967db97c44aa56f50",
+  "raw_sha256": {
+    "baseline": "129dc9c63e3bc6b28bdc218b1a83e769232e0ecf44c10992438ec3e0faa489e1",
+    "candidate": "efc5e0e630a7d654425c0442512e416d47327de8e3a663ae0dfc043415aa9df6"
+  },
+  "all_current_source_hashes_match": true,
+  "exact_pairings": [
+    [
+      "baseline",
+      "absent",
+      "candidate",
+      "absent"
+    ],
+    [
+      "baseline",
+      "clipped_absent",
+      "candidate",
+      "clipped_absent"
+    ],
+    [
+      "candidate",
+      "absent",
+      "candidate",
+      "mixed"
+    ],
+    [
+      "candidate",
+      "absent",
+      "candidate",
+      "opaque"
+    ],
+    [
+      "candidate",
+      "clipped_absent",
+      "candidate",
+      "clipped"
+    ],
+    [
+      "candidate",
+      "frozen_absent",
+      "candidate",
+      "frozen_known"
+    ]
+  ],
+  "exact_context_comparisons": 12,
+  "request_arrays_exact": true,
+  "all_preexisting_policy_value_packing_cpu_fields_exact": true,
+  "labels": "Expected5/6 labels survive physical mapping/clip/pack/CPU tensor; opaque007/default and frozenconfiguredsampler unknown; dispatch999 never appears.",
+  "codec": "Actual old omitted packets decode in new; newNone and populated packets decode in old ignoringtrailing. None addsonearrayelement, so notbyteidentical.",
+  "boundary_controls": {
+    "prompt_only_unknown": true,
+    "distribution_workers": 2,
+    "dummy_unknown_zero_loss": true,
+    "alignment_multiple": 64,
+    "invalid_decoder_rejected": [
+      "dtype",
+      "shape",
+      "bytes",
+      "below_unknown"
+    ]
+  },
+  "pure_receipt": "../weight-version-plan/independent-implementation-review.json",
+  "existing_sink_fixture_review": "Onlytwo mockedEnv fixtures gained actual sampler.samples_from_live_policy attribute; assertionsunchanged, owner20caseJUnitpassed.",
+  "limits": [
+    "Deterministicresponse/evaluator fixtures; noGPU/modelstep orengine-attribution truth.",
+    "Frozen control proves configuredsinkorigin gate using same deterministicendpoint, not an independentteacherbackend.",
+    "CPcarrier remains fullCPUaxis bysource; noGPUCPexecution needed becausemetadata isunusedbyloss/model."
+  ]
+}

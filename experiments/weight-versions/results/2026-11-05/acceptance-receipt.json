@@ -1,0 +1,152 @@
+{
+  "status": "passed",
+  "baseline_commit": "19e0e4f73984aac040636dda0467375355831b09",
+  "recorded_at": "2026-11-06T04:44:21.444312+00:00",
+  "harness_sha256": "f0a2c9f6e1939710befe2742f1830d2d9b6d126a787cc16967db97c44aa56f50",
+  "comparator_sha256": "6a2eafc60afc028790f58c8d0e211dc98635137a6fad5c04b2c7647f82bf17cd",
+  "baseline": {
+    "result_sha256": "0edc23553bfed47ffdbbb3dad21abb6048519df7d04d3527dbd01cd6948fed05",
+    "raw_sha256": "129dc9c63e3bc6b28bdc218b1a83e769232e0ecf44c10992438ec3e0faa489e1",
+    "natural_exit_code": 0,
+    "cases": 2,
+    "requests": 4
+  },
+  "candidate": {
+    "result_sha256": "33971c5987cf83a0b067e88149de5ad182751bcc485d33e27dd53ff087efdbc8",
+    "raw_sha256": "efc5e0e630a7d654425c0442512e416d47327de8e3a663ae0dfc043415aa9df6",
+    "natural_exit_code": 0,
+    "cases": 7,
+    "requests": 14
+  },
+  "comparisons": {
+    "status": "passed",
+    "comparisons": [
+      {
+        "left": "baseline/absent",
+        "right": "candidate/absent",
+        "contexts": [
+          "task",
+          "group_leave_one_out"
+        ],
+        "exact_http_requests": true,
+        "exact_all_preexisting_numeric_fields": true
+      },
+      {
+        "left": "baseline/clipped_absent",
+        "right": "candidate/clipped_absent",
+        "contexts": [
+          "task",
+          "group_leave_one_out"
+        ],
+        "exact_http_requests": true,
+        "exact_all_preexisting_numeric_fields": true
+      },
+      {
+        "left": "candidate/absent",
+        "right": "candidate/mixed",
+        "contexts": [
+          "task",
+          "group_leave_one_out"
+        ],
+        "exact_http_requests": true,
+        "exact_all_preexisting_numeric_fields": true
+      },
+      {
+        "left": "candidate/absent",
+        "right": "candidate/opaque",
+        "contexts": [
+          "task",
+          "group_leave_one_out"
+        ],
+        "exact_http_requests": true,
+        "exact_all_preexisting_numeric_fields": true
+      },
+      {
+        "left": "candidate/clipped_absent",
+        "right": "candidate/clipped",
+        "contexts": [
+          "task",
+          "group_leave_one_out"
+        ],
+        "exact_http_requests": true,
+        "exact_all_preexisting_numeric_fields": true
+      },
+      {
+        "left": "candidate/frozen_absent",
+        "right": "candidate/frozen_known",
+        "contexts": [
+          "task",
+          "group_leave_one_out"
+        ],
+        "exact_http_requests": true,
+        "exact_all_preexisting_numeric_fields": true
+      }
+    ],
+    "exact_context_comparisons": 12,
+    "baseline_result_sha256": "0edc23553bfed47ffdbbb3dad21abb6048519df7d04d3527dbd01cd6948fed05",
+    "candidate_result_sha256": "33971c5987cf83a0b067e88149de5ad182751bcc485d33e27dd53ff087efdbc8",
+    "harness_sha256": "f0a2c9f6e1939710befe2742f1830d2d9b6d126a787cc16967db97c44aa56f50",
+    "comparator_sha256": "6a2eafc60afc028790f58c8d0e211dc98635137a6fad5c04b2c7647f82bf17cd",
+    "scope": "Actual CPU HTTP fixture, native worker/TrainClient/Episode msgpack, TrainSink credit, packing and CPU tensors; no GPU/backend weight reload truth or numerical training step."
+  },
+  "positive_actions": {
+    "within": 10,
+    "clipped": 3
+  },
+  "rewards": [
+    1,
+    0
+  ],
+  "codec": {
+    "TrainingSample": {
+      "old_packet_fields": 13,
+      "new_none_packet_fields": 14,
+      "identical_none_bytes": false,
+      "old_to_new": true,
+      "new_none_to_old": true,
+      "new_populated_to_old_ignores_trailing": true
+    },
+    "MicroBatch": {
+      "old_packet_fields": 18,
+      "new_none_packet_fields": 19,
+      "identical_none_bytes": false,
+      "old_to_new": true,
+      "new_none_to_old": true,
+      "new_populated_to_old_ignores_trailing": true
+    },
+    "omitted_trailing_defaults": true
+  },
+  "boundary_controls": {
+    "prompt_only_unknown": true,
+    "distribution_workers": 2,
+    "dummy_unknown_zero_loss": true,
+    "alignment_multiple": 64,
+    "invalid_decoder_rejected": [
+      "dtype",
+      "shape",
+      "bytes",
+      "below_unknown"
+    ]
+  },
+  "cleanup_observation": {
+    "72136": "absent",
+    "71931": "absent"
+  },
+  "changed_source": {
+    "src/prime_rl/orchestrator/episodes.py": "48c7dcd0e4cd521fe80a167c8ec5f4713af9ce01f973135e1b95c39e6ffd2ccb",
+    "src/prime_rl/orchestrator/provenance.py": "dae7219e974015d744adbfd8b18fa2f888f871a3112854b3091550210277b757",
+    "src/prime_rl/orchestrator/train_sink.py": "6e305e36df26eb6fdf4c13a26b8e363619bf46647685c4a2b317736516789d9c",
+    "src/prime_rl/orchestrator/trajectories.py": "1949d2e00a789c1186fbc32e6863b3b17e6333d4b768ec5953e86bfc6e9094eb",
+    "src/prime_rl/trainer/batch.py": "6d71b39ab66a7d2b7e9e951e3e39d3d54ba89c21c34bf300f7cef8d68877eff5",
+    "src/prime_rl/trainer/rl/data.py": "233631707b6cfb6de0e77a47bc2bd8ce03d5281a14679a0d6e30b24cf1997d05",
+    "src/prime_rl/transport/provenance.py": "2355264fce1416bc3aba37b8c25e00170239910d2f98229e3bc77f5a4b9cbcc8",
+    "src/prime_rl/transport/types.py": "6f7d2c772ffbe149fcc1e0fd131f16f5df9b21587d0fc844f19a4f181468c28f"
+  },
+  "limits": [
+    "CPU synthetic token endpoint; no GPU inference, actual engine identity or successful/failed real weight-reload assertion.",
+    "Frozen control tests configured actual sampler-origin gate; both cases use deterministic endpoint and do not prove separate teacher backend identity.",
+    "No model/optimizer update; value/credit/all prior tensor fields compared exactly and protected value/loss code unchanged.",
+    "Sampling-mask replay remains off. No policy-age metric or dispatch-version fallback added.",
+    "Codec compatibility means decoded existing fields match; added trailing None changes bytes. Older decoders intentionally discard new observation field."
+  ]
+}

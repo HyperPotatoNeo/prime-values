@@ -24,13 +24,18 @@ new schema. Shared-prefix plain branches work; new semantic/compaction shapes
 remain rejected before credit. CPU workers and fixed evaluator boundaries do not
 prove the upgraded full GPU process stack.
 
-The next prerequisite is sampled-token carrier alignment/admission for
-`sampling_mask` and `weight_versions`. It must land before or with the vLLM0.32
-transition: the current adapter rejects those fields, and a newer engine may emit
-version spans even before useful labels are synchronized. Validate original
-completion coordinates, preserve unknown labels and project through the one
-canonical materializer, clipping and packing. No algorithm defaults or value
-geometry should change to make metadata acceptable.
+Unit12 implements the observation-only weight-version carrier prerequisite.
+Final002 actual CPU boundary acceptance passed, including 12 exact task/LOO
+context comparisons and 31 focused checks. Raw opaque
+spans remain canonical, while comparable live-policy step IDs map through original
+sampled positions, projection, shared context and the existing materializer and
+packer. Unknown stays unknown. No objective or value geometry changes.
+
+Official vLLM0.32 source confirms that version spans are emitted with the initial
+`default` label, whereas `return_sampling_mask` defaults to false. Sampling-mask
+replay changes the training distribution and is not part of this carrier unit;
+it remains explicitly rejected and disabled. Carrier admission must land before
+or with the backend transition.
 
 The later backend unit uses upstream `f8016025` as the vLLM0.32 / torch2.13 /
 transformers5.19 reference. Review launch, token-serving, sampling defaults,

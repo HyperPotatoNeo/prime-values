@@ -75,11 +75,11 @@
       "status": "Implemented and accepted final005 identical-harness CPU producer/value gate in unit11; no new GPU-stack runtime claim."
     },
     {
-      "unit": "Sampled-token carrier alignment and admission",
-      "status": "Next read-only design; no implementation yet",
+      "unit": "Observation-only weight-version carrier alignment and admission",
+      "status": "Unit12 final002 CPU gate accepted:12 exact task/LOO context comparisons,11 coordinate controls and20 existing sink regressions; no real backend attribution or model-training claim.",
       "order": "Before or together with the vLLM0.32 transition, not after it.",
-      "rationale": "The current adapter explicitly rejects sampling_mask and weight_versions; newer engines can emit these fields before useful version labels are synchronized, so blind backend upgrade would reject valid rollouts.",
-      "scope": "Define sampled-token coordinates, validate spans/CSR, preserve unknown labels, project through canonical TrainingLayout and single-turn clipping, and carry aligned data through existing transport/packing. Keep value geometry, reward, masks and loss defaults unchanged.",
+      "rationale": "vLLM0.32 always emits version spans with default label; sampling_mask is optional/defaultFalse and remains rejected because replay changes the training distribution.",
+      "scope": "Retain exact opaque Trace labels; validate sampled ordinal intervals, derive strict numeric live-policy IDs or unknown, carry through projection/materializer/packing as optional int64 physical-axis metadata. No objective/value changes.",
       "gate": "Deterministic adversarial carrier data through actual native response/trace/materializer/packing, including shared prefixes, clipped completions and unknown labels; no dispatch-version substitution. Actual engine provenance remains a later runtime gate."
     },
     {
