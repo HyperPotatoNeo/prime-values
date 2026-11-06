@@ -1,0 +1,103 @@
+"""Maintain six admitted research jobs using the Mac's existing official login.
+
+Never copies credentials. API failures leave the waiting jobs unsubmitted.
+Run detached under caffeinate; state and receipts are written atomically.
+"""
+
+import argparse
+import datetime
+import json
+import subprocess
+import time
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--clusterctl", type=Path, required=True)
+parser.add_argument("--state-dir", type=Path, required=True)
+parser.add_argument("--once", action="store_true")
+args = parser.parse_args()
+prepared = Path(__file__).parent / "prepared"
+campaign = "siddarth-sc-ema-20261106"
+expanded = prepared / campaign / "expanded"
+pending = [
+    "siddarth-rg-ema-s11-k128-b0p03",
+    "siddarth-rg-ema-s22-k128-b0p003",
+    "siddarth-rg-ema-s22-k128-b0p01",
+    "siddarth-rg-ema-s22-k128-b0p03",
+]
+args.state_dir.mkdir(parents=True, exist_ok=True)
+state_path = args.state_dir / "state.json"
+state = json.loads(state_path.read_text()) if state_path.exists() else {"submitted": [], "terminal": {}, "created": time.time()}
+
+
+def save():
+    tmp = state_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2) + "\n")
+    tmp.replace(state_path)
+
+
+def kubectl(*parts):
+    result = subprocess.run([str(args.clusterctl), "kubectl", "-n", "siddarth", *parts],
+                            capture_output=True, text=True, timeout=90)
+    if result.returncode:
+        raise RuntimeError(result.stderr[-1000:])
+    return result.stdout
+
+
+def tick():
+    jobs = json.loads(kubectl("get", "jobs", "-l", f"research-campaign={campaign}", "-o", "json"))["items"]
+    pods = json.loads(kubectl("get", "pods", "-l", f"research-campaign={campaign}", "-o", "json"))["items"]
+    names = {job["metadata"]["name"] for job in jobs}
+    for name in pending:
+        if name in names and name not in state["submitted"]:
+            state["submitted"].append(name)
+    live = set()
+    for job in jobs:
+        name = job["metadata"]["name"]
+        conditions = job.get("status", {}).get("conditions", [])
+        terminal = [c for c in conditions if c["type"] in ("Complete", "Failed") and c["status"] == "True"]
+        if terminal:
+            state["terminal"][name] = {"uid": job["metadata"]["uid"], "conditions": terminal}
+        else:
+            live.add(name)
+    receipts = []
+    gpu_count = 0
+    for pod in pods:
+        meta, spec, status = pod["metadata"], pod["spec"], pod.get("status", {})
+        count = sum(int(c.get("resources", {}).get("requests", {}).get("nvidia.com/gpu", 0)) for c in spec["containers"])
+        if status.get("phase") not in ("Succeeded", "Failed"):
+            gpu_count += count
+            live.add(meta["labels"]["batch.kubernetes.io/job-name"])
+        receipts.append({"name": meta["name"], "uid": meta["uid"], "owner": meta["labels"].get("batch.kubernetes.io/job-name"),
+                         "created": meta["creationTimestamp"], "node": spec.get("nodeName"),
+                         "phase": status.get("phase"), "gpus": count,
+                         "containers": [{"name": c["name"], "state": c.get("state"), "restarts": c.get("restartCount")}
+                                        for c in status.get("containerStatuses", [])]})
+    now = time.time()
+    state.update({"last_success": now, "live_jobs": sorted(live), "live_pod_requested_gpus": gpu_count,
+                  "limit_jobs": 6, "limit_gpus": 192, "last_error": None})
+    with (args.state_dir / "resource-receipts.jsonl").open("a") as f:
+        f.write(json.dumps({"observed_at": now, "pods": receipts}) + "\n")
+    if len(live) < 6 and gpu_count + 32 <= 192:
+        name = next((n for n in pending if n not in state["submitted"]), None)
+        if name:
+            kubectl("apply", "-f", str(expanded / f"{name}.yaml"))
+            state["submitted"].append(name)
+            print(datetime.datetime.now(datetime.UTC).isoformat(), "SUBMITTED", name, flush=True)
+    save()
+    return len(state["submitted"]) == len(pending) and not live
+
+
+while time.time() - state["created"] < 14 * 86400:
+    try:
+        done = tick()
+    except (RuntimeError, subprocess.TimeoutExpired) as exc:
+        # A temporary authentication/network failure must not oversubmit jobs.
+        state["last_error"] = str(exc)
+        state["last_error_at"] = time.time()
+        save()
+        print("Queue paused safely:", exc, flush=True)
+        done = False
+    if done or args.once:
+        break
+    time.sleep(30)

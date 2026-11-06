@@ -37,7 +37,7 @@ The KL estimator on actions drawn from q is `(p/q) * (exp(log(e)-log(p)) - (log(
 | Async | Dispatcher pause threshold 8 batches, 512 in-flight rollouts, cancellation limit 20 policy changes; already-in-flight work can overshoot the scheduling threshold; record actual lag |
 | Checkpoint | Every 100 updates, latest 2 full optimizer/EMA states + latest 2 weights; acknowledgement-based broadcast retirement; retain 2 consumed binary batches, gzip older trajectory JSON losslessly |
 | Logging | Online W&B, swish/siddarth-prime-values, arm/seed groups and related trainer/orchestrator names |
-| Concurrency | At most 3 runs / 96 GPUs, accounting for other Siddarth jobs against the ~120 GPU soft ceiling |
+| Concurrency | Latest user constraint: approximately 200 GPUs while leaving about 48 free. Six concurrent runs = 192 GPUs; four runs wait for a slot. 248 GPUs were observed, leaving 56 outside this campaign. |
 
 vLLM scheduling, asynchronous completion order and distributed kernels mean identical seeds do not promise bitwise reproducibility. The seed pairing controls initialization, task order and sampling streams as far as the execution model permits. Record actual versions, environment hashes and resolved configs with each run.
 
@@ -91,3 +91,11 @@ This research branch starts from the completed safety milestone f6b9a40c; it doe
 not silently incorporate that other branch's ongoing changes.
 
 Scalar metrics are also appended to per-component JSONL files in each run’s `logs/` directory, keyed by the true component step and observation time. W&B remains online. See `preflight.py` for CLI roundtrip checks and equality of all paired-seed configuration fields except correction controls, sampler-head capture, and run identifiers/tags.
+
+## Expanded admission after launch
+
+Siddarth explicitly lifted the advisory compute ceiling after the first three runs started. The seven waiting runs were submitted as independent indexed Jobs, preserving the three active runs and all mathematical settings. Use `prepared/siddarth-sc-ema-20261106/expanded/schedule.json` and its manifests for this state, not the original lane schedule. Future run output directories were reserved before reassignment, so the original lanes’ no-overwrite guard releases their four pods after their current run completes instead of launching duplicate runs. This deliberately produces a lane-level FileExistsError/Failed status at retirement; judge experiment completion using the current run’s policy.done, all trainer/orchestrator completion flags and metrics. It is not a training failure. No job has automatic retries. Kueue admits remaining jobs as capacity becomes available.
+
+### Final six-slot queue
+
+The user subsequently capped the sweep near 200 GPUs. Six runs remain active (192 GPUs). EMA seed11 beta.03 was stopped during startup before any logged training step; its files are preserved under the `-aborted-capacity-001` suffix. That run and the three seed22 EMA settings are held outside Kubernetes until slots free. `queue_campaign.py` runs detached on the Mac under caffeinate, using the existing official clusterctl login, with atomic state and resource receipts. It never copies credentials or changes cluster RBAC. The namespace cannot patch Kueue admission or grant a controller service account, so this is a local queue supervisor: the Mac must remain available and the official authentication must remain valid/refreshable. Authentication/network failure pauses submissions safely and retries; active training continues independently. No new substantive run is submitted above six outstanding campaign jobs or 192 live requested GPUs. State is in local ignored `results/queue-192`; preserve it across supervisor restarts.

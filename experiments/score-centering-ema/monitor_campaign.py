@@ -15,7 +15,7 @@ result = {"observed_at": time.time(), "campaign": manifest["campaign"], "runs": 
 for name in manifest["runs"]:
     out = Path("/data/outputs") / name
     run = {"status": "queued", "metrics": {}, "wandb": [], "net_ib": False, "errors": []}
-    if out.exists():
+    if (out / "logs").exists():
         run["status"] = "started"
     if (out / "policy.done").exists():
         run["status"] = "complete"
@@ -25,7 +25,10 @@ for name in manifest["runs"]:
     for f in (out / "logs").glob("*-metrics.jsonl"):
         lines = f.read_text().splitlines()
         if lines:
-            run["metrics"][f.name] = json.loads(lines[-1])
+            rows = [json.loads(line) for line in lines]
+            step = max(row["step"] for row in rows)
+            run["metrics"][f.name] = {key: value for row in rows if row["step"] == step
+                                      for key, value in row.items()}
     for f in (out / "logs").glob("*.log"):
         text = re.sub(r"\x1b\[[0-9;]*m", "", f.read_text(errors="replace"))
         run["wandb"].extend(re.findall(r"https://wandb.ai/swish/siddarth-prime-values/runs/[a-z0-9]+", text))
@@ -41,4 +44,4 @@ for name, run in result["runs"].items():
     print(" ".join(run["wandb"]))
     for component, metrics in run["metrics"].items():
         print(component, {k: v for k, v in metrics.items()
-                          if k in ("step", "time") or re.search(r"reward/mean|loss/mean|kl/mean|kl/max|off_policy|policy_age|grad_norm", k)})
+                          if k in ("step", "time") or re.search(r"reward/mean|loss|mismatch|off_policy|policy_age|grad_norm|ema_kl", k)})

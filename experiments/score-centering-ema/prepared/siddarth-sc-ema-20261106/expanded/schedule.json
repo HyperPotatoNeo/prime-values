@@ -1,0 +1,27 @@
+{
+  "retained_active_runs": [
+    "siddarth-rg-base-s11-k128-b0",
+    "siddarth-rg-ema-s11-k128-b0p01",
+    "siddarth-rg-sc-s11-k128-b0"
+  ],
+  "submitted_independent_runs": [
+    "siddarth-rg-base-s22-k128-b0",
+    "siddarth-rg-sc-s22-k128-b0",
+    "siddarth-rg-ema-s11-k128-b0p003",
+    "siddarth-rg-ema-s11-k128-b0p03",
+    "siddarth-rg-ema-s22-k128-b0p003",
+    "siddarth-rg-ema-s22-k128-b0p01",
+    "siddarth-rg-ema-s22-k128-b0p03"
+  ],
+  "admission": "Local detached queue_campaign.py submits waiting jobs only when fewer than six campaign jobs and enough GPU slots are active. Official clusterctl credentials auto-refresh; API failure pauses submission.",
+  "original_lane_retirement": "Pre-reserved future output directories trigger existing no-overwrite guard only after current run completes; no current run restart or objective change.",
+  "final_limit_gpus": 192,
+  "final_concurrent_jobs": 6,
+  "pending_runs": [
+    "siddarth-rg-ema-s11-k128-b0p03",
+    "siddarth-rg-ema-s22-k128-b0p003",
+    "siddarth-rg-ema-s22-k128-b0p01",
+    "siddarth-rg-ema-s22-k128-b0p03"
+  ],
+  "aborted_startup": "siddarth-rg-ema-s11-k128-b0p03 stopped before any metric steps; archived on PVC with -aborted-capacity-001 suffix; future queued attempt starts fresh."
+}
