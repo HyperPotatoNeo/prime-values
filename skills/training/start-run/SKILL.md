@@ -234,3 +234,13 @@ child CLI configs against the original algorithm configuration. Retain eight
 shards per trainer replica and activation checkpointing; disable activation CPU
 offloading. Keep output/config paths and runtime source forks separate from live
 attempts. Count validation allocations before starting the seven-run queue.
+
+Before relaunching, remove only the stopped campaign's obsolete Services; this
+namespace has a50-Service quota. Create required Services successfully before
+submitting a Job. Never reapply the original `suspend: true` Job manifest to a
+running Kueue-admitted Job: it can suspend and replace its pods. Recover partial
+admission with a Services-only manifest, leaving the live Job untouched. If a
+startup was interrupted, preserve its output and use a fresh attempt name. The
+fast cohort has two replacement attempts (`base-s22` and `sc-s11` use `-fast2`);
+consult the manifest's `attempt_mapping`, not suffix guesses or submitted-count
+history, for the current ten experiments.

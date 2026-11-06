@@ -70,3 +70,24 @@ Runtime: `/data/siddarth-sc-ema-fast`. Original runtime and artifacts are preser
 `prepare_fast.py` generates new configs only; the seven-slot queue submits jobs.
 Source/config hashes, timing reports, trajectory audits and resource receipts
 belong in the private cache; full checkpoints/rollouts stay on the research PVC.
+
+## Final validation and launch
+
+The final five-step SC smoke completed naturally with all component completion
+flags. Steps2–5 took35.68,38.12,35.58,37.07seconds (mean36.61). Forward/backward was
+13.3–14.2seconds; batch wait6–8seconds; publication12.8–15.4seconds. Mean mismatch
+was.000485–.000505, largest sampled token mismatch10.01, with finite loss and
+gradients. The trajectory audit rescored516 saved answers and checked3,402,821
+sampled tokens in two retained batches. Chosen-token logprobs match the compact
+head whenever the chosen token belongs to it. Countdown and cryptarithm examples
+were also checked manually. This is throughput/correctness evidence, not a reward
+improvement claim or proof of long-run stability under seven-way contention.
+
+The relaunch uses the manifest's current attempt mapping. Initial Service-quota
+recovery interrupted control22 andSC11 during startup, before training; they were
+replaced with `-fast2` attempts. Their `-fast1` artifacts and resource receipts are
+preserved. The queue now creates Services before Jobs and repairs partial
+admission using Services only; it never reapplies a live Job's original
+`suspend: true`. Seven live research Jobs request224GPUs, with three EMAseed22
+experiments waiting. Original research and performance-validation GPU Jobs are
+released; a temporary CPU reader may be present during startup verification.
