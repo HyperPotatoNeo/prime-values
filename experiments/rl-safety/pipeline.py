@@ -156,6 +156,7 @@ def prepare_checkpoint_storage(root, checkpoint_root):
 
 
 def verify_environment(config, evidence):
+    import verifiers.v1 as vf
     from verifiers.v1.serve import EnvServer
 
     env_config = config.orchestrator.train.env[0]
@@ -165,14 +166,16 @@ def verify_environment(config, evidence):
     assert native.agent.harness.runtime.type == "subprocess"
     server = EnvServer(native, address="tcp://127.0.0.1:0")
     try:
-        assert server.num_tasks is not None and server.num_tasks >= config.orchestrator.batch_size
-        task = server._task(0)
+        tasks = list(vf.load_taskset(native.taskset).load())
+        assert server.num_tasks is None and len(tasks) >= config.orchestrator.batch_size
+        task = server._build_task(tasks[0].data.model_dump(mode="json"))
         assert task.data.answer == task.data.prompt[::-1]
         result = {
             "taskset": native.taskset.id,
             "taskset_class": type(server.env.taskset).__name__,
             "harness_config_class": type(native.agent.harness).__name__,
-            "num_tasks": server.num_tasks,
+            "num_tasks": len(tasks),
+            "native_tasks_client_owned": True,
             "native_server_initialized": True,
         }
         (evidence / "environment-preflight.json").write_text(json.dumps(result, indent=2) + "\n")

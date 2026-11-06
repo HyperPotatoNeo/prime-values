@@ -72,8 +72,12 @@ async def check(output: Path):
                     assert config.extra_env_kwargs == {"timeout_seconds": 90, "max_total_completion_tokens": 64}
             else:
                 server = EnvServer(config.env, address="tcp://127.0.0.1:0")
-                assert server._task(0).data.value_function_prompt == "privileged seed"
-            assert server.num_tasks == 1
+                task = next(iter(vf.load_taskset(config.env.taskset).load()))
+                assert (
+                    server._build_task(task.data.model_dump(mode="json")).data.value_function_prompt
+                    == "privileged seed"
+                )
+            assert server.num_tasks == (1 if config.is_legacy else None)
             server_task = asyncio.create_task(server.run())
             wrapper = Env(config.model_copy(update={"address": server.address}))
             wrapper.sampling_args = {"temperature": 1, "max_completion_tokens": 64}
@@ -89,7 +93,10 @@ async def check(output: Path):
                         "members": len(rollouts),
                     }
                 else:
-                    episode = await wrapper.run_episode(client, 0, "deterministic-producer-probe", None)
+                    task_data = None if config.is_legacy else next(wrapper.tasks).data.model_dump(mode="json")
+                    episode = await wrapper.run_episode(
+                        client, 0, "deterministic-producer-probe", None, task_data=task_data
+                    )
                     assert isinstance(episode, vf.Episode) and episode.ok and len(episode.traces) == 1
                     trace = episode.traces[0]
                     assert trace.ok and trace.reward == 1 and trace.task.data.idx == 0
@@ -124,7 +131,8 @@ async def check(output: Path):
         spawned.sampling_args = {"temperature": 1, "max_completion_tokens": 64}
         try:
             await spawned.start(output.parent / "logs")
-            episode = await spawned.run_episode(client, 0, "deterministic-producer-probe", None)
+            task_data = next(spawned.tasks).data.model_dump(mode="json")
+            episode = await spawned.run_episode(client, 0, "deterministic-producer-probe", None, task_data=task_data)
             assert episode.ok and len(episode.traces) == 1 and episode.traces[0].reward == 1
             results["native_spawn"] = {"reward": episode.traces[0].reward, "canonical_config_data": True}
         finally:

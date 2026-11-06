@@ -52,6 +52,13 @@ Write tests as plain functions with pytest fixtures. Don't use class-based tests
 - **Conservative test additions**: don't add new tests unless the user explicitly asks for them or it's clearly necessary. Editing existing tests is fine, but adding new test files or test functions should be the exception, not the default.
 - **Test what matters**: only test code with clear, isolated logic — pure functions, abstract base classes, data transformations, well-defined algorithms. Don't test runtime-level code, framework glue, or anything that requires extensive mocking/patching just to get a test to pass. If you need to patch everything out to make it testable, it's probably not worth testing.
 
+## GPU accounting
+
+- Record each cluster launch and end in the Resolution research cache's GPU accounting records, with job/pod IDs, GPU model/count, source/config references and observed timestamps. Reuse the shared accounting helper/schema when available.
+- Separate requested/reserved GPU-hours from measured compute utilization. Mark admission, start, end or utilization gaps as unknown; do not infer them from file modification times.
+- Include failed attempts and intervals when a node is retained idle. Reusing one job for several validation phases is one allocation, with separate phase records.
+- Preserve ongoing runs while collecting accounting evidence. Never store credentials in reports, logs or Git.
+
 ## Git
 
 - **Branch prefixes**: use `feat/`, `fix/`, `chore/`; use `exp/` for experiment branches (configs, run summaries, pins, notes).

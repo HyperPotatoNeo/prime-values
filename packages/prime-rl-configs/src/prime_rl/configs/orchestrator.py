@@ -186,7 +186,12 @@ class EnvConfig(vf.EnvServerConfig):
             "max_output_tokens",
             "max_total_tokens",
         )
-        if not isinstance(data, dict) or not any(key in data for key in ("taskset", "multiplex", *agent_fields)):
+        if not isinstance(data, dict):
+            return data
+        env_data = data.get("env")
+        if isinstance(env_data, dict) and "taskset" in env_data and env_data["taskset"] is None:
+            data = {**data, "env": {**env_data, "taskset": {}}}
+        if not any(key in data for key in ("taskset", "multiplex", *agent_fields)):
             return data
         data = dict(data)
         if "env" in data:
@@ -209,8 +214,8 @@ class EnvConfig(vf.EnvServerConfig):
                     task["judges"] = judges
                     taskset["task"] = task
                 if not taskset.get("id") and set(taskset) <= {"id"}:
-                    taskset = None
-            env["taskset"] = taskset
+                    taskset = {}
+            env["taskset"] = {} if taskset is None else taskset
         agent = {key: data.pop(key) for key in agent_fields if key in data}
         retries = agent.get("retries")
         if isinstance(retries, dict) and "rollout" in retries:

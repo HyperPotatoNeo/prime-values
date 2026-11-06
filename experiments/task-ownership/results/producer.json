@@ -1,0 +1,29 @@
+{
+  "native": {
+    "episode_id": "3c5b3670108b4568be84fa35e2a36cec",
+    "reward": 1.0,
+    "task_type": "SmokeTask",
+    "turns": 1
+  },
+  "legacy": {
+    "episode_id": "b16e604df6824b31b483eeceda202cca",
+    "reward": 1.0,
+    "task_type": "Task",
+    "turns": 1
+  },
+  "legacy_group": {
+    "joint_rewards": [
+      2.0,
+      3.0
+    ],
+    "members": 2
+  },
+  "native_spawn": {
+    "reward": 1.0,
+    "canonical_config_data": true
+  },
+  "ambiguous_config_rejected": true,
+  "http_requests": 5,
+  "sampling_temperature": 1,
+  "scope": "Real env servers, ZMQ episodes, subprocess native harness and legacy joint scoring; deterministic HTTP model fixture, no training-token claim"
+}

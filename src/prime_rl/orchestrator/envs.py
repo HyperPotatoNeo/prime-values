@@ -1,17 +1,9 @@
-"""Env wrappers over a v1 env server.
+"""Client-owned native tasksets with server-owned agent execution.
 
-Each ``Env`` owns a v1 ``EnvServer`` (spawned as a child process, or an
-external one given by ``config.address``) and an ``EnvClient`` to drive it. The
-orchestrator never *runs* an environment: it asks the server for ``info``
-(``num_tasks`` + whether group scoring is needed), then runs rollouts purely by
-**task index**. The server returns the canonical verifier ``WireEpisode``. Its
-single trace enters the existing rollout pipeline through the explicit
-``from_episode`` boundary; multi-trace episodes are not flattened into siblings.
-The trace's ``task.data`` preserves task-specific fields as extras. The orchestrator never imports the
-env package: the env's *type* and *runtime* both live only in the server, and the orchestrator
-drives it purely by task index. This wrapper treats env-specific extras as opaque; downstream
-rollout consumers may read an explicit wire contract such as the optional
-``value_function_prompt`` while remaining independent of the env's Python types.
+Native workers reconstruct each selected task from its serialized data. Legacy
+workers retain their datasets and row addressing, including joint group scoring.
+Both return canonical verifier episodes through the single-trace adapter; task
+data remains opaque to policy and value consumers.
 """
 
 from __future__ import annotations
@@ -23,12 +15,14 @@ import os
 import queue
 import sys
 from collections.abc import Iterator, Sequence
+from itertools import islice
 from multiprocessing.process import BaseProcess
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 import verifiers.v1 as vf
 from verifiers.v1.serve import EnvClient
+from verifiers.v1.task import task_data_cls
 
 from prime_rl.configs.orchestrator import EnvConfig, EvalEnvConfig, TrainEnvConfig
 from prime_rl.orchestrator.algo import Algorithm, build_algorithm
@@ -40,9 +34,7 @@ from prime_rl.utils.logger import get_logger
 if TYPE_CHECKING:
     from prime_rl.configs.value import ValueFunctionConfig
 
-# Max wait for a spawned env server to bind and report its address. The child
-# loads the taskset (possibly downloading a dataset) before reporting, so this
-# is generous.
+# Legacy workers may download their dataset before reporting an address.
 ENV_SERVER_SPAWN_TIMEOUT = 600.0
 
 
@@ -78,12 +70,14 @@ def _run_env_server(
 
 
 class Env:
-    """Wraps a v1 env server + client. The orchestrator never loads the env."""
+    """Owns native task selection; workers own agent/harness execution."""
 
     def __init__(self, config: EnvConfig):
         self.config = config
         self.sampling_args: dict = {}
-        self.num_tasks: int = 0
+        self.num_tasks: int | None = 0
+        self.tasks: Iterator[vf.Task] | None = None
+        self._task_class: type[vf.Task] | None = None
         self.requires_group_scoring: bool = False
         self._env_client: EnvClient | None = None
         self._env_server_process: BaseProcess | None = None
@@ -99,29 +93,71 @@ class Env:
         return self._env_client
 
     async def start(self, log_dir: Path, log_level: str | None = None, json_logging: bool = False) -> None:
-        """Spawn the env server (if needed), connect, and cache its ``info``."""
+        """Load native tasks once, then connect to their execution worker."""
+        if not self.config.is_legacy:
+            taskset = vf.load_taskset(self.config.env.taskset)
+            self._task_class = type(taskset).task_type()
+            if self.config.address is not None:
+                from verifiers.v1.tasksets.harbor import HarborTask
+
+                if issubclass(self._task_class, HarborTask):
+                    raise ValueError(
+                        f"Env {self.name}: external Harbor workers require verified shared grading-artifact paths; "
+                        "this launcher supports spawned local Harbor workers only"
+                    )
+            if type(taskset).INFINITE:
+                if isinstance(self.config, EvalEnvConfig) and self.config.num_examples < 0:
+                    raise ValueError(f"Eval env {self.name} has an infinite taskset; set num_examples to bound it")
+                self.tasks = (self.validate_task(task) for task in taskset.load())
+                self.num_tasks = None
+            else:
+                tasks = await asyncio.to_thread(lambda: [self.validate_task(task) for task in taskset.load()])
+                self.tasks = iter(tasks)
+                self.num_tasks = len(tasks)
         external = self.config.address is not None
         address = self.config.address or await self._spawn(log_dir, log_level or "INFO", json_logging)
         get_logger().debug(f"Connecting {self.name} to env server {address}")
         self._env_client = EnvClient(address=address)
-        # A spawned server already reported its address *after* binding + loading,
-        # so it's up — the untimed ``info`` below is enough. An external server has
-        # no such handshake, so poll until it answers before we block on ``info``.
+        # Spawned workers report after binding. External workers need a health handshake.
         if external:
             await self.env_client.wait_for_server_startup()
-        info = await self.env_client.info()
-        if info.num_tasks is None:
-            raise ValueError(
-                f"Env {self.name} has an infinite taskset; this indexed training pipeline requires finite tasks"
-            )
-        self.num_tasks = info.num_tasks
-        self.requires_group_scoring = info.requires_group_scoring
+        if self.config.is_legacy:
+            info = await self.env_client.info()
+            if info.num_tasks is None:
+                raise ValueError(f"Legacy env {self.name} must report a finite dataset count")
+            self.num_tasks = info.num_tasks
+            self.requires_group_scoring = info.requires_group_scoring
         get_logger().info(
             f"Env {self.name} ready: num_tasks={self.num_tasks} group_scoring={self.requires_group_scoring}"
         )
 
+    def validate_task(self, task: vf.Task) -> vf.Task:
+        """Reject task behavior or data that the stateless worker cannot reconstruct."""
+        if self._task_class is None:
+            raise RuntimeError(f"Native task type for {self.name} has not been loaded")
+        if type(task) is not self._task_class:
+            raise ValueError(
+                f"Env {self.name} yielded {type(task).__name__}; worker reconstructs {self._task_class.__name__}"
+            )
+        if task.config != self.config.env.taskset.task:
+            raise ValueError(f"Env {self.name} yielded per-row task config that differs from its worker config")
+        if type(task.data.idx) is not int:
+            raise ValueError(f"Env {self.name} requires an integer task.data.idx for rollout records")
+        data_class = task_data_cls(self._task_class)
+        if any(field.exclude for field in data_class.model_fields.values()):
+            raise ValueError(f"Env {self.name} task data contains excluded fields that cannot survive dispatch")
+        payload = task.data.model_dump(mode="json")
+        rebuilt = data_class.model_validate(payload)
+        if rebuilt != task.data or rebuilt.model_dump(mode="json") != payload:
+            raise ValueError(f"Env {self.name} task data changes when reconstructed by its worker")
+        from verifiers.v1.tasksets.harbor import HarborTask
+
+        if isinstance(task, HarborTask) and not (Path(task.data.task_dir) / "tests").is_dir():
+            raise ValueError(f"Env {self.name}: Harbor grading artifacts are missing at {task.data.task_dir!r}/tests")
+        return task
+
     async def _spawn(self, log_dir: Path, log_level: str, json_logging: bool) -> str:
-        """Spawn a v1 EnvServer child process (it loads the env; we never do).
+        """Spawn a worker for agent execution (and legacy dataset ownership).
         The server binds an OS-assigned port (``:0``) and reports the concrete
         address back over a queue — no free-port guess, no TOCTOU race. Its output
         goes to ``<log_dir>/<name>.log`` (``log_dir`` is already the train/eval-split
@@ -181,10 +217,14 @@ class Env:
         task_idx: int,
         model_name: str,
         cache_salt: str | None,
+        task_data: dict | None = None,
     ) -> vf.WireEpisode:
-        """Run one indexed task through the native or upstream legacy episode producer."""
+        """Run selected native data or a legacy dataset row through the episode producer."""
+        if self.config.is_legacy == (task_data is not None):
+            raise ValueError("Native requests require task_data; legacy requests require a dataset row")
         return await self.env_client.run(
-            task_idx=task_idx,
+            task_idx=task_idx if self.config.is_legacy else None,
+            task_data=task_data,
             client=client,
             model=model_name,
             sampling=self._sampling(cache_salt),
@@ -196,10 +236,11 @@ class Env:
         task_idx: int,
         model_name: str,
         cache_salt: str | None,
+        task_data: dict | None = None,
     ) -> Rollout:
         """Project a canonical single-trace episode onto the rollout consumer boundary."""
         return from_episode(
-            await self.run_episode(client, task_idx, model_name, cache_salt),
+            await self.run_episode(client, task_idx, model_name, cache_salt, task_data=task_data),
             task_idx=task_idx,
         )
 
@@ -252,8 +293,15 @@ class EvalEnv(Env):
 
     async def start(self, log_dir: Path, log_level: str | None = None, json_logging: bool = False) -> None:
         await super().start(log_dir=log_dir, log_level=log_level, json_logging=json_logging)
-        n = self.num_tasks if self.config.num_examples < 0 else min(self.config.num_examples, self.num_tasks)
-        self.examples = [{"task_idx": i} for i in range(n)]
+        n = self.config.num_examples
+        if self.tasks is None:
+            count = self.num_tasks if n < 0 else min(n, self.num_tasks)
+            self.examples = [{"task_idx": i} for i in range(count)]
+            return
+        if self.num_tasks is None and n < 0:
+            raise ValueError(f"Eval env {self.name} has an infinite taskset; set num_examples to bound it")
+        tasks = list(self.tasks) if n < 0 else list(islice(self.tasks, n))
+        self.examples = [{"task_idx": task.data.idx, "task": task} for task in tasks]
 
 
 EnvT = TypeVar("EnvT", bound=Env)

@@ -1,0 +1,90 @@
+{
+  "verifier_module": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/task-ownership-verifiers/verifiers/v1/__init__.py",
+  "client_load_count": 1,
+  "worker_load_count": 0,
+  "workers": [
+    {
+      "pid": 43560,
+      "task_data": {
+        "idx": 17,
+        "name": null,
+        "description": null,
+        "prompt": "selected task",
+        "system_prompt": null,
+        "image": null,
+        "workdir": null,
+        "network_allow": [
+          "*"
+        ],
+        "network_block": [],
+        "timeout": {
+          "setup": null,
+          "harness": null,
+          "finalize": null,
+          "scoring": null
+        },
+        "resources": {
+          "cpu": null,
+          "memory": null,
+          "gpu": null,
+          "disk": null
+        },
+        "value_function_prompt": "private answer",
+        "nested": {
+          "x": [
+            "first"
+          ]
+        }
+      },
+      "artifact_sha256": "bc44dc174c2e6908e50e50498afdac78b7a4766c94a8bef7f38ce964b0a6d5a7"
+    },
+    {
+      "pid": 43559,
+      "task_data": {
+        "idx": 17,
+        "name": null,
+        "description": null,
+        "prompt": "selected task",
+        "system_prompt": null,
+        "image": null,
+        "workdir": null,
+        "network_allow": [
+          "*"
+        ],
+        "network_block": [],
+        "timeout": {
+          "setup": null,
+          "harness": null,
+          "finalize": null,
+          "scoring": null
+        },
+        "resources": {
+          "cpu": null,
+          "memory": null,
+          "gpu": null,
+          "disk": null
+        },
+        "value_function_prompt": "private answer",
+        "nested": {
+          "x": [
+            "first"
+          ]
+        }
+      },
+      "artifact_sha256": "bc44dc174c2e6908e50e50498afdac78b7a4766c94a8bef7f38ce964b0a6d5a7"
+    }
+  ],
+  "harbor": {
+    "network_allow": [
+      "example.org"
+    ],
+    "task_dir": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/task-ownership-results/worker-preflight-harbor-wire/harbor",
+    "shared_local_artifact": true,
+    "local_admitted": true,
+    "missing_artifacts_rejected": true,
+    "external_worker_rejected_before_io": true,
+    "docker_policy_resolved": true,
+    "unsupported_prime_policy_rejected": true
+  },
+  "limits": "Actual EnvServer reconstruction in two local processes; actual Harbor 0.14.0 parser. No remote filesystem, Docker egress enforcement, or model-training claim. Separate producer smoke covers ZMQ and harness execution."
+}

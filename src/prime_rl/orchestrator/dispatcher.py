@@ -387,6 +387,7 @@ class RolloutDispatcher:
             kind=kind,
             env_name=env_name,
             task_idx=example["task_idx"],
+            task_data=example["task"].data.model_dump(mode="json") if "task" in example else None,
             rollouts_to_schedule=group_size,
             target_rollouts=group_size,
             eval_step=eval_step,
@@ -458,6 +459,7 @@ class RolloutDispatcher:
                 env.run_rollout(
                     client=client,
                     task_idx=group.task_idx,
+                    task_data=group.task_data,
                     model_name=model_name,
                     cache_salt=cache_salt,
                 )

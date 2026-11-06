@@ -61,7 +61,7 @@ def test_normalized_legacy_env_keeps_legacy_dispatch():
             }
         )
     assert config.is_legacy and config.env_id == "reverse-text"
-    assert config.env.taskset is None
+    assert config.env.taskset.id == ""
     assert config.env.agent.harness.id == "bash"
     assert EnvConfig.model_validate_json(config.model_dump_json()) == config
 

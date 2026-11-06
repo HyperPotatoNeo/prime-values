@@ -66,6 +66,7 @@ class GroupState:
     task_idx: int
     rollouts_to_schedule: int
     target_rollouts: int
+    task_data: dict | None = None
     emitted: int = 0
     eval_step: int | None = None
     pinned_client: vf.ClientConfig | None = None

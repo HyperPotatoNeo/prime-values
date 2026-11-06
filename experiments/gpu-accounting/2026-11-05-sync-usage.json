@@ -1,0 +1,112 @@
+{
+  "report_at_utc": "2026-11-06T01:51:06.071504+00:00",
+  "scope": "Only Prime Values synchronization jobs owned by this chat; do not double count the independent80GPU RG run or other chats proof jobs.",
+  "jobs": [
+    {
+      "job": "pv-value-baseline-001",
+      "cluster": "resolution-h200-2",
+      "namespace": "siddarth",
+      "requested_gpus": 8,
+      "gpu_model": "NVIDIA H200",
+      "purpose": "Frozen value behavior; tiny Llama one/two-rank numerical and restart checks",
+      "manifest": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/baseline/job.json",
+      "status": "completed/deleted",
+      "allocation_start": null,
+      "allocation_end": null,
+      "allocation_gpu_hours": null,
+      "time_integrated_gpu_utilization": null
+    },
+    {
+      "job": "pv-rl-safety-001",
+      "cluster": "resolution-h200-2",
+      "namespace": "siddarth",
+      "requested_gpus": 8,
+      "gpu_model": "NVIDIA H200",
+      "purpose": "Safety oracles plus first real Qwen attempt; host-RAM OOM",
+      "manifest": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/rl-safety/job.json",
+      "status": "completed/deleted",
+      "allocation_start": null,
+      "allocation_end": null,
+      "allocation_gpu_hours": null,
+      "time_integrated_gpu_utilization": null,
+      "container_finished_at": "2026-11-05T23:07:48Z",
+      "termination": "OOMKilled exit137 at128GiB hostRAM; source failed-pipeline-attempt.json"
+    },
+    {
+      "job": "pv-rl-safety-002",
+      "cluster": "resolution-h200-2",
+      "namespace": "siddarth",
+      "requested_gpus": 8,
+      "gpu_model": "NVIDIA H200",
+      "purpose": "Qwen dedicated critic pipeline fresh/restart",
+      "manifest": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/rl-safety/job-002.json",
+      "status": "completed/deleted",
+      "allocation_start": null,
+      "allocation_end": null,
+      "allocation_gpu_hours": null,
+      "time_integrated_gpu_utilization": null
+    },
+    {
+      "job": "pv-rl-safety-003",
+      "cluster": "resolution-h200-2",
+      "namespace": "siddarth",
+      "requested_gpus": 8,
+      "gpu_model": "NVIDIA H200",
+      "purpose": "Qwen trainer-hosted critic pipeline fresh/restart",
+      "manifest": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/rl-safety/job-003.json",
+      "status": "completed/deleted",
+      "allocation_start": null,
+      "allocation_end": null,
+      "allocation_gpu_hours": null,
+      "time_integrated_gpu_utilization": null,
+      "pod": "pv-rl-safety-003-wgl7q",
+      "pod_scheduled_at": "2026-11-05T23:10:36Z",
+      "container_started_at": "2026-11-05T23:10:48Z",
+      "container_finished_at": "2026-11-05T23:38:48Z",
+      "pod_deletion_timestamp": "2026-11-05T23:38:48Z",
+      "allocation_gpu_hours_proxy": 3.76,
+      "proxy_definition": "PodScheduled to deletionTimestamp; not exact device-lease or compute time",
+      "status_source": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/rl-safety/cleanup-pods.json",
+      "termination_note": "Exit137 in deletion snapshot is cleanup after validation, not the earlier OOM attempt."
+    },
+    {
+      "job": "pv-episode-sync-001",
+      "cluster": "resolution-h200-2",
+      "namespace": "siddarth",
+      "requested_gpus": 8,
+      "gpu_model": "NVIDIA H200",
+      "purpose": "Sequential Episode, TaskData and planned packing validation; same retained node",
+      "manifest": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/episode-sync/job-001.json",
+      "status": "active",
+      "allocation_start": null,
+      "allocation_end": null,
+      "allocation_gpu_hours": null,
+      "time_integrated_gpu_utilization": null,
+      "pod": "pv-episode-sync-001-xr7f4",
+      "job_status_startTime": "2026-11-06T00:51:26Z",
+      "ongoing_job_elapsed_gpu_hours_proxy": 7.955714453333333,
+      "proxy_definition": "8 requested GPUs times elapsed Job.status.startTime through report; not admission/pod-scheduling precision or active compute",
+      "status_source": "Successful clusterctl get-job earlier in this chat plus current persistent validation monitor; latest standalone refresh401 retained as a monitoring failure, not termination."
+    }
+  ],
+  "observed_gpu_activity": [
+    "Baseline and safety numerical tests used1or2GPUs while8were reserved.",
+    "Dedicated realQwen pipeline config assigns4GPU roles: policy trainer, policy inference, critic trainer, dedicated critic evaluator. Trainer-hosted placement assigns3roles; policy-only assigns2. Role assignment is not GPU utilization.",
+    "Unit2 completeall5stagesnaturalexit0; saved319sourcefingerprints/265evidencehashes. Afterunit2nvidia-smi compute-app query wasempty while8GPUs remained reserved; exacttimestamp ofthatidle snapshot wasnotcaptured.",
+    "TaskDatafresh3updates passednatural0; resumeactor4/critic5 observed, finalcleanup pending. Same8GPUreservation, notanotherjob."
+  ],
+  "known_limits": [
+    "No NVML/DCGM utilization timeseries or integratedGPUcompute-hours collected. No FLOP/cost claim.",
+    "Exact allocation start/end forbaseline andsafety001/002 cannotbe reconstructed fromretainedmanifests. Do not infer them fromfilemtime.",
+    "Allhistoricalbaseline/safetyjobsdeleted; old cleanup JSON provesabsencebutnot preciseendtimestamps.",
+    "Safety002 and003 overlappossible; no peakconcurrencytotalclaimed. Do notsum5jobs as40simultaneousGPUs."
+  ],
+  "evidence": [
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/rl-safety/failed-pipeline-attempt.json",
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/rl-safety/cleanup-final.json",
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/episode-sync/runtime/post-driver-processes.txt",
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/episode-sync/evidence/validation-environment.json",
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/episode-sync/evidence.tar.gz"
+  ],
+  "future_practice": "Record launch/submission/admission/scheduled/start/end/deletion timestamps, GPUmodel/count, job/podIDs, phase/task, source/config refs and allocation-vs-compute distinctions. Preservefailedattemptsandidleheldintervals; usecentralcacheaccountinghelper/schemaonceavailable. Captureutilizationonlyifactuallymeasured; neverinventit."
+}

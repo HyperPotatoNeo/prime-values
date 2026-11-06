@@ -1,0 +1,33 @@
+{
+  "scope": "Scratch-only task ownership candidate; frozen live Episode production unchanged.",
+  "focused_tests": {
+    "passed": 47,
+    "failed": 0,
+    "skipped": 0,
+    "selection": [
+      "test_task_ownership.py",
+      "test_episode_sink.py",
+      "test_episodes.py",
+      "test_train_sink.py",
+      "test_value_context.py"
+    ]
+  },
+  "new_oracles": [
+    "36 frozen finite seeded selections across mixed environment weights, permit starvation and epochs; compare native row position rather than semantic idx",
+    "owned payload survives nested source mutation; actual dispatcher scheduling reuses payload and cancellation settles completed/inflight/unscheduled siblings exactly once",
+    "invalid row subclass, per-row configuration, missing identity, excluded direct/nested fields fail explicitly",
+    "infinite task generator is lazy under no permits or blocked dispatch gate"
+  ],
+  "boundary_fakes": [
+    "inference client selection",
+    "EnvClient episode I/O in dispatcher cancellation test; real two-worker producer is separate evidence"
+  ],
+  "import_guards_passed": true,
+  "lint": "Ruff check and formatting passed",
+  "test_source_sha256": "39eae609367fdc05bf72ec8201b6540837f12f63ce3b972a29677ad29e6a5814",
+  "limitations": [
+    "No model/GPU execution in these checks",
+    "No exact sampler resume or global identity-history claim",
+    "Real worker dataset-load/payload/artifact checks belong to separate preflight receipt"
+  ]
+}

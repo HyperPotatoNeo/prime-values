@@ -1,0 +1,32 @@
+{
+  "status": "Complete: integrated CPU, real producer and dedicated Qwen fresh/resume checks pass; scope limitations remain explicit.",
+  "base_source_bundle": "work/episode-sync/source-002/source.tar.gz",
+  "verifier_before": "192fd8ef0d2fdcefc8566b0ec793d73631e7b51a",
+  "verifier_after": "b13ba60da63cea91389e7575766b7270d0d11fc5",
+  "verifier_clean_build_version": "0.2.2.dev17",
+  "lock_unchanged": true,
+  "numeric_full_entries_equal": 9,
+  "protected_value_files_equal": 20,
+  "new_tests": 4,
+  "focused_combined_tests_passed": 47,
+  "config_compatibility_passed": 3,
+  "real_producer_http_requests": 5,
+  "workers": 2,
+  "client_loads": 1,
+  "worker_loads": 0,
+  "adversarial_review": "safe_loss reviewed task/group tests and Harbor admission; parent reviewed core task/payload/guard design",
+  "initial_preflight_failure": "Two-worker probe initially passed bare EnvConfig to SingleAgentEnv and failed before reconstruction; corrected to actual resolve_env_config. Failed attempt directory retained outside repository. No production behavior failure was hidden.",
+  "integration": {
+    "base_source_revision": "4835142d6febbcaa204d320bdc54c2410d7d4f18",
+    "focused_checks": 47,
+    "config_checks": 3,
+    "frozen_comparisons": 8,
+    "exact_match": true,
+    "baseline_reference": "experiments/episode-boundary/results/credit/baseline.json",
+    "baseline_sha256": "e9e74c184acff63ea9f4553a791c4f5cf30e1b67616fb99862ff5c10c20e1e16",
+    "baseline_revision": "f6b9a40c1abaea7077fcda54304a8f29cab10e25",
+    "gpu_status": "PASS: fresh policy1..3/critic1..4; resume policy4/critic5; both natural exits0; exact restored counters2864tokens/6samples, final3860/8.",
+    "gpu_evidence": "gpu-summary.json",
+    "independent_root_verification": "root-verification.json"
+  }
+}

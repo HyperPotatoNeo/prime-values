@@ -1,0 +1,280 @@
+{
+  "output/dedicated/fresh/stage-exit.json": {
+    "natural_returncode": 0,
+    "returncode_after_cleanup": 0
+  },
+  "output/dedicated/fresh/result.json": {
+    "placement": "dedicated",
+    "policy_steps": [
+      1,
+      2,
+      3
+    ],
+    "policy_losses": [
+      -0.0024,
+      0.0083,
+      0.0611
+    ],
+    "policy_gradient_norms": [
+      3.1736,
+      9.5644,
+      2.8322
+    ],
+    "value_versions": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "value_losses": [
+      0.81887,
+      0.73284,
+      0.42892,
+      0.32895
+    ],
+    "max_observed_evaluator_version": 4,
+    "dedicated_adoptions": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "policy_checkpoint": 3,
+    "stable_value_checkpoints": [
+      4
+    ],
+    "resume_policy_step": null,
+    "resume_value_step": null,
+    "checkpoint_progress": {
+      "1": {
+        "step": 1,
+        "total_tokens": 1000,
+        "total_samples": 2
+      },
+      "2": {
+        "step": 2,
+        "total_tokens": 1942,
+        "total_samples": 4
+      },
+      "3": {
+        "step": 3,
+        "total_tokens": 2864,
+        "total_samples": 6
+      }
+    },
+    "stage_exit": {
+      "natural_returncode": 0,
+      "returncode_after_cleanup": 0
+    },
+    "log_classifications": {
+      "inference.log": "clear",
+      "orchestrator.log": "clear",
+      "trainer.log": "clear",
+      "value_evaluator.log": "clear",
+      "value_trainer.log": "clear",
+      "envs/train/reverse-text-v1.log": "clear",
+      "trainer/torchrun/a8d955e8a788472b9c77f2a12ae44775_qc9z67hl/attempt_0/0/stderr.log": "clear",
+      "trainer/torchrun/a8d955e8a788472b9c77f2a12ae44775_qc9z67hl/attempt_0/0/stdout.log": "clear",
+      "value_trainer/torchrun/e87458fe36924fe2819216b79df6c62f_plmcohyp/attempt_0/0/stderr.log": "clear",
+      "value_trainer/torchrun/e87458fe36924fe2819216b79df6c62f_plmcohyp/attempt_0/0/stdout.log": "clear"
+    }
+  },
+  "output/dedicated/resumed/stage-exit.json": {
+    "natural_returncode": 0,
+    "returncode_after_cleanup": 0
+  },
+  "output/dedicated/resumed/result.json": {
+    "placement": "dedicated",
+    "policy_steps": [
+      4
+    ],
+    "policy_losses": [
+      -0.0198
+    ],
+    "policy_gradient_norms": [
+      2.0701
+    ],
+    "value_versions": [
+      5
+    ],
+    "value_losses": [
+      0.27706
+    ],
+    "max_observed_evaluator_version": 5,
+    "dedicated_adoptions": [
+      4,
+      5
+    ],
+    "policy_checkpoint": 4,
+    "stable_value_checkpoints": [
+      5
+    ],
+    "resume_policy_step": 3,
+    "resume_value_step": 4,
+    "checkpoint_progress": {
+      "3": {
+        "step": 3,
+        "total_tokens": 2864,
+        "total_samples": 6
+      },
+      "4": {
+        "step": 4,
+        "total_tokens": 3860,
+        "total_samples": 8
+      }
+    },
+    "stage_exit": {
+      "natural_returncode": 0,
+      "returncode_after_cleanup": 0
+    },
+    "log_classifications": {
+      "inference.log": "clear",
+      "orchestrator.log": "clear",
+      "trainer.log": "clear",
+      "value_evaluator.log": "clear",
+      "value_trainer.log": "clear",
+      "envs/train/reverse-text-v1.log": "clear",
+      "trainer/torchrun/c13207f17d3e4994add5975e07426ea9_se1w_qaa/attempt_0/0/stderr.log": "clear",
+      "trainer/torchrun/c13207f17d3e4994add5975e07426ea9_se1w_qaa/attempt_0/0/stdout.log": "clear",
+      "value_trainer/torchrun/06c645d41b2547f5b21c4256cf0b6e6b_4z54kyo9/attempt_0/0/stderr.log": "clear",
+      "value_trainer/torchrun/06c645d41b2547f5b21c4256cf0b6e6b_4z54kyo9/attempt_0/0/stdout.log": "clear"
+    }
+  },
+  "output/dedicated/summary.json": {
+    "fresh": {
+      "placement": "dedicated",
+      "policy_steps": [
+        1,
+        2,
+        3
+      ],
+      "policy_losses": [
+        -0.0024,
+        0.0083,
+        0.0611
+      ],
+      "policy_gradient_norms": [
+        3.1736,
+        9.5644,
+        2.8322
+      ],
+      "value_versions": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "value_losses": [
+        0.81887,
+        0.73284,
+        0.42892,
+        0.32895
+      ],
+      "max_observed_evaluator_version": 4,
+      "dedicated_adoptions": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "policy_checkpoint": 3,
+      "stable_value_checkpoints": [
+        4
+      ],
+      "resume_policy_step": null,
+      "resume_value_step": null,
+      "checkpoint_progress": {
+        "1": {
+          "step": 1,
+          "total_tokens": 1000,
+          "total_samples": 2
+        },
+        "2": {
+          "step": 2,
+          "total_tokens": 1942,
+          "total_samples": 4
+        },
+        "3": {
+          "step": 3,
+          "total_tokens": 2864,
+          "total_samples": 6
+        }
+      },
+      "stage_exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "log_classifications": {
+        "inference.log": "clear",
+        "orchestrator.log": "clear",
+        "trainer.log": "clear",
+        "value_evaluator.log": "clear",
+        "value_trainer.log": "clear",
+        "envs/train/reverse-text-v1.log": "clear",
+        "trainer/torchrun/a8d955e8a788472b9c77f2a12ae44775_qc9z67hl/attempt_0/0/stderr.log": "clear",
+        "trainer/torchrun/a8d955e8a788472b9c77f2a12ae44775_qc9z67hl/attempt_0/0/stdout.log": "clear",
+        "value_trainer/torchrun/e87458fe36924fe2819216b79df6c62f_plmcohyp/attempt_0/0/stderr.log": "clear",
+        "value_trainer/torchrun/e87458fe36924fe2819216b79df6c62f_plmcohyp/attempt_0/0/stdout.log": "clear"
+      }
+    },
+    "resumed": {
+      "placement": "dedicated",
+      "policy_steps": [
+        4
+      ],
+      "policy_losses": [
+        -0.0198
+      ],
+      "policy_gradient_norms": [
+        2.0701
+      ],
+      "value_versions": [
+        5
+      ],
+      "value_losses": [
+        0.27706
+      ],
+      "max_observed_evaluator_version": 5,
+      "dedicated_adoptions": [
+        4,
+        5
+      ],
+      "policy_checkpoint": 4,
+      "stable_value_checkpoints": [
+        5
+      ],
+      "resume_policy_step": 3,
+      "resume_value_step": 4,
+      "checkpoint_progress": {
+        "3": {
+          "step": 3,
+          "total_tokens": 2864,
+          "total_samples": 6
+        },
+        "4": {
+          "step": 4,
+          "total_tokens": 3860,
+          "total_samples": 8
+        }
+      },
+      "stage_exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "log_classifications": {
+        "inference.log": "clear",
+        "orchestrator.log": "clear",
+        "trainer.log": "clear",
+        "value_evaluator.log": "clear",
+        "value_trainer.log": "clear",
+        "envs/train/reverse-text-v1.log": "clear",
+        "trainer/torchrun/c13207f17d3e4994add5975e07426ea9_se1w_qaa/attempt_0/0/stderr.log": "clear",
+        "trainer/torchrun/c13207f17d3e4994add5975e07426ea9_se1w_qaa/attempt_0/0/stdout.log": "clear",
+        "value_trainer/torchrun/06c645d41b2547f5b21c4256cf0b6e6b_4z54kyo9/attempt_0/0/stderr.log": "clear",
+        "value_trainer/torchrun/06c645d41b2547f5b21c4256cf0b6e6b_4z54kyo9/attempt_0/0/stdout.log": "clear"
+      }
+    }
+  }
+}
