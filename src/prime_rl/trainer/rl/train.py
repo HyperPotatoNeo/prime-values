@@ -35,9 +35,12 @@ from prime_rl.trainer.rl.loss import (
     shift_tensor_right,
 )
 from prime_rl.trainer.rl.metrics import (
+    accumulate_policy_provenance,
     accumulate_token_metrics,
+    compute_policy_provenance,
     compute_token_metrics,
     micro_step_message,
+    policy_version_reference,
     prepare_token_env_ids,
 )
 from prime_rl.trainer.rl.normalization import global_loss_scales
@@ -312,6 +315,10 @@ def train(config: TrainerConfig):
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
         diagnostic_summaries = TensorSummaries()
         token_summaries = TensorSummaries(include_std=True)
+        provenance_summaries = TensorSummaries()
+        reference_version = policy_version_reference(
+            step=progress.step, max_concurrent_runs=config.max_concurrent_runs, has_lora=config.model.lora is not None
+        )
         cp_enabled = parallel_dims.cp_enabled
         cp_rank = parallel_dims.world_mesh["cp"].get_local_rank() if cp_enabled else 0
         cp_group = parallel_dims.world_mesh["cp"].get_group() if cp_enabled else None
@@ -477,6 +484,13 @@ def train(config: TrainerConfig):
                 env_names=metric_env_names,
                 env_ids=metric_env_ids,
             )
+            accumulate_policy_provenance(
+                provenance_summaries,
+                token_policy_versions=micro_batch.get("token_policy_versions"),
+                eligible_mask=mismatch_mask,
+                reference_version=reference_version,
+                observe=cp_rank == 0,
+            )
 
             token_exporter.export(
                 progress.step,
@@ -639,6 +653,7 @@ def train(config: TrainerConfig):
         # Synchronize the tensor metrics across all steps and ranks
         tensor_stats = tensors.compute_stats()
         tensor_stats.update(compute_token_metrics(token_summaries, diagnostic_summaries))
+        tensor_stats.update(compute_policy_provenance(provenance_summaries))
 
         # Compute step metrics
         perf_counter = get_perf_counter(model, seq_len)

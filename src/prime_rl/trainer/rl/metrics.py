@@ -67,6 +67,85 @@ def compute_token_metrics(summaries: TensorSummaries, diagnostics: TensorSummari
     return metrics
 
 
+def policy_version_reference(*, step: int, max_concurrent_runs: int, has_lora: bool) -> int | None:
+    """Only base-model, single-run steps identify the weights used by this forward."""
+    if max_concurrent_runs != 1 or has_lora:
+        return None
+    if type(step) is not int or not 1 <= step <= 2**63:
+        raise ValueError("A policy step must identify an int64 pre-update weight version")
+    return step - 1
+
+
+@torch.no_grad()
+def accumulate_policy_provenance(
+    summaries: TensorSummaries,
+    *,
+    token_policy_versions: Tensor | None,
+    eligible_mask: Tensor,
+    reference_version: int | None,
+    observe: bool = True,
+) -> None:
+    """Observe the validated physical-axis carrier, without changing token eligibility.
+
+    CP forwards gather full sequences on every CP rank. Only CP rank zero owns
+    these observations; every rank still participates in compute_stats below.
+    """
+    if not observe:
+        return
+    if eligible_mask.dtype != torch.bool:
+        raise ValueError("Policy provenance eligibility must be boolean")
+    if token_policy_versions is not None:
+        if token_policy_versions.dtype != torch.int64 or token_policy_versions.shape != eligible_mask.shape:
+            raise ValueError("Policy versions must be int64 on the full physical token axis")
+        versions = token_policy_versions.detach().to(eligible_mask.device, non_blocking=True)
+        known = versions >= 0
+    else:
+        versions = None
+        known = torch.zeros_like(eligible_mask)
+    one = torch.ones_like(eligible_mask)
+    summaries.add("observed_policy_version/eligible", one, eligible_mask)
+    summaries.add("observed_policy_version/known", one, eligible_mask & known)
+    summaries.add("observed_policy_version/unknown", one, eligible_mask & ~known)
+    if reference_version is None:
+        return
+    if type(reference_version) is not int or not 0 <= reference_version <= 2**63 - 1:
+        raise ValueError("The reference policy version must be a nonnegative int64")
+    future = versions > reference_version if versions is not None else known
+    valid_age = eligible_mask & known & ~future
+    summaries.add("observed_policy_version/future", one, eligible_mask & future)
+    # Replace unknown/future labels before subtraction: INT64_MAX and -1 must
+    # never overflow or become invented negative/zero ages in the population.
+    ages = (
+        reference_version - torch.where(valid_age, versions, reference_version)
+        if versions is not None
+        else torch.zeros_like(eligible_mask, dtype=torch.int64)
+    )
+    summaries.add("sampled_weight_age", ages, valid_age)
+
+
+def compute_policy_provenance(summaries: TensorSummaries) -> dict[str, float | int]:
+    reduced = summaries.compute_stats()
+    if not reduced:
+        return {}
+    prefix = "observed_policy_version/"
+    eligible = reduced[f"{prefix}eligible/count"]
+    metrics = {f"{prefix}eligible_count": eligible}
+    for population in ("known", "unknown", "future"):
+        key = f"{prefix}{population}"
+        if f"{key}/count" in reduced:
+            count = reduced[f"{key}/count"]
+            metrics[f"{key}_count"] = count
+            if eligible:
+                metrics[f"{key}_fraction"] = count / eligible
+    if "sampled_weight_age/count" in reduced:
+        count = reduced["sampled_weight_age/count"]
+        metrics["sampled_weight_age/count"] = count
+        if count:
+            for stat in ("mean", "max"):
+                metrics[f"sampled_weight_age/{stat}"] = reduced[f"sampled_weight_age/{stat}"]
+    return metrics
+
+
 def micro_step_message(
     micro_step: int,
     num_micro_batches: int,
