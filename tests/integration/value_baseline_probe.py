@@ -17,9 +17,10 @@ from transformers import LlamaConfig, LlamaForCausalLM
 
 import prime_rl.trainer.model as model_module
 import prime_rl.trainer.models.llama.modeling_llama as llama_module
+import prime_rl.utils.act_offloading as offloading_module
 import prime_rl.utils.sequence as sequence_module
 import prime_rl.value.batch as batch_module
-from prime_rl.configs.trainer import CompileConfig
+from prime_rl.configs.trainer import ActivationCheckpointConfig, ActivationOffloadingConfig, CompileConfig
 from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.trainer.parallel_dims import get_parallel_dims
 from prime_rl.trainer.utils import setup_torch_distributed
@@ -65,7 +66,7 @@ def _snapshot(runtime):
         for key, value in runtime.optimizer.state.get(parameter, {}).items():
             if isinstance(value, torch.Tensor):
                 moments[f"{name}/{key}"] = _cpu(value)
-    return {
+    result = {
         "model": model,
         "moments": moments,
         "version": runtime.version,
@@ -74,13 +75,17 @@ def _snapshot(runtime):
         "lr": runtime.optimizer.param_groups[0]["lr"],
         "scheduler": runtime.scheduler.state_dict(),
     }
+    if hasattr(runtime, "_probe_gradients"):
+        result["gradients"] = runtime._probe_gradients
+    return result
 
 
 def _compare(left, right, *, rtol, atol):
     for key in ("version", "total_tokens", "total_samples", "lr", "scheduler"):
         assert left[key] == right[key], (key, left[key], right[key])
     measurements = {}
-    for group in ("model", "moments"):
+    assert ("gradients" in left) == ("gradients" in right)
+    for group in ("model", "moments") + (("gradients",) if "gradients" in left else ()):
         assert left[group].keys() == right[group].keys()
         max_relative = 0.0
         max_absolute = 0.0
@@ -123,6 +128,7 @@ def _compare_updates(initial_left, initial_right, left, right):
 def _source_receipt(expected_root):
     sources = {
         "runtime": Path(inspect.getfile(ValueTrainerRuntime)).resolve(),
+        "offloading": Path(offloading_module.__file__).resolve(),
         "model": Path(model_module.__file__).resolve(),
         "llama_backbone": Path(llama_module.__file__).resolve(),
         "sequence": Path(sequence_module.__file__).resolve(),
@@ -142,7 +148,7 @@ def _source_receipt(expected_root):
     }
 
 
-def run(output, resume, compiled=False, source_root=None):
+def run(output, resume, compiled=False, source_root=None, activation_offload=False, checkpoint_activations=False):
     source_receipt = _source_receipt(source_root)
     if compiled and output.exists():
         raise FileExistsError(f"Compiled fresh run requires a new output directory: {output}")
@@ -180,8 +186,8 @@ def run(output, resume, compiled=False, source_root=None):
                 "impl": "custom",
                 "ep": 1,
                 "compile": CompileConfig().model_dump() if compiled else None,
-                "ac": None,
-                "ac_offloading": None,
+                "ac": ActivationCheckpointConfig().model_dump() if checkpoint_activations else None,
+                "ac_offloading": ActivationOffloadingConfig().model_dump() if activation_offload else None,
                 "optim_cpu_offload": False,
             },
             "loss": {"type": "mse"},
@@ -198,7 +204,32 @@ def run(output, resume, compiled=False, source_root=None):
         (output / "config.json").write_text(config.model_dump_json(indent=2))
     dims = get_parallel_dims(config.model)
     captured_before = int(torch._dynamo.utils.counters["stats"]["unique_graphs"])
+    offload_counts = []
+    if activation_offload:
+        original_offloader = offloading_module.OffloadActivations
+
+        class ObservedOffloader(original_offloader):
+            def __exit__(self, *args):
+                offload_counts.append(sum(offloaded for _, offloaded in self.tracker.values()))
+                assert self.use_streams is False
+                return super().__exit__(*args)
+
+        offloading_module.OffloadActivations = ObservedOffloader
     runtime = ValueTrainerRuntime(config, dims)
+    original_step = runtime.optimizer.step
+
+    def observed_step(*args, **kwargs):
+        runtime._probe_gradients = {
+            name: _cpu(parameter.grad)
+            for name, parameter in runtime.model.named_parameters()
+            if parameter.grad is not None
+        }
+        assert runtime._probe_gradients
+        return original_step(*args, **kwargs)
+
+    if compiled:
+        runtime._probe_gradients = {}
+        runtime.optimizer.step = observed_step
     compiled_layers = sum(layer._compiled_call_impl is not None for layer in runtime.model.model.layers)
     if compiled:
         assert compiled_layers == len(runtime.model.model.layers) == 2
@@ -240,8 +271,15 @@ def run(output, resume, compiled=False, source_root=None):
     compile_receipts = [None] * world.world_size
     dist.all_gather_object(
         compile_receipts,
-        {"compiled_layers": compiled_layers, "captured_graphs": compiled_graphs, "moment_dtypes": moment_dtypes},
+        {
+            "compiled_layers": compiled_layers,
+            "captured_graphs": compiled_graphs,
+            "moment_dtypes": moment_dtypes,
+            "offloaded_counts": offload_counts,
+        },
     )
+    if activation_offload:
+        assert offload_counts and sum(offload_counts) > 0, "the actual critic must offload real activations"
     runtime.finish()
     if world.is_master:
         for name, state in (("initial", initial), ("step1", step1), ("step2", uninterrupted)):
@@ -254,6 +292,9 @@ def run(output, resume, compiled=False, source_root=None):
                     "total_tokens": 20,
                     "total_samples": 6,
                     "compiled": compiled,
+                    "activation_offload": activation_offload,
+                    "checkpoint_activations": checkpoint_activations,
+                    "rank_local_offloaded_counts": offload_counts,
                     "compile_config": config.model.compile.model_dump() if config.model.compile is not None else None,
                     "rank_compile_receipts": compile_receipts,
                     "sources": source_receipt,
@@ -301,6 +342,8 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--compare", type=Path, nargs=2)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--checkpoint-activations", action="store_true", help="Use normal full block checkpointing")
+    parser.add_argument("--activation-offload", action="store_true", help="Enable normal activation-offload config")
     parser.add_argument("--compiled", action="store_true", help="Use the normal model-block compilation configuration")
     parser.add_argument(
         "--source-root", type=Path, help="Require runtime and configuration imports under this checkout"
@@ -313,6 +356,10 @@ def main():
         originals = [json.loads((path / "result.json").read_text()) for path in args.compare_compiled]
         assert all(result["world_size"] == 2 and result["compiled"] for result in originals), originals
         assert originals[0]["sources"]["harness_sha256"] == originals[1]["sources"]["harness_sha256"]
+        resolved = [json.loads((path / "config.json").read_text()) for path in args.compare_compiled]
+        assert resolved[0]["model"]["ac"] == resolved[1]["model"]["ac"], "checkpointing must match across controls"
+        for config in resolved:
+            assert config["model"]["optimization_dtype"] == config["model"]["reduce_dtype"] == "float32"
         assert originals[0]["compile_config"] == originals[1]["compile_config"]
         assert originals[0]["layouts"] == originals[1]["layouts"]
         results = {}
@@ -351,7 +398,16 @@ def main():
             parser.error("--output is required when not comparing")
         if args.compiled and (args.resume or args.source_root is None):
             parser.error("--compiled requires --source-root and a fresh run without --resume")
-        run(args.output, args.resume, compiled=args.compiled, source_root=args.source_root)
+        if args.activation_offload and not (args.compiled and args.checkpoint_activations):
+            parser.error("--activation-offload acceptance requires --compiled --checkpoint-activations")
+        run(
+            args.output,
+            args.resume,
+            compiled=args.compiled,
+            source_root=args.source_root,
+            activation_offload=args.activation_offload,
+            checkpoint_activations=args.checkpoint_activations,
+        )
 
 
 if __name__ == "__main__":

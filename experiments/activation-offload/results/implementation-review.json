@@ -1,0 +1,18 @@
+{
+  "status": "implementation staged; independent review and GPU acceptance pending",
+  "upstream": "53aecbf10ed0be79555c26a7a66f5c56218f0fa8",
+  "base": "frozen metric-streaming candidate8-file patch85e0c6ecaf46a799fa09f991c314852e05293075538e2c5d6fdd5b51d490298a",
+  "production_files": {
+    "src/prime_rl/utils/act_offloading.py": "6a6492bde80195a59ffb94f83aff8037fdee0703a17b6ec26eab70f871c06591",
+    "src/prime_rl/trainer/rl/train.py": "3bc7ab2aaf879a04c50cc1d2db787dbd35c07c86b84b1bb966d74d785dac26a6",
+    "src/prime_rl/trainer/sft/train.py": "2b1f2735c7981834cce02c89d5eba362021247dc4cdb419d3b78f6d300bb585c",
+    "src/prime_rl/value/trainer.py": "1473a908524aebdbdb368edd9301293488779a91d4653ef690eae851d33612e9"
+  },
+  "checks": [
+    "Ruff check and format4files passed via uv run --no-project --with ruff",
+    "All4 AST parse",
+    "All3 helper callers found and updated",
+    "8 protected config/loss/value/boundary files byte-identical"
+  ],
+  "contract": "Live parameter slots read on every eligible saved tensor; DTensor local storage lookup in no_grad; no storage cache/deduplication; pin_memory and min_offload_size retained; streams remain disabled."
+}

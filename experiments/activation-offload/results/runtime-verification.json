@@ -1,0 +1,19 @@
+{
+  "driver_exit": 0,
+  "stage_exits": {
+    "frozen-experts-off": 0,
+    "frozen-experts-on": 0,
+    "candidate-experts-on": 0,
+    "frozen-critic-off": 0,
+    "frozen-critic-on": 0,
+    "candidate-critic-on": 0,
+    "compare-frozen-critic": 0,
+    "compare-candidate-critic": 0
+  },
+  "negative_control_qualification": "Any failed frozen-experts-on stage requires manual diagnosis; driver0 alone does not establish historical bug reproduction.",
+  "frozen_entries_verified": 2353,
+  "candidate_files_verified": 2355,
+  "observed_at": "2026-11-06T02:49:23.584141+00:00",
+  "scope": "Compiled expert EP/FSDP parameter-storage offload checks and independent compiled critic runtime parity; no full-model throughput/reward claim.",
+  "archive_exclusions": "Candidate source and duplicate uploaded payload files excluded; all numerical tensor/checkpoint artifacts included."
+}

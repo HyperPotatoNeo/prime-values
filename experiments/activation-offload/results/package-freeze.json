@@ -1,0 +1,28 @@
+{
+  "status": "independent source/harness review clear; frozen for GPU acceptance",
+  "base": "immutable unit5 metric-streaming candidate; remote /data/trainer-metrics-001/candidate",
+  "upstream": "53aecbf10ed0be79555c26a7a66f5c56218f0fa8",
+  "patch_sha256": "7d921aadc48aa6977393d27e38ec885c87061a425cb4de020b9ce727600ac3e9",
+  "changed_file_count": 7,
+  "protected_file_count": 198,
+  "roundtrip": "Fresh temporary tree populated from exact base; applied patch and verified all7 file bytes, no extra files",
+  "harnesses": {
+    "tests/integration/offload_storage_probe.py": "b274eae6dab7f9ab18cdbc5112187086809d8a913a7ecb41ee5b4ce9ac51173b",
+    "tests/integration/value_baseline_probe.py": "af12a15cca32250941c75ef872aa0f83ceef09f4751b9efa79047668da529ef6"
+  },
+  "commands": "unit6_commands.sh",
+  "review": [
+    "Dynamic parameter slots; no storage cache/deduplication; all3 callers; config pin_memory/streams/precision unchanged",
+    "Expert probe uses initialized real GroupedExperts, actual EP2 and nested FSDP, compiled graphs; observer retains metadata only, requires live expert storage replacement, candidate zero expert copies and positive activation copies, exact full gradients/Adam/model against successful offload-disabled reference",
+    "Critic real2rank compiled runtime: matched full AC for all controls, resolved AC equality and FP32 guards, full pre-step gradients and Adam state/update comparison; positive offloaded activation counts",
+    "Live Parameter replacement and equal-valued activation-clone controls distinguish identity from value",
+    "Frozen expert offloader failure is preserved but requires runtime classification; not every nonzero exit is evidence of historical bug"
+  ],
+  "checks": [
+    "Production4file Ruff+format pass",
+    "Harness author Ruff+format pass reported",
+    "All6Python files AST parse",
+    "Fresh-tree applied-byte verification7files and198protected hashes"
+  ],
+  "gpu_results": "pending"
+}

@@ -1,0 +1,309 @@
+{
+  "expert": {
+    "frozen-experts-off": [
+      {
+        "rank": 0,
+        "tensor_count": 48,
+        "compiled_graphs": 6,
+        "expert_alias_saves": 0,
+        "expert_alias_copies": 0,
+        "expert_alias_copied_bytes": 0,
+        "all_parameter_copied_bytes": 0,
+        "activation_copies": 0,
+        "activation_copied_bytes": 0,
+        "replacement_control": null
+      },
+      {
+        "rank": 1,
+        "tensor_count": 48,
+        "compiled_graphs": 6,
+        "expert_alias_saves": 0,
+        "expert_alias_copies": 0,
+        "expert_alias_copied_bytes": 0,
+        "all_parameter_copied_bytes": 0,
+        "activation_copies": 0,
+        "activation_copied_bytes": 0,
+        "replacement_control": null
+      }
+    ],
+    "frozen-experts-on": [
+      {
+        "rank": 0,
+        "tensor_count": 48,
+        "compiled_graphs": 6,
+        "expert_alias_saves": 6,
+        "expert_alias_copies": 6,
+        "expert_alias_copied_bytes": 196608,
+        "all_parameter_copied_bytes": 196608,
+        "activation_copies": 16,
+        "activation_copied_bytes": 126976,
+        "replacement_control": null
+      },
+      {
+        "rank": 1,
+        "tensor_count": 48,
+        "compiled_graphs": 6,
+        "expert_alias_saves": 6,
+        "expert_alias_copies": 6,
+        "expert_alias_copied_bytes": 196608,
+        "all_parameter_copied_bytes": 196608,
+        "activation_copies": 16,
+        "activation_copied_bytes": 126976,
+        "replacement_control": null
+      }
+    ],
+    "candidate-experts-on": [
+      {
+        "rank": 0,
+        "tensor_count": 48,
+        "compiled_graphs": 6,
+        "expert_alias_saves": 6,
+        "expert_alias_copies": 0,
+        "expert_alias_copied_bytes": 0,
+        "all_parameter_copied_bytes": 0,
+        "activation_copies": 16,
+        "activation_copied_bytes": 126976,
+        "replacement_control": {
+          "replaced_parameter_retained": true,
+          "equal_valued_activation_clone_offloaded": true
+        }
+      },
+      {
+        "rank": 1,
+        "tensor_count": 48,
+        "compiled_graphs": 6,
+        "expert_alias_saves": 6,
+        "expert_alias_copies": 0,
+        "expert_alias_copied_bytes": 0,
+        "all_parameter_copied_bytes": 0,
+        "activation_copies": 16,
+        "activation_copied_bytes": 126976,
+        "replacement_control": {
+          "replaced_parameter_retained": true,
+          "equal_valued_activation_clone_offloaded": true
+        }
+      }
+    ]
+  },
+  "critic": {
+    "frozen-critic-off": {
+      "world_size": 2,
+      "layouts": [
+        [
+          [
+            0
+          ],
+          [
+            2
+          ]
+        ],
+        [
+          [
+            1
+          ],
+          [
+            -1
+          ]
+        ]
+      ],
+      "total_tokens": 20,
+      "total_samples": 6,
+      "compiled": true,
+      "activation_offload": false,
+      "checkpoint_activations": true,
+      "rank_local_offloaded_counts": [],
+      "compile_config": {
+        "fullgraph": false
+      },
+      "rank_compile_receipts": [
+        {
+          "compiled_layers": 2,
+          "captured_graphs": 2,
+          "moment_dtypes": [
+            "torch.float32"
+          ],
+          "offloaded_counts": []
+        },
+        {
+          "compiled_layers": 2,
+          "captured_graphs": 2,
+          "moment_dtypes": [
+            "torch.float32"
+          ],
+          "offloaded_counts": []
+        }
+      ],
+      "snapshot_tensor_counts": {
+        "initial": 22,
+        "step1": 110,
+        "step2": 110
+      }
+    },
+    "frozen-critic-on": {
+      "world_size": 2,
+      "layouts": [
+        [
+          [
+            0
+          ],
+          [
+            2
+          ]
+        ],
+        [
+          [
+            1
+          ],
+          [
+            -1
+          ]
+        ]
+      ],
+      "total_tokens": 20,
+      "total_samples": 6,
+      "compiled": true,
+      "activation_offload": true,
+      "checkpoint_activations": true,
+      "rank_local_offloaded_counts": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "compile_config": {
+        "fullgraph": false
+      },
+      "rank_compile_receipts": [
+        {
+          "compiled_layers": 2,
+          "captured_graphs": 2,
+          "moment_dtypes": [
+            "torch.float32"
+          ],
+          "offloaded_counts": [
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "compiled_layers": 2,
+          "captured_graphs": 2,
+          "moment_dtypes": [
+            "torch.float32"
+          ],
+          "offloaded_counts": [
+            10,
+            0,
+            10,
+            0
+          ]
+        }
+      ],
+      "snapshot_tensor_counts": {
+        "initial": 22,
+        "step1": 110,
+        "step2": 110
+      }
+    },
+    "candidate-critic-on": {
+      "world_size": 2,
+      "layouts": [
+        [
+          [
+            0
+          ],
+          [
+            2
+          ]
+        ],
+        [
+          [
+            1
+          ],
+          [
+            -1
+          ]
+        ]
+      ],
+      "total_tokens": 20,
+      "total_samples": 6,
+      "compiled": true,
+      "activation_offload": true,
+      "checkpoint_activations": true,
+      "rank_local_offloaded_counts": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "compile_config": {
+        "fullgraph": false
+      },
+      "rank_compile_receipts": [
+        {
+          "compiled_layers": 2,
+          "captured_graphs": 2,
+          "moment_dtypes": [
+            "torch.float32"
+          ],
+          "offloaded_counts": [
+            10,
+            10,
+            10,
+            10
+          ]
+        },
+        {
+          "compiled_layers": 2,
+          "captured_graphs": 2,
+          "moment_dtypes": [
+            "torch.float32"
+          ],
+          "offloaded_counts": [
+            10,
+            0,
+            10,
+            0
+          ]
+        }
+      ],
+      "snapshot_tensor_counts": {
+        "initial": 22,
+        "step1": 110,
+        "step2": 110
+      }
+    }
+  },
+  "archive": {
+    "sha256": "0aca221e61c5c1ad2f1fca1cfa9a8e187917841e4c7d4e9bf83e9bef65ffdc83",
+    "bytes": 51039501,
+    "files_verified": 96,
+    "verification": {
+      "driver_exit": 0,
+      "stage_exits": {
+        "frozen-experts-off": 0,
+        "frozen-experts-on": 0,
+        "candidate-experts-on": 0,
+        "frozen-critic-off": 0,
+        "frozen-critic-on": 0,
+        "candidate-critic-on": 0,
+        "compare-frozen-critic": 0,
+        "compare-candidate-critic": 0
+      },
+      "negative_control_qualification": "Any failed frozen-experts-on stage requires manual diagnosis; driver0 alone does not establish historical bug reproduction.",
+      "frozen_entries_verified": 2353,
+      "candidate_files_verified": 2355,
+      "observed_at": "2026-11-06T02:49:23.584141+00:00",
+      "scope": "Compiled expert EP/FSDP parameter-storage offload checks and independent compiled critic runtime parity; no full-model throughput/reward claim.",
+      "archive_exclusions": "Candidate source and duplicate uploaded payload files excluded; all numerical tensor/checkpoint artifacts included."
+    }
+  },
+  "resource_after": {
+    "observed_at": "2026-11-06T02:49:23.584141+00:00",
+    "selected_stage_devices_not_utilization": true,
+    "gpu_processes": "",
+    "processes": "    PID ELAPSED COMMAND\n      1    7067 bash -lc set -eu; mkdir -p /data/episode-sync-001; touch /data/episode-sync-001/ready; while [ ! -e /data/episode-sync-001/done ]; do sleep 5; done\n  15051     184 bash /data/activation-offload-001/launch.sh\n  15073     162 uv run --no-sync python /data/activation-offload-001/monitor.py\n  15081     162 /app/.venv/bin/python /data/activation-offload-001/monitor.py\n  16795       2 uv run --no-sync python /data/activation-offload-001/finalize.py\n  16798       2 /app/.venv/bin/python /data/activation-offload-001/finalize.py\n  16802       0 sleep 5\n  16803       0 ps -eo pid,etimes,args\n"
+  }
+}

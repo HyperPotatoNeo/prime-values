@@ -1,0 +1,48 @@
+{
+  "status": "pass",
+  "archive_bytes": 51039501,
+  "archive_sha256": "0aca221e61c5c1ad2f1fca1cfa9a8e187917841e4c7d4e9bf83e9bef65ffdc83",
+  "archive_files_verified": 96,
+  "active_source_config_test_hashes_verified": 332,
+  "documentation_only_source_exception": {
+    "paths": [
+      "src/prime_rl/orchestrator/types.py"
+    ],
+    "reason": "ea3768a4 changes Rollout docstring only; frozen hash and executable AST identity independently checked"
+  },
+  "exact_tensor_comparisons": {
+    "frozen-experts-on/rank0": 48,
+    "candidate-experts-on/rank0": 48,
+    "frozen-experts-on/rank1": 48,
+    "candidate-experts-on/rank1": 48,
+    "frozen-critic-on/initial": 22,
+    "frozen-critic-on/step1": 110,
+    "frozen-critic-on/step2": 110,
+    "candidate-critic-on/initial": 22,
+    "candidate-critic-on/step1": 110,
+    "candidate-critic-on/step2": 110
+  },
+  "observed_copy_volume": {
+    "frozen-experts-on/rank0": {
+      "parameter_alias_copied_bytes": 196608,
+      "activation_copied_bytes": 126976
+    },
+    "candidate-experts-on/rank0": {
+      "parameter_alias_copied_bytes": 0,
+      "activation_copied_bytes": 126976
+    },
+    "frozen-experts-on/rank1": {
+      "parameter_alias_copied_bytes": 196608,
+      "activation_copied_bytes": 126976
+    },
+    "candidate-experts-on/rank1": {
+      "parameter_alias_copied_bytes": 0,
+      "activation_copied_bytes": 126976
+    }
+  },
+  "limits": [
+    "Actual tiny EP2 compiled/nestedFSDP expert block, not full MoE training or throughput.",
+    "Actual compiled2rank critic with same full activation checkpointing across all controls; full gradients/FP32model/Adam and nonzero updates compared.",
+    "Copy bytes count saved events, not peak memory or end-to-end speed."
+  ]
+}

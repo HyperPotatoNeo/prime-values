@@ -271,7 +271,7 @@ class ValueTrainerRuntime:
                 if model_supports_packed_sequence_metadata(self.model)
                 else None
             )
-            with maybe_activation_offloading(self.config.model.ac_offloading):
+            with maybe_activation_offloading(self.config.model.ac_offloading, self.model):
                 logits = predict_value(self.model, input_ids, position_ids, packing_metadata=packing_metadata)
                 logits = align_value_logits(logits, micro_batch.sequence_lengths)
                 loss, metrics = compute_value_loss(logits, targets, mask, self.config.loss, active.scale)

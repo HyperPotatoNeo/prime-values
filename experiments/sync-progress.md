@@ -13,6 +13,7 @@ The comparison target is Prime RL `3c96816de9a2a906649a04026a46517840a0f4a6`; th
 | Critic ownership | Critic-owned trajectory snapshots and pure credit module, independent of later policy mutation | `4b8ca528` |
 | Canonical Episodes | Actual native and maintained legacy producers through a deliberately single-trace boundary | `4835142d` |
 | Explicit packing boundaries | Host-owned boundaries with exact covered model, CP and compiled critic comparisons | `1708eb0c` |
+| Parameter-safe activation offload | Live parameter storage exclusion with exact compiled expert and critic comparisons | [Evidence](activation-offload/README.md) |
 | Streaming trainer metrics | Bounded standard entropy/mismatch collection; preserved scalar/custom metrics | [Evidence](trainer-metrics/README.md) |
 | Native task ownership | One selected/serialized task per group; stateless native workers; preserved legacy addressing and group scoring | `5f80407b` |
 
@@ -24,7 +25,9 @@ Explicit packed-sequence boundaries have passed their separate acceptance checks
 
 Standard entropy and mismatch now use masked GPU summaries instead of retaining per-token CPU arrays and gathering all tokens. Scalar/sample/custom metrics retain their existing path and medians. Stable variance, nonfinite values, empty ranks and environment membership passed independent CPU and NCCL oracles. An actual trainer update preserved exported weights and filtered telemetry; the accumulation profiler confirmed reduced host transfers without establishing end-to-end speed. See [metric evidence](trainer-metrics/README.md).
 
-The next bounded unit fixes activation-offload ownership: saved views of live parameter storage must remain on device while real activations still offload. Compiled/FSDP storage lifecycle and full critic gradients/updates require acceptance before integration.
+Activation offload now excludes views of live parameter storage and still offloads real activations. Actual compiled expert/FSDP and compiled critic controls passed exact gradient/state/update comparisons with matched activation checkpointing. See [offload evidence](activation-offload/README.md).
+
+The next correctness unit restores non-tensor optimizer-group metadata when loading CPU-offloaded optimizer checkpoints. It must reproduce the existing metadata gap and compare actual resumed updates against uninterrupted Muon and Adam controls before integration.
 
 ## Next dependency boundary
 

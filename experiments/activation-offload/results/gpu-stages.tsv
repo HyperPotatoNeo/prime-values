@@ -1,0 +1,16 @@
+2026-11-06T02:46:40Z	frozen-experts-off	start	0,1	/data/trainer-metrics-001/candidate
+2026-11-06T02:46:59Z	frozen-experts-off	end	0
+2026-11-06T02:46:59Z	frozen-experts-on	start	0,1	/data/trainer-metrics-001/candidate
+2026-11-06T02:47:17Z	frozen-experts-on	end	0
+2026-11-06T02:47:17Z	candidate-experts-on	start	0,1	/data/activation-offload-001/candidate
+2026-11-06T02:47:36Z	candidate-experts-on	end	0
+2026-11-06T02:47:36Z	frozen-critic-off	start	0,1	/data/trainer-metrics-001/candidate
+2026-11-06T02:48:01Z	frozen-critic-off	end	0
+2026-11-06T02:48:01Z	frozen-critic-on	start	0,1	/data/trainer-metrics-001/candidate
+2026-11-06T02:48:23Z	frozen-critic-on	end	0
+2026-11-06T02:48:23Z	candidate-critic-on	start	0,1	/data/activation-offload-001/candidate
+2026-11-06T02:48:46Z	candidate-critic-on	end	0
+2026-11-06T02:48:46Z	compare-frozen-critic	start	0	/data/activation-offload-001/candidate
+2026-11-06T02:48:58Z	compare-frozen-critic	end	0
+2026-11-06T02:48:58Z	compare-candidate-critic	start	0	/data/activation-offload-001/candidate
+2026-11-06T02:49:10Z	compare-candidate-critic	end	0

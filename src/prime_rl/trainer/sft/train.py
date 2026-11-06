@@ -261,7 +261,7 @@ def train(config: SFTConfig):
 
         token_count = loss_mask.sum(dtype=torch.int64)
 
-        with maybe_activation_offloading(config.model.ac_offloading):
+        with maybe_activation_offloading(config.model.ac_offloading, model):
             if config.loss_impl in ("liger_fused", "quack_fused"):
                 masked_target_ids = target_ids.clone()
                 masked_target_ids[~loss_mask] = FUSED_CE_IGNORE_INDEX

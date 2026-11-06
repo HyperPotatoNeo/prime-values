@@ -1,0 +1,97 @@
+{
+  "world_size": 2,
+  "layouts": [
+    [
+      [
+        0
+      ],
+      [
+        2
+      ]
+    ],
+    [
+      [
+        1
+      ],
+      [
+        -1
+      ]
+    ]
+  ],
+  "total_tokens": 20,
+  "total_samples": 6,
+  "compiled": true,
+  "activation_offload": true,
+  "checkpoint_activations": true,
+  "rank_local_offloaded_counts": [
+    10,
+    10,
+    10,
+    10
+  ],
+  "compile_config": {
+    "fullgraph": false
+  },
+  "rank_compile_receipts": [
+    {
+      "compiled_layers": 2,
+      "captured_graphs": 2,
+      "moment_dtypes": [
+        "torch.float32"
+      ],
+      "offloaded_counts": [
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "compiled_layers": 2,
+      "captured_graphs": 2,
+      "moment_dtypes": [
+        "torch.float32"
+      ],
+      "offloaded_counts": [
+        10,
+        0,
+        10,
+        0
+      ]
+    }
+  ],
+  "sources": {
+    "expected_root": "/data/trainer-metrics-001/candidate",
+    "files": {
+      "runtime": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/value/trainer.py",
+        "sha256": "9e4cb051c303b87abbdceb8d43243760c0248cebd1a711d7dbd7bd42fcb2c536"
+      },
+      "offloading": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/utils/act_offloading.py",
+        "sha256": "1eb19c7c2fde8ff657ddb718e11f8385f0be756a713a311bb09aebb0f3c1d425"
+      },
+      "model": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/model.py",
+        "sha256": "c669a091e5090a53808b48710647af69cbb1be843aa45c10a5ec4534dd390b51"
+      },
+      "llama_backbone": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/models/llama/modeling_llama.py",
+        "sha256": "d97ccf56495823949299f8bee4893dba943fe784fa0cb1ae312e6f050a0fe388"
+      },
+      "sequence": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/utils/sequence.py",
+        "sha256": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29"
+      },
+      "value_batch": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/value/batch.py",
+        "sha256": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2"
+      },
+      "config": {
+        "path": "/data/trainer-metrics-001/candidate/packages/prime-rl-configs/src/prime_rl/configs/value.py",
+        "sha256": "a379a646ee6139031f45fccabdcf6a7ebe50c90ab924af55b954a3c07a74a149"
+      }
+    },
+    "harness_sha256": "af12a15cca32250941c75ef872aa0f83ceef09f4751b9efa79047668da529ef6"
+  }
+}

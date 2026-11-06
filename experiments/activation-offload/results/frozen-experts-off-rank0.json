@@ -1,0 +1,20 @@
+{
+  "mode": "off",
+  "rank": 0,
+  "compiled_graphs": 6,
+  "observations": [],
+  "replacement_control": null,
+  "reference": "None",
+  "source_files": {
+    "offloading": {
+      "path": "/data/trainer-metrics-001/candidate/src/prime_rl/utils/act_offloading.py",
+      "sha256": "1eb19c7c2fde8ff657ddb718e11f8385f0be756a713a311bb09aebb0f3c1d425"
+    },
+    "experts": {
+      "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/models/layers/moe.py",
+      "sha256": "1836a27cab1e9e5e61061b3852a981fcfc32e5d25fe5e9a7303e3be6fdda2e21"
+    }
+  },
+  "harness_sha256": "b274eae6dab7f9ab18cdbc5112187086809d8a913a7ecb41ee5b4ce9ac51173b",
+  "scope": "Actual GroupedExperts, torch EP2 and nested FSDP with compiled block; FP32 masters/reduction/Adam, BF16 forward. Not a full model or throughput benchmark."
+}
