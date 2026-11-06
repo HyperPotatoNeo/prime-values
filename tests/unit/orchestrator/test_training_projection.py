@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import verifiers.v1 as vf
 from pydantic import ValidationError
-from renderers.base import MultiModalData
+from verifiers.v1.configs.agent import WireAgentConfig
 
 from prime_rl.configs.orchestrator import (
     EvalEnvConfig,
@@ -27,6 +27,7 @@ def _trace():
     # make both token filters sensitive to the training visibility boundary.
     return vf.WireTrace(
         task=vf.TraceTask(type="fixture", data=vf.WireTaskData(idx=9, prompt="question")),
+        agent=vf.AgentInfo(config=WireAgentConfig(model="fixture")),
         nodes=[
             vf.MessageNode(
                 message=vf.UserMessage(content="question"),
@@ -45,12 +46,17 @@ def _trace():
             ),
         ],
         calls=[vf.ModelCall(node=1, finish_reason="stop", usage=vf.Usage(prompt_tokens=4, completion_tokens=3))],
-        rewards={"score": 0.75},
+        rewards={"score": vf.Reward(score=0.75)},
         ok=True,
         is_completed=True,
         stop_condition="task_complete",
         info={"environment_owned": {"keep": [1]}},
     )
+
+
+def _episode(*, traces=(), task_idx=9, **kwargs):
+    task = traces[0].task if traces else vf.TraceTask(type="fixture", data=vf.WireTaskData(idx=task_idx))
+    return vf.WireEpisode(task=task, env=vf.EnvInfo(id="fixture"), traces=list(traces), **kwargs)
 
 
 @pytest.mark.parametrize("limit,expected_length,actions", [(8, 7, 3), (7, 7, 3), (6, 6, 2), (4, 4, 0), (3, 3, 0)])
@@ -87,7 +93,7 @@ def test_projection_preserves_physical_response_but_changes_visible_actions(limi
 
 
 def test_from_episode_owns_projected_arrays_and_keeps_source_and_value_snapshot():
-    episode = vf.WireEpisode(id="physical", env="fixture", ok=True, traces=[_trace()])
+    episode = _episode(id="physical", ok=True, traces=[_trace()])
     raw = episode.model_dump_json()
     no_projection = from_episode(episode)
     assert len(no_projection.branches[0].token_ids) == 7
@@ -142,7 +148,7 @@ def test_token_filters_use_same_projected_boundary_as_materializer():
         "second_sampled",
         "routed",
         "multimodal",
-        "kept_tokens",
+        "sampling_mask",
         "tools",
     ],
 )
@@ -174,9 +180,9 @@ def test_projection_rejects_unsupported_or_malformed_source_before_mutation(malf
     elif malformation == "routed":
         trace.nodes[-1].routed_experts = np.zeros((4, 1, 1), dtype=np.uint8)
     elif malformation == "multimodal":
-        trace.nodes[0].multi_modal_data = MultiModalData(mm_hashes={"image": ["fixture"]})
-    elif malformation == "kept_tokens":
-        trace.nodes[-1].kept_tokens = vf.KeptTokens(
+        trace.mm_token_type_id_map = {1: 1}
+    elif malformation == "sampling_mask":
+        trace.nodes[-1].sampling_mask = vf.SamplingMask(
             ids=np.array([10, 1000, 11], dtype=np.int32), counts=np.ones(3, dtype=np.int32)
         )
     elif malformation == "tools":
@@ -200,20 +206,20 @@ def test_failed_empty_or_frozen_episodes_keep_existing_failure_and_eligibility_s
     config = SingleTurnTrainingProjectionConfig(max_seq_len=5)
     trace = _trace()
     trace.calls.clear()  # Would be inadmissible if projection incorrectly ran.
-    episode = vf.WireEpisode(ok=False, traces=[trace])
+    episode = _episode(ok=False, traces=[trace])
     rollout = from_episode(episode, training_projection=config)
     assert rollout.has_error and rollout.error.type == "EpisodeFailed"
     assert "prime_rl_training_projection" not in rollout.info
     trace.ok = False
     trace.errors = [vf.Error(type="OriginalFailure", message="provider failed")]
-    rollout = from_episode(vf.WireEpisode(ok=True, traces=[trace]), training_projection=config)
+    rollout = from_episode(_episode(ok=True, traces=[trace]), training_projection=config)
     assert rollout.has_error and rollout.error.type == "OriginalFailure"
-    empty = from_episode(vf.WireEpisode(ok=False), task_idx=19, training_projection=config)
+    empty = from_episode(_episode(ok=False, task_idx=19), task_idx=19, training_projection=config)
     assert empty.has_error and empty.task.data.idx == 19
     trace.ok = True
     trace.errors = []
-    trace.agent = vf.AgentInfo(model="frozen", trainable=False)
-    frozen = from_episode(vf.WireEpisode(ok=True, traces=[trace]), training_projection=config)
+    trace.agent = vf.AgentInfo(config=WireAgentConfig(model="frozen"), trainable=False)
+    frozen = from_episode(_episode(ok=True, traces=[trace]), training_projection=config)
     assert not frozen.trainable and not frozen.has_error
     assert "prime_rl_training_projection" not in frozen.info
 

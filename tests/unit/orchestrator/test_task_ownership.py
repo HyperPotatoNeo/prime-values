@@ -7,6 +7,7 @@ import uuid
 import pytest
 import verifiers.v1 as vf
 from pydantic import BaseModel, Field
+from verifiers.v1.configs.agent import WireAgentConfig
 
 from prime_rl.configs.algorithm import GRPOAlgoConfig
 from prime_rl.configs.orchestrator import TrainEnvConfig
@@ -45,25 +46,30 @@ class NestedTask(vf.Task[NestedData]):
     pass
 
 
-def _envs(*, legacy=False):
+def _envs(*, indexed=False):
     # Use a real native config and replace only its loaded dataset boundary.
     # Neither the dataset nor its execution runtime is needed for selection.
     configs = [
         TrainEnvConfig(
             name="native",
-            env={"taskset": {"id": "harbor"}},
+            env={"taskset": {"id": "reverse-text"}},
             group_size=3,
             ratio=1.0,
             algo=GRPOAlgoConfig(),
         )
     ]
-    if legacy:
-        configs.append(TrainEnvConfig(name="legacy", id="reverse-text", group_size=2, ratio=2.0, algo=GRPOAlgoConfig()))
+    if indexed:
+        configs.append(
+            TrainEnvConfig(
+                name="indexed", env={"taskset": {"id": "reverse-text"}}, group_size=2, ratio=2.0, algo=GRPOAlgoConfig()
+            )
+        )
     envs = TrainEnvs(configs, policy_pool=None)
     envs.get("native")._task_class = FixtureTask
-    if legacy:
-        envs.get("legacy").num_tasks = 3
-        envs.get("legacy").requires_group_scoring = True
+    if indexed:
+        # Exercise the index-only sampler seam, not a removed legacy runtime.
+        envs.get("indexed").num_tasks = 3
+        envs.get("indexed").requires_group_scoring = True
     return envs
 
 
@@ -93,7 +99,7 @@ def _dispatcher(envs, source):
 
 
 def test_finite_native_selection_preserves_frozen_seeded_position_sequence():
-    envs = _envs(legacy=True)
+    envs = _envs(indexed=True)
     native = envs.get("native")
     semantic_ids = [31, 7, 88, 2, 19]
     tasks = [_task(index, position) for position, index in enumerate(semantic_ids)]
@@ -114,31 +120,31 @@ def test_finite_native_selection_preserves_frozen_seeded_position_sequence():
         ("native", 0),
         ("native", 3),
         ("native", 2),
-        ("legacy", 0),
+        ("indexed", 0),
         None,
         None,
-        ("legacy", 2),
-        ("legacy", 1),
+        ("indexed", 2),
+        ("indexed", 1),
         ("native", 1),
-        ("legacy", 0),
-        ("legacy", 1),
+        ("indexed", 0),
+        ("indexed", 1),
         None,
-        ("legacy", 2),
+        ("indexed", 2),
         None,
-        ("legacy", 2),
-        ("legacy", 0),
+        ("indexed", 2),
+        ("indexed", 0),
         None,
         ("native", 1),
         ("native", 3),
-        ("legacy", 1),
+        ("indexed", 1),
         None,
-        ("legacy", 2),
-        ("legacy", 1),
+        ("indexed", 2),
+        ("indexed", 1),
         None,
-        ("legacy", 0),
+        ("indexed", 0),
         None,
-        ("legacy", 1),
-        ("legacy", 2),
+        ("indexed", 1),
+        ("indexed", 2),
     ]
     actual = []
     for permits in [0, 1, 2, 4, 1, 4, 2, 0, 4, 1, 2, 4] * 3:
@@ -153,7 +159,7 @@ def test_finite_native_selection_preserves_frozen_seeded_position_sequence():
             actual.append(("native", position))
         else:
             assert "task" not in example
-            actual.append(("legacy", example["task_idx"]))
+            actual.append(("indexed", example["task_idx"]))
     assert actual == expected
 
 
@@ -168,16 +174,17 @@ def test_group_owns_one_complete_payload_before_source_nested_data_changes():
                 return vf.EvalClientConfig()
 
         class EpisodeClient:
-            async def run(self, *, task_idx, task_data, client, model, sampling):
-                assert task_idx is None  # Native addressing never sends both.
+            async def run(self, *, task_data, client, model, sampling):
                 requests.append(json.loads(json.dumps(task_data)))
                 if len(requests) == 2:
                     second_started.set()
                     await hold_second.wait()
                 return vf.WireEpisode(
+                    task=vf.TraceTask(type="fixture", data=vf.WireTaskData.model_validate(task_data)),
                     ok=True,
                     traces=[
                         vf.WireTrace(
+                            agent=vf.AgentInfo(config=WireAgentConfig(model="fixture")),
                             ok=True,
                             task=vf.TraceTask(type="fixture", data=vf.WireTaskData.model_validate(task_data)),
                             nodes=[

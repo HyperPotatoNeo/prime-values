@@ -5,6 +5,7 @@ import uuid
 
 import pytest
 import verifiers.v1 as vf
+from verifiers.v1.configs.agent import WireAgentConfig
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.envs import TrainEnvs
@@ -74,7 +75,7 @@ def _sink(*, group_size=2, privileged=False, filter_stage=None):
         train={
             "env": [
                 {
-                    "id": "reverse-text",
+                    "env": {"taskset": {"id": "reverse-text"}},
                     "name": "sink",
                     "algo": {"type": "grpo", "baseline": {"type": "value"}, "branch_semantics": "sequential"},
                 }
@@ -116,6 +117,7 @@ def _sink(*, group_size=2, privileged=False, filter_stage=None):
 def _arrival(member, *, cancelled=False):
     trace = vf.WireTrace(
         id=f"trace-{member}",
+        agent=vf.AgentInfo(config=WireAgentConfig(model="fixture")),
         task=vf.TraceTask(type="fixture", data=vf.WireTaskData(idx=3, prompt="shared question")),
         nodes=[
             vf.MessageNode(message=vf.UserMessage(content="shared question"), token_ids=[1], mask=[False]),
@@ -129,12 +131,13 @@ def _arrival(member, *, cancelled=False):
             ),
         ],
         calls=[vf.ModelCall(node=1, finish_reason="stop")],
-        rewards={"reward": 1.0 if member == 0 else 0.5},
+        rewards={"reward": vf.Reward(score=1.0 if member == 0 else 0.5)},
         ok=True,
     )
     episode = vf.WireEpisode(
         id=f"episode-{member}",
-        env="sink",
+        env=vf.EnvInfo(id="fixture", name="sink"),
+        task=trace.task,
         ok=not cancelled,
         traces=[] if cancelled else [trace],
         errors=[vf.Error(type="Cancelled", message="dispatch cancelled")] if cancelled else [],
