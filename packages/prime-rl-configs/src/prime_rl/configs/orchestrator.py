@@ -423,6 +423,11 @@ WeightBroadcastConfig: TypeAlias = Annotated[
 
 
 class OrchestratorConfig(BaseConfig):
+    checkpoint_weights_dir: Path | None = None
+    """Durable trainer weight checkpoints for resume when broadcasts are retired."""
+    seed: int = 42
+    """Prompt selection seed; sampling RNG is configured on inference engines."""
+
     algo: AlgoConfig = GRPOAlgoConfig()
     """Training algorithm: sampling plus the per-token training signal (credit
     assignment and loss routing, fused — its ``type`` names the algorithm).
@@ -531,6 +536,9 @@ class OrchestratorConfig(BaseConfig):
 
     max_steps: int | None = None
     """Maximum training steps. If None, runs indefinitely."""
+
+    max_async_batches: int = Field(1, ge=1)
+    """Pause scheduling above this batch lead over the adopted policy. In-flight work can overshoot; log actual staleness."""
 
     max_off_policy_steps: int = Field(8, ge=0)
     """Maximum policies allowed to generate a single rollout. Rollouts generated more than ``max_off_policy_steps`` ahead of training are discarded. Higher values yield better throughput at the cost of off-policy noise."""

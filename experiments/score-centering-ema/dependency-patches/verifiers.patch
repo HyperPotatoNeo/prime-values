@@ -1,0 +1,136 @@
+diff --git a/verifiers/clients/renderer_client.py b/verifiers/clients/renderer_client.py
+index d7a58d0e8..843a7e56b 100644
+--- a/verifiers/clients/renderer_client.py
++++ b/verifiers/clients/renderer_client.py
+@@ -647,6 +647,7 @@ class RendererClient(
+             completion_mask=[1] * len(completion_ids),
+             completion_logprobs=completion_logprobs,
+             routed_experts=response.get("routed_experts"),
++            sampler_head=response.get("sampler_head"),
+             multi_modal_data=response.get("multi_modal_data"),
+             prompt_attribution=response.get("prompt_attribution"),
+         )
+diff --git a/verifiers/types.py b/verifiers/types.py
+index feac3b168..c05dd5416 100644
+--- a/verifiers/types.py
++++ b/verifiers/types.py
+@@ -212,6 +212,7 @@ class ResponseTokens(CustomBaseModel):
+     completion_mask: list[int]
+     completion_logprobs: list[float]
+     routed_experts: RoutedExpertsPayload | None = None
++    sampler_head: dict[str, Any] | None = None
+     # Renderer-emitted multimodal sidecar (renderers.base.MultiModalData)
+     # carrying processed pixel_values / placeholder ranges per modality.
+     # Populated by the renderer client when the rollout went through a
+diff --git a/verifiers/utils/response_utils.py b/verifiers/utils/response_utils.py
+index 7bc13bc22..6b1328ebb 100644
+--- a/verifiers/utils/response_utils.py
++++ b/verifiers/utils/response_utils.py
+@@ -64,6 +64,22 @@ def _truncate_prompt_attribution(attribution: Any, prompt_len: int) -> Any:
+     )
+ 
+ 
++def _slice_sampler_head(payload, length):
++    if payload is None:
++        return None
++    import base64
++    rows, k = payload["shape"]
++    if rows < length:
++        raise ValueError("Sampler head shorter than completion")
++    result = {"shape": [length, k]}
++    for key in ("ids", "logprobs"):
++        raw = base64.b64decode(payload[key], validate=True)
++        if len(raw) != rows * k * 4:
++            raise ValueError("Malformed sampler head")
++        result[key] = base64.b64encode(raw[:length * k * 4]).decode()
++    return result
++
++
+ async def parse_response_tokens(
+     response: Response, max_seq_len: int | None = None
+ ) -> TrajectoryStepTokens | None:
+@@ -80,6 +96,7 @@ async def parse_response_tokens(
+         completion_ids = tokens.completion_ids
+         completion_mask = tokens.completion_mask
+         completion_logprobs = tokens.completion_logprobs
++        sampler_head = tokens.sampler_head
+         routed_experts = tokens.routed_experts
+         multi_modal_data = tokens.multi_modal_data
+         prompt_attribution = tokens.prompt_attribution
+@@ -120,6 +137,7 @@ async def parse_response_tokens(
+             overlong_prompt=overlong_prompt,
+             is_truncated=is_truncated,
+             routed_experts=routed_experts,
++            sampler_head=_slice_sampler_head(sampler_head, len(completion_ids)),
+         )
+         if multi_modal_data is not None:
+             out["multi_modal_data"] = multi_modal_data
+diff --git a/verifiers/v1/clients/train.py b/verifiers/v1/clients/train.py
+index b8c8b7a39..9806c4464 100644
+--- a/verifiers/v1/clients/train.py
++++ b/verifiers/v1/clients/train.py
+@@ -150,6 +150,7 @@ def response_from_generate(
+             is_content=attribution.is_content if attribution is not None else None,
+             multi_modal_data=result.get("multi_modal_data"),
+             routed_experts=result.get("routed_experts"),
++            sampler_head=result.get("sampler_head"),
+         ),
+     )
+ 
+diff --git a/verifiers/v1/graph.py b/verifiers/v1/graph.py
+index 371bd7174..ccbc18d88 100644
+--- a/verifiers/v1/graph.py
++++ b/verifiers/v1/graph.py
+@@ -106,6 +106,7 @@ class MessageNode(StrictBaseModel):
+     """Provider-reported token usage for this message's response (assistant nodes). Preserved
+     on the wire and on disk, including cache-read tokens when the provider reports them."""
+     routed_experts: np.ndarray | None = None
++    sampler_head: dict[str, Any] | None = None
+     """This node's slice of the MoE expert-routing array — uint8 `[len(token_ids), layers,
+     top_k]`, the expert ids inference selected for exactly this node's tokens. Attributed from
+     the turn's `generate` payload by `_attribute_routed_experts`; `Branch.routed_experts`
+@@ -522,6 +523,7 @@ def _commit_turn(turn: PendingTurn, response: Response) -> None:
+             else [],
+             # TurnTokens is discarded after commit, so transfer its logprobs without copying.
+             logprobs=tokens.completion_logprobs if tokens else [],
++            sampler_head=tokens.sampler_head if tokens else None,
+             finish_reason=response.finish_reason,
+             usage=response.usage,
+         )
+diff --git a/verifiers/v1/legacy.py b/verifiers/v1/legacy.py
+index 02410b012..93772abe5 100644
+--- a/verifiers/v1/legacy.py
++++ b/verifiers/v1/legacy.py
+@@ -162,6 +162,7 @@ def _to_v1_tokens(raw: Any) -> TurnTokens | None:
+         prompt_ids=list(raw.get("prompt_ids") or []),
+         completion_ids=list(raw.get("completion_ids") or []),
+         completion_logprobs=list(raw.get("completion_logprobs") or []),
++        sampler_head=raw.get("sampler_head"),
+     )
+ 
+ 
+diff --git a/verifiers/v1/trace.py b/verifiers/v1/trace.py
+index d39d3ca75..2e74e69ca 100644
+--- a/verifiers/v1/trace.py
++++ b/verifiers/v1/trace.py
+@@ -204,7 +204,7 @@ class Branch(StrictBaseModel):
+ 
+ 
+ _NODE_DUMP_EXCLUDE: dict = {
+-    "nodes": {"__all__": {"multi_modal_data", "routed_experts"}}
++    "nodes": {"__all__": {"multi_modal_data", "routed_experts", "sampler_head"}}
+ }
+ """The per-node fields `Trace.to_record` strips from a JSON dump: the multimodal `mm_kwargs`
+ carrier and the router-replay `routed_experts` array. Both hold raw numpy bytes (msgpack `bin`)
+diff --git a/verifiers/v1/types.py b/verifiers/v1/types.py
+index d6ac58644..b1b514c1a 100644
+--- a/verifiers/v1/types.py
++++ b/verifiers/v1/types.py
+@@ -258,6 +258,7 @@ class TurnTokens(StrictBaseModel):
+     # per token), attributed per node by the turn's `commit` into `MessageNode.routed_experts`,
+     # then dropped. None unless the engine ran with `enable_return_routed_experts`.
+     routed_experts: RoutedExperts | None = Field(default=None, exclude=True)
++    sampler_head: dict[str, Any] | None = None
+ 
+ 
+ class Response(StrictBaseModel):

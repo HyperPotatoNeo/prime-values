@@ -1,0 +1,17 @@
+{
+  "status": "PREPARED_NOT_LAUNCHED",
+  "runs": [
+    "siddarth-rg-base-s11-k128-b0p01",
+    "siddarth-rg-base-s22-k128-b0p01",
+    "siddarth-rg-base-s33-k128-b0p01",
+    "siddarth-rg-sc-s11-k128-b0p01",
+    "siddarth-rg-sc-s22-k128-b0p01",
+    "siddarth-rg-sc-s33-k128-b0p01",
+    "siddarth-rg-ema-s11-k128-b0p01",
+    "siddarth-rg-ema-s22-k128-b0p01",
+    "siddarth-rg-ema-s33-k128-b0p01"
+  ],
+  "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+  "simultaneous_run_limit": 3,
+  "gpus_per_run": 32
+}

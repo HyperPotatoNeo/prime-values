@@ -117,6 +117,10 @@ class WeightWatcher:
             self.update_count += 1
             get_logger().debug(f"Updated weights to step {next_step} in {format_time(self.last_update_weights_time)}")
 
+            if self.config.weight_broadcast.type == "filesystem":
+                from prime_rl.utils.broadcast_retention import acknowledge
+
+                acknowledge(broadcast_dir, next_step)
             self.ckpt_step = next_step
             self.policy.version = next_step
             if self.lora_name is not None:

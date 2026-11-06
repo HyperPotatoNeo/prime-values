@@ -1,0 +1,14 @@
+[project]
+name = "rg-mix-env"
+version = "0.1.4"
+description = "Weighted mix of challenging reasoning-gym tasks for RL training with inverse pass@1 weighting"
+requires-python = ">=3.10"
+dependencies = ["verifiers>=0.1.9", "reasoning-gym>=0.1.10", "datasets"]
+tags = ["reasoning-gym", "rl", "math", "logic", "puzzle"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["rg_mix_env.py", "pyproject.toml", "README.md"]

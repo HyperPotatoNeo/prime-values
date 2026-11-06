@@ -1345,6 +1345,7 @@ def forward(
     labels: Int[Tensor, "batch seq"] | None = None,
     temperature: Tensor | None = None,
     routed_experts: Int[Tensor, "batch seq layers topk"] | None = None,
+    candidate_ids: Tensor | None = None,
     # Generic multimodal kwargs (e.g. {"pixel_values": ...,
     # "image_grid_thw": ...} for Qwen3-VL; just {"pixel_values": ...}
     # for Gemma3). Passed straight through to ``model(**kwargs)`` so
@@ -1380,6 +1381,8 @@ def forward(
     if routed_experts is not None:
         kwargs["routed_experts"] = routed_experts
 
+    if candidate_ids is not None:
+        kwargs["candidate_ids"] = candidate_ids
     out = model(**kwargs)
 
     # PrimeLmOutput is a TypedDict (dict at runtime), HF outputs are dataclass-like objects

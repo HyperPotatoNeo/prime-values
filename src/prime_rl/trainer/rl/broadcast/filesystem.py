@@ -30,6 +30,7 @@ class FileSystemWeightBroadcast(WeightBroadcast):
         self.save_format: Literal["safetensors", "torch"] = config.save_format
         self.save_sharded = config.save_sharded if lora_config is None else False
         self.world = get_world()
+        self.acknowledged_cleanup = config.acknowledged_cleanup
         self.multi_run_manager = get_multi_run_manager()
         self.logger.debug(
             f"Filesystem broadcast initialized (save_format={config.save_format}, save_sharded={self.save_sharded})"
@@ -111,6 +112,13 @@ class FileSystemWeightBroadcast(WeightBroadcast):
         stable_file.touch()
 
     def maybe_clean(self, interval_to_keep: int | None):
+        if self.acknowledged_cleanup:
+            if self.world.is_master:
+                from prime_rl.utils.broadcast_retention import clean_acknowledged
+                for idx in self.multi_run_manager.used_idxs:
+                    clean_acknowledged(get_broadcast_dir(self.multi_run_manager.get_run_dir(idx)),
+                                       self.multi_run_manager.progress[idx].step - 1)
+            return
         for idx in self.multi_run_manager.used_idxs:
             maybe_clean(
                 get_broadcast_dir(self.multi_run_manager.get_run_dir(idx)),

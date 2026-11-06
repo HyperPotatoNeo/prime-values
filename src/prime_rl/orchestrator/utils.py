@@ -96,7 +96,8 @@ def trim_process_memory() -> None:
         get_logger().debug(f"malloc_trim(0) failed: {exc!r}")
 
 
-def get_weight_dir(output_dir: Path, step: int, check_exists: bool = True, wait_timeout: int | None = None) -> Path:
+def get_weight_dir(output_dir: Path, step: int, check_exists: bool = True, wait_timeout: int | None = None,
+                   weights_dir: Path | None = None) -> Path:
     """Get the weight directory for a given checkpoint step.
 
     Args:
@@ -112,6 +113,10 @@ def get_weight_dir(output_dir: Path, step: int, check_exists: bool = True, wait_
     broadcast_weight_dir = get_step_path(get_broadcast_dir(output_dir), step)
 
     def find_stable_dir() -> Path | None:
+        if weights_dir is not None:
+            durable = get_step_path(weights_dir, step)
+            if (durable / "STABLE").exists():
+                return durable
         # For checkpoint weights, check STABLE file in parent directory (checkpoints/step_{step}/STABLE)
         ckpt_step_dir = get_step_path(get_ckpt_dir(output_dir), step)
         if (ckpt_step_dir / "STABLE").exists() and ckpt_weight_dir.exists():

@@ -32,6 +32,9 @@ class TensorMicroBatch(TypedDict):
     env_names: list[str]
     sequence_lengths: list[int]
 
+    sampler_topk_ids: Tensor | None
+    sampler_topk_logprobs: Tensor | None
+
     # Batch level
     lora_num_tokens: Int[Tensor, "n_loras"]
 
@@ -244,6 +247,8 @@ class DataLoader:
                 .unsqueeze(0)
             )
         return TensorMicroBatch(
+            sampler_topk_ids=decode_head(micro_batch.sampler_topk_ids),
+            sampler_topk_logprobs=decode_head(micro_batch.sampler_topk_logprobs),
             input_ids=torch.tensor(micro_batch.input_ids, dtype=torch.long).unsqueeze(0),
             position_ids=torch.tensor(micro_batch.position_ids, dtype=torch.long).unsqueeze(0),
             advantages=torch.tensor(micro_batch.advantages, dtype=torch.float).unsqueeze(0),
@@ -273,6 +278,14 @@ class DataLoader:
             run_id=micro_batch.run_id,
             run_step=micro_batch.run_step,
         )
+
+
+def decode_head(payload):
+    if payload is None:
+        return None
+    return (
+        torch.frombuffer(bytearray(payload.data), dtype=_torch_dtype(payload.dtype)).reshape(payload.shape).unsqueeze(0)
+    )
 
 
 def _torch_dtype(name: str) -> torch.dtype:

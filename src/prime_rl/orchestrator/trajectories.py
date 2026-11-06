@@ -201,9 +201,13 @@ def materialize_training_data(
             mm_kwargs = _encode_mm_kwargs(mmd.mm_items)
             mapping = mm_token_type_ids_mapping or {}
             mm_token_type_ids = [mapping.get(t, 0) for t in token_ids]
+        from prime_rl.orchestrator.sampler_head import branch_sampler_head
+        head_ids, head_logps = branch_sampler_head(branch)
         samples.append(
             TrainingSample(
                 token_ids=token_ids,
+                sampler_topk_ids=head_ids,
+                sampler_topk_logprobs=head_logps,
                 mask=mask,
                 logprobs=branch.logprobs,
                 temperatures=[],  # filled by TrainSink.process_group

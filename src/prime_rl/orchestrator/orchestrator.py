@@ -103,7 +103,6 @@ MAX_CONSECUTIVE_EMPTY_BATCHES = 10
 # Maximum batches the orchestrator may run ahead of the trainer. The
 # dispatcher is paused via ``update_dispatch_gate`` once this is exceeded;
 # resumed when the watcher advances ``policy.version``.
-TARGET_LAG = 1
 
 
 def _scalar_summary(prefix: str, values: list[float]) -> dict[str, float]:
@@ -367,7 +366,8 @@ class Orchestrator:
             check_exists = config.weight_broadcast.type != "nccl"
             wait_timeout = config.ckpt.wait_for_weights_timeout if config.ckpt else None
             weights_path = get_weight_dir(
-                config.output_dir, self.resume_step, check_exists=check_exists, wait_timeout=wait_timeout
+                config.output_dir, self.resume_step, check_exists=check_exists, wait_timeout=wait_timeout,
+                weights_dir=config.checkpoint_weights_dir,
             )
             await self.policy_inference.update_weights(weights_path, lora_name=self.lora_name, step=self.resume_step)
             if self.lora_name is not None:
@@ -377,7 +377,7 @@ class Orchestrator:
         else:
             get_logger().info("Training from scratch")
 
-        self.train_source = TrainSource(self.train_envs, seed=42)
+        self.train_source = TrainSource(self.train_envs, seed=config.seed)
         self.eval_source: EvalSource | None = (
             EvalSource(
                 self.eval_envs,
@@ -704,6 +704,10 @@ class Orchestrator:
             "time/wait_for_policy": self.wait_for_policy_time,
             "step": step,
         }
+        ages = [max(0, step - 1 - r.policy_version) for r in effective]
+        metrics["research/rollout_start_policy_age_mean"] = math.fsum(ages) / max(len(ages), 1)
+        metrics["research/rollout_start_policy_age_max"] = float(max(ages, default=0))
+        metrics["research/dispatcher_batch_lead"] = float((self.progress.step - 1) - self.policy.version)
         value_versions = [r.value_version for r in effective if r.value_version is not None]
         if value_versions:
             metrics["value/evaluator_version"] = float(max(value_versions))
@@ -1005,7 +1009,7 @@ class Orchestrator:
         lead = (self.progress.step - 1) - self.policy.version
         gate = self.dispatcher.dispatch_allowed
         was_set = gate.is_set()
-        if lead > TARGET_LAG:
+        if lead > self.config.max_async_batches:
             if was_set:
                 get_logger().info(
                     "Pausing dispatcher to prevent orchestrator from racing from trainer. Waiting for new policy..."

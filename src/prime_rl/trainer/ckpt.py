@@ -86,6 +86,9 @@ class AppState(Stateful):
             "model": model_state_dict,
             "optimizers": optimizer_state_dict,
         }
+        ema = getattr(self.model, "_ema_reference", None)
+        if ema is not None:
+            state_dict["ema_reference"] = ema.state_dict()
         if self.scheduler is not None:
             scheduler_state_dict = self.scheduler.state_dict()
             state_dict["scheduler"] = scheduler_state_dict
@@ -141,6 +144,9 @@ class AppState(Stateful):
                 optim_state_dict=state_dict["optimizers"],
             )
 
+        ema = getattr(self.model, "_ema_reference", None)
+        if ema is not None:
+            ema.load_state_dict(state_dict["ema_reference"])
         if self.scheduler is not None:
             self.scheduler.load_state_dict(state_dict["scheduler"])
         if self.progress is not None:

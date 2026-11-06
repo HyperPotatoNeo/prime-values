@@ -172,3 +172,40 @@ matching training processes. Keep test source, output directories and runtime
 environments separate from active experiments. Use a fresh process for critic
 checkpoint resume; runtime monitoring is process-global. Tiny-model checks do
 not replace model-specific or live evaluator/transport validation.
+
+## Score-centering / EMA research runs
+
+Use `experiments/score-centering-ema/RESEARCH.md` for the matched comparison.
+Apply the recorded source patches to the exact pinned renderer/verifier submodules
+with `uv run --no-project python experiments/score-centering-ema/apply_dependency_patches.py`
+before syncing dependencies. Never patch an installed virtual environment.
+
+`prepare.py` only emits configurations; Kubernetes `suspend: true` does not prevent
+Kueue from admitting an applied job. Validate component CLI reloads and use server
+dry-run before submission. The external four-role launcher uses headless services,
+distinct node ranks, filesystem broadcasts and shared completion/failure flags.
+Use fresh run names/output paths, and securely provision the referenced W&B Secret
+at launch. Check live capacity and account for other jobs before choosing concurrency.
+
+Score centering requires the actual sampler's full-normalized top-k probabilities
+through native and legacy token paths. Keep generation ancestral. It is supported
+by the research REINFORCE/TIS loss, custom Qwen3-4B, CP=1 and the chunked output head;
+do not silently combine it with DPPO/PPO clipping. The injected model forward must
+route candidate IDs to the output head, never the transformer backbone.
+
+EMA uses a frozen sharded model on trainer GPUs, updates once per publication, and
+checkpoints its state and clock with the optimizer. Verify fresh-process resume.
+Retain zero-advantage samples consistently across arms so EMA KL also applies to
+them. With asynchronous collection, use acknowledged filesystem cleanup and an
+explicit canonical checkpoint weight directory; keep durable checkpoints separate
+from ephemeral broadcasts. Enable bounded consumed-rollout binary retention for
+long top-k runs; older trajectory JSON is retained losslessly compressed. Check
+disk capacity before every wave, including retained checkpoints from finished runs.
+Dispatcher lead is a scheduling threshold, not an exact
+policy-age guarantee: already-in-flight requests can finish after the gate closes.
+
+Functional smoke tests may be offline; substantive runs use online W&B. Inspect
+trajectories, loss/gradient finiteness, mismatch tails, actual policy age, errors and
+truncation. The legacy in-loop evaluation is not held-out; explicitly select
+`get_eval_dataset()` for the frozen validation/test split. Never run pytest beside
+an active smoke: the test cleanup fixture terminates matching training processes.

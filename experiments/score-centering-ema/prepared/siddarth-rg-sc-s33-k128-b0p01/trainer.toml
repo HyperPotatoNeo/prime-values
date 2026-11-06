@@ -1,0 +1,127 @@
+seed = 33
+rollout_retention_steps = 2
+output_dir = "/data/outputs/siddarth-rg-sc-s33-k128-b0p01"
+matmul_precision = "high"
+max_steps = 2000
+enable_router_replay = false
+dist_timeout_seconds = 3600
+max_concurrent_runs = 1
+enable_token_export = false
+
+[model]
+name = "/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554"
+trust_remote_code = false
+seq_len = 8192
+attn = "flash_attention_2"
+fsdp_cpu_offload = false
+optim_cpu_offload = false
+reshard_after_forward = true
+dp_replicate = 2
+ep = "auto"
+ep_comm_backend = "torch"
+deepep_num_sms = 20
+cp = 1
+cp_style = "ring"
+impl = "custom"
+optimization_dtype = "float32"
+reduce_dtype = "float32"
+moe_router_dtype = "float32"
+moe_use_grouped_mm = true
+fp8 = false
+freeze_moe_router = false
+fused_lm_head_token_chunk_size = 1024
+
+[model.compile]
+fullgraph = false
+
+[model.ac]
+mode = "full"
+freq = 1
+targets = [
+    "norm",
+]
+
+[model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[model.debug]
+random_init = false
+force_balanced_routing = false
+
+[tokenizer]
+name = "/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554"
+trust_remote_code = false
+
+[data]
+
+[loss]
+type = "research"
+importance_cap = 2.0
+score_centering = true
+top_k = 128
+tail_epsilon = 1e-06
+ema_kl_beta = 0.0
+ema_decay = 0.95
+
+[optim]
+lr = 1e-06
+weight_decay = 0.01
+max_norm = 1.0
+type = "adamw"
+betas1 = 0.9
+betas2 = 0.999
+
+[scheduler]
+type = "constant"
+
+[ckpt]
+interval = 100
+skip_gather_master_weights = false
+weights_only = false
+keep_last = 2
+skip_progress = false
+skip_scheduler = false
+skip_dataloader = false
+skip_optimizer = false
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+save_adapter_separately = false
+
+[weight_broadcast]
+acknowledged_cleanup = true
+type = "filesystem"
+save_sharded = true
+save_format = "safetensors"
+
+[rollout_transport]
+type = "filesystem"
+
+[log]
+level = "info"
+vf_level = "info"
+json_logging = false
+log_data = false
+interval = 10.0
+ranks_filter = [
+    0,
+]
+
+[wandb]
+project = "siddarth-prime-values"
+entity = "swish"
+name = "siddarth-rg-sc-s33-k128-b0p01-trainer"
+group = "siddarth-rg-sc-s33-k128-b0p01"
+tags = [
+    "score-centering-ema",
+    "sc",
+    "seed-33",
+]
+offline = false
+
+[gc]
+interval = 50
+
+[env_vars]

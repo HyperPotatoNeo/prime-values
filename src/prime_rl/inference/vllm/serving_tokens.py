@@ -51,6 +51,7 @@ from prime_rl.inference.vllm.routed_experts import RoutedExpertsCapture
 
 
 class PrimeRlGenerateResponseChoice(GenerateResponseChoice):
+    sampler_head: dict[str, Any] | None = None
     routed_experts: dict[str, Any] | None = None
 
 
@@ -351,5 +352,15 @@ class PrimeRlServingTokens(ServingTokens):
 
         if final_capture.final_res is not None:
             response.usage = _build_usage(final_capture.final_res)
+            k = (request.sampling_params.extra_args or {}).get("score_centering_top_k", 0)
+            if k:
+                from prime_rl.inference.vllm.score_centering import encode_sampler_head
+
+                outputs = {o.index: o for o in final_capture.final_res.outputs}
+                for choice in response.choices:
+                    choice.sampler_head = encode_sampler_head(outputs[choice.index], k)
+                    if choice.logprobs is not None:
+                        for token in choice.logprobs.content or []:
+                            token.top_logprobs = []
 
         return response

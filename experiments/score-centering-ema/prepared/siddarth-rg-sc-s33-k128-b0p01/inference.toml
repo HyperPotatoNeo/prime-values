@@ -1,0 +1,48 @@
+enable_lora = false
+max_loras = 8
+max_cpu_loras = 100
+gpu_memory_utilization = 0.9
+api_server_count = 8
+data_parallel_size_local = 8
+data_parallel_rpc_port = 13345
+seed = 33
+enable_expert_parallel = false
+all2all_backend = "allgather_reducescatter"
+enable_eplb = false
+enable_dbo = false
+use_deep_gemm = false
+use_pd_kv_transfer = false
+enable_return_routed_experts = false
+enable_fp32_lm_head = true
+enable_fp32_router_logits = true
+
+[server]
+port = 8000
+liveness_timeout_seconds = 30.0
+
+[model]
+name = "/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554"
+trust_remote_code = false
+dtype = "auto"
+max_model_len = 8192
+enforce_eager = false
+
+[parallel]
+tp = 1
+dp = 8
+
+[log]
+level = "info"
+vf_level = "info"
+json_logging = false
+log_data = false
+interval = 10.0
+
+[env_vars]
+
+[weight_broadcast]
+type = "filesystem"
+
+[vllm_extra]
+max_logprobs = 128
+generation_config = "vllm"

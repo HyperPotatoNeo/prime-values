@@ -199,6 +199,12 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
     assert len(env_names) == len(input_ids), f"env_names: {len(env_names)}, input_ids: {len(input_ids)}"
 
     return MicroBatch(
+        sampler_topk_ids=_slice_encoded(training_example.sampler_topk_ids, len(input_ids))
+        if training_example.sampler_topk_ids is not None
+        else None,
+        sampler_topk_logprobs=_slice_encoded(training_example.sampler_topk_logprobs, len(input_ids))
+        if training_example.sampler_topk_logprobs is not None
+        else None,
         input_ids=input_ids,
         advantages=advantages,
         loss_mask=loss_mask,
@@ -274,6 +280,20 @@ class _MicroBatchBin:
         )
 
 
+def _concat_heads(bin_content, name):
+    tensors = [getattr(s, name) for _, s in bin_content.samples]
+    if all(t is None for t in tensors):
+        return None
+    if any(t is None for t in tensors):
+        raise ValueError("Cannot mix samples with missing sampler heads")
+    first = tensors[0]
+    if any(t.shape[1:] != first.shape[1:] or t.dtype != first.dtype for t in tensors):
+        raise ValueError("Sampler head shapes differ within a packed batch")
+    return EncodedTensor(
+        first.dtype, [sum(t.shape[0] for t in tensors), *first.shape[1:]], b"".join(t.data for t in tensors)
+    )
+
+
 def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
     has_ref_logprobs = any(sample.ref_logprobs is not None for _, sample in bin_content.samples)
     has_mm_token_type_ids = any(sample.mm_token_type_ids is not None for _, sample in bin_content.samples)
@@ -329,6 +349,8 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
     first_sample = bin_content.first_sample
 
     return MicroBatch(
+        sampler_topk_ids=_concat_heads(bin_content, "sampler_topk_ids"),
+        sampler_topk_logprobs=_concat_heads(bin_content, "sampler_topk_logprobs"),
         input_ids=input_ids,
         advantages=advantages,
         loss_mask=loss_mask,
@@ -466,6 +488,11 @@ def pad_micro_batch(micro_batch: MicroBatch, pad_to_multiple_of: int) -> MicroBa
         micro_batch.mm_token_type_ids.extend([0] * padding_size)
     if micro_batch.routed_experts is not None:
         _pad_routed_experts(micro_batch, padding_size)
+    for name in ("sampler_topk_ids", "sampler_topk_logprobs"):
+        payload = getattr(micro_batch, name)
+        if payload is not None:
+            payload.data += bytes(padding_size * payload.shape[1] * np.dtype(payload.dtype).itemsize)
+            payload.shape[0] += padding_size
     micro_batch.env_names.extend([""] * padding_size)
 
     return micro_batch

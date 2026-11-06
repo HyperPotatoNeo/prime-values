@@ -441,6 +441,19 @@ class IPOLossConfig(BaseConfig):
     """Temperature for the KL term."""
 
 
+class ResearchLossConfig(BaseConfig):
+    """Matched REINFORCE/TIS objective for score-centering and EMA comparisons."""
+
+    type: Literal["research"] = "research"
+    importance_cap: float | None = Field(2.0, gt=0)
+    """Upper token importance-ratio cap. None disables importance weighting entirely."""
+    score_centering: bool = False
+    top_k: int = Field(128, ge=1)
+    tail_epsilon: float = Field(1e-6, gt=0, lt=1)
+    ema_kl_beta: float = Field(0.0, ge=0)
+    ema_decay: float = Field(0.95, ge=0, lt=1)
+
+
 class CustomLossConfig(BaseConfig):
     type: Literal["custom"] = "custom"
 
@@ -451,7 +464,9 @@ class CustomLossConfig(BaseConfig):
     """Kwargs forwarded to the loss function."""
 
 
-LossConfig: TypeAlias = Annotated[DefaultLossConfig | IPOLossConfig | CustomLossConfig, Field(discriminator="type")]
+LossConfig: TypeAlias = Annotated[
+    DefaultLossConfig | IPOLossConfig | ResearchLossConfig | CustomLossConfig, Field(discriminator="type")
+]
 
 
 class FakeDataLoaderConfig(BaseConfig):
@@ -472,6 +487,9 @@ class BaseWeightBroadcastConfig(BaseConfig):
 
 
 class FileSystemWeightBroadcastConfig(BaseWeightBroadcastConfig):
+    acknowledged_cleanup: bool = False
+    """Retire broadcasts after inference adoption; durable checkpoints remain separately retained."""
+
     type: Literal["filesystem"] = "filesystem"
 
     save_sharded: bool = True
@@ -507,6 +525,9 @@ WeightBroadcastConfig: TypeAlias = Annotated[
 
 
 class TrainerConfig(BaseConfig):
+    seed: int = 42
+    """Seed for trainer-local stochastic operations (rank offset applied)."""
+
     model: ModelConfig = ModelConfig()
 
     tokenizer: TokenizerConfig = TokenizerConfig()
@@ -525,6 +546,9 @@ class TrainerConfig(BaseConfig):
 
     weight_broadcast: WeightBroadcastConfig = FileSystemWeightBroadcastConfig()
     """Transport used to broadcast updated weights from trainer to inference."""
+
+    rollout_retention_steps: int | None = Field(None, ge=1)
+    """Retain this many consumed binary batches; lossless gzip keeps older rollout records. Single-run filesystem only."""
 
     rollout_transport: TransportConfig = FileSystemTransportConfig()
     """Transport used to ship rollouts from orchestrator to trainer."""

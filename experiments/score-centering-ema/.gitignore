@@ -1,0 +1,8 @@
+# Runtime evidence is published in the private Resolution research cache.
+results/
+*.xml
+*-verification.json
+evidence-manifest.json
+runtime-packages.txt
+gpu-*.json
+artifacts/

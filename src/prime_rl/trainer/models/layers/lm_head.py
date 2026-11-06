@@ -20,6 +20,7 @@ class PrimeLmOutput(TypedDict, total=False):
     logprobs: Tensor | None
     entropy: Tensor | None
     loss: Tensor | None
+    topk_logprobs: Tensor | None
 
 
 def cast_float_and_contiguous(output: PrimeLmOutput) -> PrimeLmOutput:
@@ -33,6 +34,7 @@ def cast_float_and_contiguous(output: PrimeLmOutput) -> PrimeLmOutput:
         logprobs=_float_and_contiguous(output.get("logprobs")),
         entropy=_float_and_contiguous(output.get("entropy")),
         loss=output.get("loss"),
+        topk_logprobs=_float_and_contiguous(output.get("topk_logprobs")),
     )
 
 
@@ -46,22 +48,29 @@ class FusedOutputLinear(torch.nn.Linear):
         hidden_states: torch.Tensor,
         labels: torch.Tensor | None = None,
         temperature: Tensor | None = None,
+        candidate_ids: Tensor | None = None,
     ) -> PrimeLmOutput:
         assert labels is not None, "FusedOutputLinear requires labels for chunked logprob computation"
         assert temperature is not None, "FusedOutputLinear requires per-token temperatures"
 
         b, s, h = hidden_states.shape
         hidden_states = hidden_states.reshape(b * s, h).contiguous()
-        labels = labels.reshape(b * s).contiguous()
+        labels = labels.reshape(b * s, 1).contiguous()
+        if candidate_ids is not None:
+            labels = torch.cat((labels, candidate_ids.reshape(b * s, -1).long()), dim=-1)
         inv_t = 1.0 / temperature.reshape(b * s).contiguous()  # [N]
 
         logprobs, entropy = _SequenceChunkedLogProbEntropyFn.apply(
             hidden_states, self.weight, labels, inv_t, self.chunk_size
         )
 
-        logprobs = logprobs.reshape(b, s)
+        selected = logprobs.reshape(b, s, -1)
         entropy = entropy.reshape(b, s)
-        return PrimeLmOutput(logprobs=logprobs, entropy=entropy)
+        return PrimeLmOutput(
+            logprobs=selected[..., 0],
+            entropy=entropy,
+            topk_logprobs=selected[..., 1:] if candidate_ids is not None else None,
+        )
 
 
 class VanillaOutputLinear(torch.nn.Linear):
@@ -166,7 +175,7 @@ class _SequenceChunkedLogProbEntropyFn(torch.autograd.Function):
         ctx,
         hidden: torch.Tensor,  # [N, H]
         weight: torch.Tensor,  # [V, H]
-        labels: torch.Tensor,  # [N]
+        labels: torch.Tensor,  # [N, selected candidates]
         inv_temperature: torch.Tensor,  # [N]
         chunk_size: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -175,7 +184,7 @@ class _SequenceChunkedLogProbEntropyFn(torch.autograd.Function):
         """
         assert hidden.dim() == 2, f"expected hidden [N,H], got {tuple(hidden.shape)}"
         assert weight.dim() == 2, f"expected weight [V,H], got {tuple(weight.shape)}"
-        assert labels.dim() == 1, f"expected labels [N], got {tuple(labels.shape)}"
+        assert labels.dim() == 2, f"expected labels [N,C], got {tuple(labels.shape)}"
         assert inv_temperature.dim() == 1, f"expected inv_temperature [N], got {tuple(inv_temperature.shape)}"
         assert hidden.shape[0] == labels.shape[0], "hidden/labels N mismatch"
         assert hidden.shape[1] == weight.shape[1], "hidden/weight H mismatch"
@@ -186,7 +195,7 @@ class _SequenceChunkedLogProbEntropyFn(torch.autograd.Function):
         n = hidden.shape[0]
         vocab = weight.shape[0]
         vocab_chunk_size = min(vocab, 8192)
-        logprobs = torch.empty((n,), device=device, dtype=torch.float32)
+        logprobs = torch.empty(labels.shape, device=device, dtype=torch.float32)
         entropy = torch.empty((n,), device=device, dtype=torch.float32)
         logz = torch.empty((n,), device=device, dtype=torch.float32)
 
@@ -200,7 +209,7 @@ class _SequenceChunkedLogProbEntropyFn(torch.autograd.Function):
             m = torch.full((token_count,), float("-inf"), device=device, dtype=torch.float32)
             s = torch.zeros((token_count,), device=device, dtype=torch.float32)
             t = torch.zeros((token_count,), device=device, dtype=torch.float32)
-            target_logits = torch.zeros((token_count,), device=device, dtype=torch.float32)
+            target_logits = torch.zeros(labels_chunk.shape, device=device, dtype=torch.float32)
 
             for vocab_start in range(0, vocab, vocab_chunk_size):
                 vocab_end = min(vocab_start + vocab_chunk_size, vocab)
@@ -211,13 +220,12 @@ class _SequenceChunkedLogProbEntropyFn(torch.autograd.Function):
                 m, s, t = _online_logsumexp_and_weighted_update(m, s, t, scaled_logits)
 
                 mask = (labels_chunk >= vocab_start) & (labels_chunk < vocab_end)
-                if torch.any(mask):
-                    idx = (labels_chunk[mask] - vocab_start).to(torch.long)
-                    target_logits[mask] = scaled_logits[mask, idx]
+                idx = (labels_chunk - vocab_start).clamp(0, vocab_end - vocab_start - 1).long()
+                target_logits += scaled_logits.gather(1, idx) * mask
 
             logz_chunk = m + torch.log(s)
             logz[start:end] = logz_chunk
-            logprobs[start:end] = target_logits - logz_chunk
+            logprobs[start:end] = target_logits - logz_chunk.unsqueeze(-1)
             entropy[start:end] = logz_chunk - (t / s)
 
         ctx.save_for_backward(hidden, weight, labels, inv_temperature, logz)
@@ -256,11 +264,10 @@ class _SequenceChunkedLogProbEntropyFn(torch.autograd.Function):
                 scaled_logits = logits_chunk.to(torch.float32) * inv_t_chunk
                 probs = torch.exp(scaled_logits - logz_chunk.unsqueeze(-1))
 
-                grad_logits = (-grad_chunk).unsqueeze(-1) * probs
+                grad_logits = -grad_chunk.sum(-1, keepdim=True) * probs
                 mask = (labels_chunk >= vocab_start) & (labels_chunk < vocab_end)
-                if torch.any(mask):
-                    idx = (labels_chunk[mask] - vocab_start).to(torch.long)
-                    grad_logits[mask, idx] += grad_chunk[mask]
+                idx = (labels_chunk - vocab_start).clamp(0, vocab_end - vocab_start - 1).long()
+                grad_logits.scatter_add_(1, idx, grad_chunk * mask)
                 grad_logits = grad_logits * inv_t_chunk
 
                 grad_hidden[start:end].add_(grad_logits.to(hidden.dtype) @ weight_chunk)
@@ -353,6 +360,7 @@ def _patch_model_forward(model: nn.Module) -> None:
         labels: torch.Tensor | None = None,
         logits_to_keep: int = 0,
         temperature: torch.Tensor | None = None,
+        candidate_ids: torch.Tensor | None = None,
         **kwargs: object,
     ) -> PrimeLmOutput:
         # For VLM with images, don't create position_ids - let model compute MRoPE internally
@@ -378,6 +386,7 @@ def _patch_model_forward(model: nn.Module) -> None:
             hidden_states[:, slice_indices, :],
             labels[:, slice_indices] if labels is not None else None,
             temperature=temperature[:, slice_indices] if temperature is not None else None,
+            **({"candidate_ids": candidate_ids[:, slice_indices]} if candidate_ids is not None else {}),
         )
 
     # Bind the new forward to the model

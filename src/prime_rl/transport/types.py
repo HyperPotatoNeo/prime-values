@@ -67,6 +67,8 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
     # scalar algorithms. ``None`` means no rl credit assigned — legal only for
     # samples without live rl member tokens (the trainer raises otherwise).
     advantages: list[float] | None = None
+    sampler_topk_ids: EncodedTensor | None = None
+    sampler_topk_logprobs: EncodedTensor | None = None
 
 
 class TrainingBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
@@ -108,3 +110,5 @@ class MicroBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     # Packer-derived metadata used for run-local token exports.
     run_id: str | None = None
     run_step: int | None = None
+    sampler_topk_ids: EncodedTensor | None = None
+    sampler_topk_logprobs: EncodedTensor | None = None

@@ -6,7 +6,7 @@ from beartype import beartype as typechecker
 from jaxtyping import Bool, Float, Int, jaxtyped
 from torch import Tensor
 
-from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig
+from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig, ResearchLossConfig
 from prime_rl.utils.utils import import_object
 
 
@@ -26,6 +26,8 @@ class LossInputs:
     advantages: Float[Tensor, " seq"]
     loss_mask: Bool[Tensor, " seq"]
     loss_weights: Float[Tensor, " seq"] | None = field(default=None)
+    trainer_topk_logprobs: Tensor | None = None
+    sampler_topk_logprobs: Tensor | None = None
 
 
 @dataclass
@@ -279,11 +281,50 @@ def ce_loss_fn(inputs: LossInputs) -> LossOutputs:
     return LossOutputs(loss=loss, metrics=metrics)
 
 
+def research_loss_fn(inputs: LossInputs, config: ResearchLossConfig) -> LossOutputs:
+    from prime_rl.trainer.rl.score_centering import centering_term, importance_weight, reverse_kl_under_sampler
+
+    mask = inputs.loss_mask
+    p = inputs.trainer_logprobs[mask]
+    q = inputs.inference_logprobs[mask].detach()
+    advantage = inputs.advantages[mask].detach()
+    weight = importance_weight(p.detach() - q, config.importance_cap)
+    pg = -advantage * weight * p
+    metrics = {"research/importance_weight": weight.detach()}
+    if config.score_centering:
+        if inputs.trainer_topk_logprobs is None or inputs.sampler_topk_logprobs is None:
+            raise ValueError("Score centering requires the recorded sampler top-k payload")
+        head = inputs.trainer_topk_logprobs[mask]
+        sampler = inputs.sampler_topk_logprobs[mask].detach()
+        if head.shape[-1] != config.top_k:
+            raise ValueError("Score-centering candidate count differs from configured top_k")
+        center, q_tail, p_tail = centering_term(head, sampler, config.importance_cap, config.tail_epsilon)
+        pg = pg + advantage * center
+        metrics.update(
+            {
+                "research/sampler_tail_mass": q_tail,
+                "research/trainer_tail_mass": p_tail,
+                "research/centering": center.detach(),
+            }
+        )
+    if config.ema_kl_beta:
+        if inputs.ref_logprobs is None:
+            raise ValueError("EMA KL requires the trainer's EMA reference forward")
+        kl = reverse_kl_under_sampler(p, inputs.ref_logprobs[mask], q)
+        pg = pg + config.ema_kl_beta * kl
+        metrics["research/ema_kl"] = kl.detach()
+    if inputs.loss_weights is not None:
+        pg = pg * inputs.loss_weights[mask]
+    return LossOutputs(loss=pg.sum(), metrics=metrics)
+
+
 def setup_rl_loss_fn(loss_config: LossConfig) -> LossFn:
     """Build the loss fn for the rl component from ``trainer.loss``:
     ``default_loss_fn`` (``DefaultLossConfig``), ``ipo_loss_fn``
     (``IPOLossConfig``), or the imported function (``CustomLossConfig``).
     The ce / ref_kl loss types are fixed and unaffected by ``trainer.loss``."""
+    if isinstance(loss_config, ResearchLossConfig):
+        return lambda inputs: research_loss_fn(inputs, loss_config)
     if isinstance(loss_config, CustomLossConfig):
         custom_fn = import_object(loss_config.import_path)
         kwargs = loss_config.kwargs
@@ -315,6 +356,8 @@ def compute_loss(
     rl_scale: int,
     ce_scale: int,
     ref_kl_scale: int,
+    trainer_topk_logprobs: list[Tensor] | None = None,
+    sampler_topk_logprobs: list[Tensor] | None = None,
 ) -> tuple[Float[Tensor, ""], dict[str, Any]]:
     """
     Compute loss for packed sequences (batch size = 1, multiple sequences packed along sequence dimension).
@@ -375,15 +418,17 @@ def compute_loss(
     rl_loss = sum(logprobs[:0].sum() for logprobs in trainer_logprobs)
     ce_loss = 0.0
     ref_kl_loss = 0.0
-    for t_logp, i_logp, ref_logp, adv, mask, rl_w, ce_w, ref_kl_w in zip(
-        trainer_logprobs,
-        inference_logprobs,
-        ref_logprobs,
-        advantages,
-        loss_mask,
-        rl_weights,
-        ce_weights,
-        ref_kl_weights,
+    for sample_index, (t_logp, i_logp, ref_logp, adv, mask, rl_w, ce_w, ref_kl_w) in enumerate(
+        zip(
+            trainer_logprobs,
+            inference_logprobs,
+            ref_logprobs,
+            advantages,
+            loss_mask,
+            rl_weights,
+            ce_weights,
+            ref_kl_weights,
+        )
     ):
 
         def make_inputs(component_mask: Bool[Tensor, " seq"], weights: Float[Tensor, " seq"] | None) -> LossInputs:
@@ -394,6 +439,12 @@ def compute_loss(
                 advantages=adv,
                 loss_mask=component_mask,
                 loss_weights=weights,
+                trainer_topk_logprobs=trainer_topk_logprobs[sample_index]
+                if trainer_topk_logprobs is not None
+                else None,
+                sampler_topk_logprobs=sampler_topk_logprobs[sample_index]
+                if sampler_topk_logprobs is not None
+                else None,
             )
 
         if rl_w is None:

@@ -115,6 +115,7 @@ envs = [
     "redsearcher-v1",
     "reverse-text",
     "reverse-text-v1",
+    "rg-mix-env",
     "s1-deepresearch-v1",
     "scaleswe-v1",
     "simpleqa-v1",
@@ -322,6 +323,7 @@ deep-gemm = { url = "https://github.com/PrimeIntellect-ai/prime-rl/releases/down
 nixl-cu12 = { url = "https://github.com/PrimeIntellect-ai/prime-rl/releases/download/v0.5.0/nixl_cu12-0.10.1-cp312-cp312-linux_x86_64.whl" }
 flash-linear-attention = { git = "https://github.com/fla-org/flash-linear-attention" }
 flash_attn_3 = { index = "pytorch-cu128-test" }
+rg-mix-env = { workspace = true, editable = true }
 
 [tool.uv.extra-build-dependencies]
 flash-attn = [{ requirement = "torch", match-runtime = true }]
@@ -340,6 +342,11 @@ explicit = true
 name = "pytorch-cu128-test"
 url = "https://download.pytorch.org/whl/test/cu128"
 explicit = true
+
+[tool.uv.workspace]
+members = [
+    "deps/rg-mix-env",
+]
 
 [tool.ruff.lint]
 select = ["F", "I"]

@@ -1,0 +1,22 @@
+diff --git a/renderers/client.py b/renderers/client.py
+index 0c63c0e..7248f99 100644
+--- a/renderers/client.py
++++ b/renderers/client.py
+@@ -240,7 +240,8 @@ async def generate(
+ 
+     sp: dict[str, Any] = dict(sampling_params or {})
+     sp["stop_token_ids"] = stop_token_ids
+-    sp["logprobs"] = 1
++    head_k = (sp.get("extra_args") or {}).get("score_centering_top_k", 0)
++    sp["logprobs"] = max(1, head_k)
+     sp.setdefault("skip_special_tokens", False)
+ 
+     body: dict[str, Any] = {
+@@ -314,6 +315,7 @@ async def generate(
+         "prompt_ids": list(prompt_ids),
+         "completion_ids": list(completion_ids),
+         "completion_logprobs": completion_logprobs,
++        "sampler_head": choice.get("sampler_head"),
+         "content": parsed.content,
+         "reasoning_content": parsed.reasoning_content,
+         "tool_calls": parsed.tool_calls,
