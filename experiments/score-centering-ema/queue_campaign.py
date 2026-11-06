@@ -59,12 +59,26 @@ def kubectl(*parts):
         time.sleep(1)
 
 
+def apply_services(name):
+    documents = (expanded / f"{name}.yaml").read_text().split("\n---\n")
+    assert "kind: Job\n" in documents[-1]
+    assert all("kind: Service\n" in doc for doc in documents[:-1])
+    directory = args.state_dir / "services"
+    directory.mkdir(exist_ok=True)
+    path = directory / f"{name}.yaml"
+    path.write_text("\n---\n".join(documents[:-1]))
+    kubectl("apply", "-f", str(path))
+
+
 def tick():
     jobs = json.loads(kubectl("get", "jobs", "-l", f"research-campaign={campaign}", "-o", "json"))["items"]
     pods = json.loads(kubectl("get", "pods", "-l", f"research-campaign={campaign}", "-o", "json"))["items"]
     names = {job["metadata"]["name"] for job in jobs}
     for name in pending:
         if name in names and name not in state["submitted"]:
+            # Repair partial admission without reapplying a live Kueue Job:
+            # its original suspend=true could stop the admitted pods.
+            apply_services(name)
             state["submitted"].append(name)
     live = set()
     for job in jobs:
@@ -96,6 +110,7 @@ def tick():
     if len(live) < args.max_runs and gpu_count + 32 <= gpu_limit:
         name = next((n for n in pending if n not in state["submitted"]), None)
         if name:
+            apply_services(name)
             kubectl("apply", "-f", str(expanded / f"{name}.yaml"))
             state["submitted"].append(name)
             print(datetime.datetime.now(datetime.UTC).isoformat(), "SUBMITTED", name, flush=True)

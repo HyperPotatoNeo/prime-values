@@ -2,8 +2,8 @@
   "status": "PREPARED_NOT_LAUNCHED",
   "runs": [
     "siddarth-rg-base-s11-k128-b0-fast1",
-    "siddarth-rg-base-s22-k128-b0-fast1",
-    "siddarth-rg-sc-s11-k128-b0-fast1",
+    "siddarth-rg-base-s22-k128-b0-fast2",
+    "siddarth-rg-sc-s11-k128-b0-fast2",
     "siddarth-rg-sc-s22-k128-b0-fast1",
     "siddarth-rg-ema-s11-k128-b0p003-fast1",
     "siddarth-rg-ema-s11-k128-b0p01-fast1",
@@ -19,8 +19,8 @@
   "source_root": "/data/siddarth-sc-ema-fast",
   "attempt_mapping": {
     "siddarth-rg-base-s11-k128-b0": "siddarth-rg-base-s11-k128-b0-fast1",
-    "siddarth-rg-base-s22-k128-b0": "siddarth-rg-base-s22-k128-b0-fast1",
-    "siddarth-rg-sc-s11-k128-b0": "siddarth-rg-sc-s11-k128-b0-fast1",
+    "siddarth-rg-base-s22-k128-b0": "siddarth-rg-base-s22-k128-b0-fast2",
+    "siddarth-rg-sc-s11-k128-b0": "siddarth-rg-sc-s11-k128-b0-fast2",
     "siddarth-rg-sc-s22-k128-b0": "siddarth-rg-sc-s22-k128-b0-fast1",
     "siddarth-rg-ema-s11-k128-b0p003": "siddarth-rg-ema-s11-k128-b0p003-fast1",
     "siddarth-rg-ema-s22-k128-b0p003": "siddarth-rg-ema-s22-k128-b0p003-fast1",
@@ -28,5 +28,15 @@
     "siddarth-rg-ema-s22-k128-b0p01": "siddarth-rg-ema-s22-k128-b0p01-fast1",
     "siddarth-rg-ema-s11-k128-b0p03": "siddarth-rg-ema-s11-k128-b0p03-fast1",
     "siddarth-rg-ema-s22-k128-b0p03": "siddarth-rg-ema-s22-k128-b0p03-fast1"
+  },
+  "retired_attempts": {
+    "siddarth-rg-base-s22-k128-b0-fast1": {
+      "replacement": "siddarth-rg-base-s22-k128-b0-fast2",
+      "reason": "Service quota repair reapplied suspend=true, interrupting startup before any updates"
+    },
+    "siddarth-rg-sc-s11-k128-b0-fast1": {
+      "replacement": "siddarth-rg-sc-s11-k128-b0-fast2",
+      "reason": "Service quota repair reapplied suspend=true, interrupting startup before any updates"
+    }
   }
 }
