@@ -19,8 +19,8 @@ already beyond the new horizon and were intentionally stopped:
 | EMA beta 0.01 | 11 | 1526 |
 | EMA beta 0.03 | 11 | 1482 |
 
-Score-centering seed 11 is allowed to reach 1,000 and save its checkpoint before
-intentional cancellation. Consult the stop receipt for its final observed step.
+Score-centering seed 11 reached exactly 1,000 completed updates, saved its trainer
+checkpoint, and was intentionally stopped at 19:55 UTC on November 6.
 `USER_STOPPED.json` in each output directory records intentional cancellation;
 signal-handler `failure.txt` files do not turn this into a training failure.
 No natural-completion flags are fabricated.
