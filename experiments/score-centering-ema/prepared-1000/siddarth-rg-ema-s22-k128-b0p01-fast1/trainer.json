@@ -1,0 +1,141 @@
+{
+  "seed": 22,
+  "model": {
+    "name": "/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+    "trust_remote_code": false,
+    "vlm": null,
+    "seq_len": 8192,
+    "attn": "flash_attention_2",
+    "compile": {
+      "fullgraph": false
+    },
+    "ac": {
+      "mode": "full",
+      "freq": 1,
+      "targets": [
+        "norm"
+      ]
+    },
+    "ac_offloading": null,
+    "fsdp_cpu_offload": false,
+    "optim_cpu_offload": false,
+    "reshard_after_forward": true,
+    "dp_replicate": 2,
+    "ep": "auto",
+    "ep_comm_backend": "torch",
+    "deepep_num_sms": 20,
+    "deepep_token_chunk_size": null,
+    "cp": 1,
+    "cp_style": "ring",
+    "impl": "custom",
+    "optimization_dtype": "float32",
+    "reduce_dtype": "float32",
+    "moe_router_dtype": "float32",
+    "moe_use_grouped_mm": true,
+    "fp8": false,
+    "index_cache": null,
+    "freeze_moe_router": false,
+    "lora": null,
+    "debug": {
+      "num_layers": null,
+      "random_init": false,
+      "force_balanced_routing": false
+    },
+    "fused_lm_head_token_chunk_size": 1024
+  },
+  "tokenizer": {
+    "name": "/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+    "trust_remote_code": false,
+    "chat_template": null
+  },
+  "data": {
+    "fake": null
+  },
+  "loss": {
+    "type": "research",
+    "importance_cap": 2.0,
+    "score_centering": false,
+    "top_k": 128,
+    "tail_epsilon": 1e-06,
+    "ema_kl_beta": 0.01,
+    "ema_decay": 0.95
+  },
+  "optim": {
+    "lr": 1e-06,
+    "weight_decay": 0.01,
+    "max_norm": 1.0,
+    "type": "adamw",
+    "betas1": 0.9,
+    "betas2": 0.999
+  },
+  "scheduler": {
+    "type": "constant"
+  },
+  "ckpt": {
+    "output_dir": null,
+    "interval": 100,
+    "weights": {
+      "save_sharded": true,
+      "save_format": "safetensors",
+      "save_adapter_separately": false
+    },
+    "skip_gather_master_weights": false,
+    "weights_only": false,
+    "resume_step": null,
+    "keep_last": 2,
+    "keep_interval": null,
+    "skip_progress": false,
+    "skip_scheduler": false,
+    "skip_dataloader": false,
+    "skip_optimizer": false
+  },
+  "weight_broadcast": {
+    "acknowledged_cleanup": true,
+    "type": "filesystem",
+    "save_sharded": true,
+    "save_format": "safetensors"
+  },
+  "rollout_retention_steps": 2,
+  "rollout_transport": {
+    "type": "filesystem"
+  },
+  "log": {
+    "level": "info",
+    "vf_level": "info",
+    "json_logging": false,
+    "log_data": false,
+    "interval": 10.0,
+    "ranks_filter": [
+      0
+    ]
+  },
+  "wandb": {
+    "project": "siddarth-prime-values",
+    "entity": "swish",
+    "name": "siddarth-rg-ema-s22-k128-b0p01-fast1-trainer",
+    "group": "siddarth-rg-ema-s22-k128-b0p01-fast1",
+    "tags": [
+      "score-centering-ema",
+      "ema",
+      "seed-22",
+      "fast1"
+    ],
+    "offline": false
+  },
+  "output_dir": "/data/outputs/siddarth-rg-ema-s22-k128-b0p01-fast1",
+  "matmul_precision": "high",
+  "max_steps": 1000,
+  "enable_router_replay": false,
+  "memory_profiler_path": null,
+  "bench": null,
+  "gc": {
+    "interval": 50
+  },
+  "trace_path": null,
+  "dist_timeout_seconds": 3600,
+  "heartbeat": null,
+  "metrics_server": null,
+  "max_concurrent_runs": 1,
+  "enable_token_export": false,
+  "env_vars": {}
+}

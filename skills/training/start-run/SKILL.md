@@ -244,3 +244,16 @@ startup was interrupted, preserve its output and use a fresh attempt name. The
 fast cohort has two replacement attempts (`base-s22` and `sc-s11` use `-fast2`);
 consult the manifest's `attempt_mapping`, not suffix guesses or submitted-count
 history, for the current ten experiments.
+
+The November 6 horizon change supersedes the earlier 2,000-update queue: the user
+requested 1,000 updates per experiment. The old local queue is retired; do not
+restart it. `prepared-1000/manifest.json` contains only the three remaining EMA
+seed-22 launches, with both trainer and orchestrator limits set to 1,000. The
+full ten-experiment attempt mapping remains in `prepared-fast1/manifest.json`.
+Before intentional early cancellation, save `USER_STOPPED.json` with the target,
+observed completed trainer step and retained checkpoint list. The monitor reports
+`user_stopped` even if signal handling also creates `failure.txt`; retain both
+records and do not fabricate a natural-completion marker. When waiting for a
+checkpoint boundary, use a completed `time/step` metric and verify the saved
+trainer checkpoint before deletion. Preserve full metric histories; clip the
+comparison to the agreed horizon during analysis.

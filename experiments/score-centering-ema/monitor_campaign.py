@@ -22,6 +22,9 @@ for name in manifest["runs"]:
     if (out / "failure.txt").exists():
         run["status"] = "failed"
         run["errors"].append((out / "failure.txt").read_text())
+    if (out / "USER_STOPPED.json").exists():
+        run["status"] = "user_stopped"
+        run["stop_record"] = json.loads((out / "USER_STOPPED.json").read_text())
     for f in (out / "logs").glob("*-metrics.jsonl"):
         lines = f.read_text().splitlines()
         if lines:

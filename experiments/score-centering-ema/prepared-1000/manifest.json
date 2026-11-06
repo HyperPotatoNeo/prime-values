@@ -1,0 +1,14 @@
+{
+  "campaign": "siddarth-sc-ema-fast1",
+  "runs": [
+    "siddarth-rg-ema-s22-k128-b0p003-fast1",
+    "siddarth-rg-ema-s22-k128-b0p01-fast1",
+    "siddarth-rg-ema-s22-k128-b0p03-fast1"
+  ],
+  "max_steps": 1000,
+  "simultaneous_run_limit": 7,
+  "gpus_per_run": 32,
+  "source_root": "/data/siddarth-sc-ema-fast",
+  "parent_manifest": "../prepared-fast1/manifest.json",
+  "reason": "User shortened all comparisons to 1000 steps; previous runs stopped after reaching target; remaining EMA seed22 starts fresh"
+}
