@@ -8,9 +8,9 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--output", type=Path)
+parser.add_argument("--manifest", type=Path, default=Path(__file__).parent / "prepared/manifest.json")
 args = parser.parse_args()
-prepared = Path(__file__).parent / "prepared"
-manifest = json.loads((prepared / "manifest.json").read_text())
+manifest = json.loads(args.manifest.read_text())
 result = {"observed_at": time.time(), "campaign": manifest["campaign"], "runs": {}}
 for name in manifest["runs"]:
     out = Path("/data/outputs") / name
