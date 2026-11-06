@@ -42,8 +42,20 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
   verify the package imports under `uv run` (for example
   `uv run python -c "import importlib.util; print(importlib.util.find_spec('r2e_gym_v1'))"`).
   If a local env exists under `deps/research-environments/environments/` but does not
-  import, add it to the root `pyproject.toml` env extra, workspace members, and
-  `[tool.uv.sources]`, then run `uv sync --all-extras`.
+  import, add it to the root `pyproject.toml` env extra and an editable local
+  `[tool.uv.sources]` entry, then run `uv sync --all-extras`.
+- Native RG uses `rg-mix-v1` with the same null/subprocess harness. It requires
+  a saved dataset directory containing `metadata.json` and `dataset/`; see
+  `packages/rg-mix-env/README.md`. Pin the dataset artifact and scorer version.
+  Set the training slice length and evaluation slice explicitly; evaluation
+  uses `split = "eval"` and begins immediately after the training slice. The
+  orchestrator loads the cached data; workers reconstruct selected private
+  scoring entries without reading that directory. These entries must never
+  become policy messages or value prefixes. The accepted `seed` field does
+  not regenerate or verify a cached dataset. Before converting an existing
+  legacy run, verify overlength behavior: legacy token clipping precedes
+  Episode materialization, while native traces reach downstream limits.
+  Short-response parity alone does not establish equal critic token geometry.
 
 ### Optional async value plane
 

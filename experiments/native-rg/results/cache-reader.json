@@ -1,0 +1,88 @@
+{
+  "001": [
+    {
+      "name": "pv-rg-cache-reader-001-n9ksb",
+      "uid": "131e974b-069c-4f4d-88d0-4e047b77f64a",
+      "created": "2026-11-06T03:12:54Z",
+      "phase": "Failed",
+      "container_states": [
+        {
+          "terminated": {
+            "containerID": "containerd://e83a3fbe6154a0ce09e27954fab78e237d727697f7b3d3e7fd9b0e82ad204aa2",
+            "exitCode": 2,
+            "finishedAt": "2026-11-06T03:12:57Z",
+            "reason": "Error",
+            "startedAt": "2026-11-06T03:12:57Z"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "limits": {
+            "cpu": "1",
+            "memory": "2Gi"
+          },
+          "requests": {
+            "cpu": "1",
+            "memory": "2Gi"
+          }
+        }
+      ],
+      "read_only_mounts": [
+        {
+          "mountPath": "/data",
+          "name": "shared",
+          "readOnly": true
+        }
+      ]
+    }
+  ],
+  "002": [
+    {
+      "name": "pv-rg-cache-reader-002-n8wcf",
+      "uid": "5d13ed6c-0e02-4767-89a4-81a717735d64",
+      "created": "2026-11-06T03:17:08Z",
+      "phase": "Succeeded",
+      "container_states": [
+        {
+          "terminated": {
+            "containerID": "containerd://ccf3c549b503ae0a529737d65500c5ddc0c656210bf78e993a73fb8901b3c790",
+            "exitCode": 0,
+            "finishedAt": "2026-11-06T03:18:23Z",
+            "reason": "Completed",
+            "startedAt": "2026-11-06T03:17:11Z"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "limits": {
+            "cpu": "1",
+            "memory": "2Gi"
+          },
+          "requests": {
+            "cpu": "1",
+            "memory": "2Gi"
+          }
+        }
+      ],
+      "read_only_mounts": [
+        {
+          "mountPath": "/data",
+          "name": "shared",
+          "readOnly": true
+        }
+      ]
+    }
+  ],
+  "observed_at": "2026-11-06T03:18:51.812672+00:00",
+  "cleanup": {
+    "observed_absent_at": "2026-11-06T03:20:42.181075+00:00",
+    "exact_job_pod_selectors_empty": true,
+    "jobs": [
+      "pv-rg-cache-reader-001",
+      "pv-rg-cache-reader-002"
+    ],
+    "gpu_count": 0
+  }
+}

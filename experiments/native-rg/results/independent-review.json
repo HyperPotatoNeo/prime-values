@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "producer_run": "producer-008",
+  "paired_cases_exact": 8,
+  "nonempty_policy_projection": true,
+  "raw_metrics_exact": true,
+  "credit_contexts_exact": {
+    "task": [
+      "legacy",
+      "native_worker_0",
+      "native_worker_1"
+    ],
+    "group_leave_one_out": [
+      "legacy",
+      "native_worker_0",
+      "native_worker_1"
+    ]
+  },
+  "mixed_rewards": [
+    0,
+    1
+  ],
+  "actual_core_source_hashes_verified": 15,
+  "actual_pinned_verifier_files_checked_by_harness": 309,
+  "harness_sha256": "ff53c6db2539b7243bc5ba04d99e2d00d9373591d026cdf62ed693a819c1a1aa",
+  "evidence_files": {
+    "result.json": {
+      "sha256": "adbc53a9dc482eff642e1b14b725eb542dd368be81bb745257be58020b2e23f8",
+      "bytes": 7452
+    },
+    "credit-episodes.json": {
+      "sha256": "d8e4446a1629dc36fba92bdb0cf115bb7573183f759cb10e62eb0f470e6cbf47",
+      "bytes": 308374
+    },
+    "worker-0.jsonl": {
+      "sha256": "31e75098f8b20a1b8b554d8f65dc093bb09254f216b2cd7de6cdecaf8e666c91",
+      "bytes": 1226
+    },
+    "paired-requests-projections.json": {
+      "sha256": "b0caf3f19161d3681d434183d5f2d134aebfd3d3fd7f7fc487371a42d8e9ad8e",
+      "bytes": 1442666
+    },
+    "credit-and-peer-context.json": {
+      "sha256": "72436ed0294727a8c8016e527b659545bbb9707d758079645ffcdbd823ba34d5",
+      "bytes": 1352576
+    },
+    "worker-1.jsonl": {
+      "sha256": "7e567afda13c3e24ac5ca7c1e0352e52d500aaa4ceb2ccf126e7e42a67f09e7c",
+      "bytes": 1004
+    }
+  },
+  "review_findings_closed": [
+    "Copied policy arrays before destructive critic-ownership control; original003zero-token evidence preserved and superseded",
+    "Raw reward metrics restored in distinctmetrics map; zero-weightformat does not enter reward",
+    "Fresh wheel all5modules/import discovery checked separately; source PYTHONPATH cannot hide package omissions"
+  ],
+  "scope": "Independent rawJSON and sourcehash reconciliation; deterministic HTTP tokens/value service, actual native/legacywire, renderers, materializer andTrainSink. No model inference/GPU learning claim; cancellation means EnvClient cancellation and subsequent worker recovery, not full dispatcher accounting."
+}

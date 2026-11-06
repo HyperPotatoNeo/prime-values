@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "integrated_files_verified": 25,
+  "protected_core_files_unchanged": 212,
+  "package_and_harness_ruff": "passed",
+  "inherited_generator_lint": "I001/F401 import findings in byte-preserved original generator; no new generator changes",
+  "follow_up": "Explicit overlength sequence-boundary contract before switching legacy configurations. Native RG addition does not claim all-length producer parity."
+}

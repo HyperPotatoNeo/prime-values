@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "wheel": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-results/wheel-installed-review/rg_mix_env-0.1.5.dev0-py3-none-any.whl",
+  "wheel_sha256": "76444c39aa8b30fac34508e9832def7db20ac98d109a1c5f78b893df746be912",
+  "module_paths_and_hashes": {
+    "rg_mix_env": {
+      "path": "/Users/siddarth/.cache/uv/archive-v0/NxzNIS2m2EKNZHzH/lib/python3.12/site-packages/rg_mix_env.py",
+      "sha256": "192abf40704cfc6f8f0b3f0aca33bc0aa3cf9c7a38a0dab7bc66a781855d5c82"
+    },
+    "rg_mix_shared": {
+      "path": "/Users/siddarth/.cache/uv/archive-v0/NxzNIS2m2EKNZHzH/lib/python3.12/site-packages/rg_mix_shared.py",
+      "sha256": "6f7d09529742b52851143417bc81a43a624ca270c8452dcb79cf0174b51c69eb"
+    },
+    "rg_mix_v1": {
+      "path": "/Users/siddarth/.cache/uv/archive-v0/NxzNIS2m2EKNZHzH/lib/python3.12/site-packages/rg_mix_v1/__init__.py",
+      "sha256": "07108fb3138b514419489ed4c1e579d5d706374784bd877f03b6b6e48ca49c96"
+    },
+    "rg_mix_v1.taskset": {
+      "path": "/Users/siddarth/.cache/uv/archive-v0/NxzNIS2m2EKNZHzH/lib/python3.12/site-packages/rg_mix_v1/taskset.py",
+      "sha256": "23d2d1e3722c72caf066202980ecd908f2078f2129ecf7cd8c96b22c717d6a5c"
+    },
+    "rg_mix_v1.scoring": {
+      "path": "/Users/siddarth/.cache/uv/archive-v0/NxzNIS2m2EKNZHzH/lib/python3.12/site-packages/rg_mix_v1/scoring.py",
+      "sha256": "95ff7954220570ec4beec2517941d87cb548d6df0de75b55569a2d2272d83382"
+    }
+  },
+  "package_version": "0.1.5.dev0",
+  "package_requirements": [
+    "datasets",
+    "reasoning-gym==0.1.25",
+    "verifiers>=0.2.2.dev17"
+  ],
+  "reasoning_gym_version": "0.1.25",
+  "verifiers_version": "0.2.2.dev17",
+  "literal_legacy_id": "rg-mix-env",
+  "literal_native_id": "rg-mix-v1",
+  "native_configuration_resolved": "RGMixConfig",
+  "train_rows": 10000,
+  "eval_rows": 256,
+  "scope": "Fresh built-wheel overlay imports match every wheel module byte; actual verifier entrypoint discovery loads saved data. No source PYTHONPATH override or GPU/model execution."
+}

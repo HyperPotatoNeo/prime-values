@@ -1,0 +1,29 @@
+{
+  "original_package_version": "0.1.4",
+  "original_git_tracking": "not tracked in observed live checkout; hashes record observed working-tree bytes",
+  "original_checkout_head": "30bfbf301335e8ce24c62fa5fd24bcc37a633bd3",
+  "candidate_base": "3a54a7bfb822e0484d5f8b20cde7aada9311bed6",
+  "reasoning_gym_pin": "0.1.25 from original live uv.lock",
+  "files": {
+    "rg_mix_env.py": {
+      "observed_source": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/rg_mix_env.py",
+      "sha256": "592950ed34eb49cf8eb397fd1baa7b6fbb6d1e8f92b3feea9e63bde01d7f9ea4",
+      "bytes": 8247
+    },
+    "generate_rg_mix_dataset.py": {
+      "observed_source": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/generate_rg_mix_dataset.py",
+      "sha256": "62c57de714c86f4fb61fd5ed8e8afdc10395c71cee488c1669718dafdd7fdf69",
+      "bytes": 5968
+    },
+    "pyproject.toml": {
+      "observed_source": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/pyproject.toml",
+      "sha256": "6fa615efc43397614bb4e820255947bc918d42949a860b91cc16b11fcbff0386",
+      "bytes": 470
+    },
+    "README.md": {
+      "observed_source": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/README.md",
+      "sha256": "8342313f984c25dc370ede7294ec045e999b0f75d831f81a7fde23f03769b4a1",
+      "bytes": 2540
+    }
+  }
+}

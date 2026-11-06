@@ -115,6 +115,7 @@ envs = [
     "redsearcher-v1",
     "reverse-text",
     "reverse-text-v1",
+    "rg-mix-env",
     "s1-deepresearch-v1",
     "scaleswe-v1",
     "simpleqa-v1",
@@ -287,6 +288,7 @@ r2e-gym-v1 = { path = "deps/research-environments/environments/swe/r2e_gym_v1", 
 redsearcher-v1 = { path = "deps/research-environments/environments/redsearcher_v1", editable = true }
 reverse-text = { git = "https://github.com/PrimeIntellect-ai/verifiers", rev = "9c6b155", subdirectory = "environments/reverse_text" }
 reverse-text-v1 = { path = "deps/verifiers/environments/reverse_text_v1", editable = true }
+rg-mix-env = { path = "packages/rg-mix-env", editable = true }
 s1-deepresearch-v1 = { path = "deps/research-environments/environments/s1_deepresearch_v1", editable = true }
 scaleswe-v1 = { path = "deps/research-environments/environments/swe/scaleswe_v1", editable = true }
 simpleqa-v1 = { path = "deps/research-environments/environments/simpleqa_v1", editable = true }

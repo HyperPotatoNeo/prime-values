@@ -1,0 +1,263 @@
+{
+  "split_rows": {
+    "train": {
+      "rows": 10000,
+      "first_idx": 0,
+      "first_global_answer": "0",
+      "last_global_answer": "9999"
+    },
+    "eval": {
+      "rows": 256,
+      "first_idx": 0,
+      "first_global_answer": "10000",
+      "last_global_answer": "10255"
+    }
+  },
+  "parser_cases": [
+    {
+      "case": 0,
+      "extracted": null,
+      "format_metric": 0.0
+    },
+    {
+      "case": 1,
+      "extracted": null,
+      "format_metric": 0.0
+    },
+    {
+      "case": 2,
+      "extracted": null,
+      "format_metric": 0.2
+    },
+    {
+      "case": 3,
+      "extracted": "",
+      "format_metric": 1.0
+    },
+    {
+      "case": 4,
+      "extracted": "",
+      "format_metric": 1.0
+    },
+    {
+      "case": 5,
+      "extracted": null,
+      "format_metric": 0.4
+    },
+    {
+      "case": 6,
+      "extracted": null,
+      "format_metric": 0.4
+    },
+    {
+      "case": 7,
+      "extracted": "first",
+      "format_metric": 1.0
+    },
+    {
+      "case": 8,
+      "extracted": "x",
+      "format_metric": 1.0
+    },
+    {
+      "case": 9,
+      "extracted": "x",
+      "format_metric": 0.6000000000000001
+    },
+    {
+      "case": 10,
+      "extracted": "old",
+      "format_metric": 0.6
+    },
+    {
+      "case": 11,
+      "extracted": "new",
+      "format_metric": 1.0
+    },
+    {
+      "case": 12,
+      "extracted": "x",
+      "format_metric": 1.0
+    },
+    {
+      "case": 13,
+      "extracted": "typed",
+      "format_metric": 1.0
+    },
+    {
+      "case": 14,
+      "extracted": null,
+      "format_metric": 0.2
+    },
+    {
+      "case": 15,
+      "extracted": "last",
+      "format_metric": 0.0
+    },
+    {
+      "case": 16,
+      "extracted": null,
+      "format_metric": 0.0
+    },
+    {
+      "case": 17,
+      "extracted": "",
+      "format_metric": 0.0
+    }
+  ],
+  "scoring_cases": [
+    {
+      "variant": "zebra_puzzles_7",
+      "global_answer": "0",
+      "responses": 10,
+      "orders": 2,
+      "rewards": {
+        "0": 1.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0,
+        "5": 1.0,
+        "6": 1.0,
+        "7": 0.0,
+        "8": 0.0,
+        "9": 0.0
+      },
+      "entry_unchanged": true
+    },
+    {
+      "variant": "arc_1d",
+      "global_answer": "1",
+      "responses": 10,
+      "orders": 2,
+      "rewards": {
+        "0": 1.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0,
+        "5": 1.0,
+        "6": 1.0,
+        "7": 0.0,
+        "8": 0.8095238095238095,
+        "9": 0.0
+      },
+      "entry_unchanged": true
+    },
+    {
+      "variant": "sokoban_hard",
+      "global_answer": "2",
+      "responses": 10,
+      "orders": 2,
+      "rewards": {
+        "0": 1.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0,
+        "5": 1.0,
+        "6": 1.0,
+        "7": 0.0,
+        "8": 1.0,
+        "9": 0.0
+      },
+      "entry_unchanged": true
+    },
+    {
+      "variant": "cryptarithm",
+      "global_answer": "4",
+      "responses": 10,
+      "orders": 2,
+      "rewards": {
+        "0": 1.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0,
+        "5": 1.0,
+        "6": 1.0,
+        "7": 0.0,
+        "8": 0.0,
+        "9": 0.01
+      },
+      "entry_unchanged": true
+    },
+    {
+      "variant": "countdown_7",
+      "global_answer": "8",
+      "responses": 10,
+      "orders": 2,
+      "rewards": {
+        "0": 1.0,
+        "1": 0.01,
+        "2": 0.01,
+        "3": 0.01,
+        "4": 0.01,
+        "5": 1.0,
+        "6": 1.0,
+        "7": 0.01,
+        "8": 0.01,
+        "9": 0.01
+      },
+      "entry_unchanged": true
+    }
+  ],
+  "partial_credit_positive_control": true,
+  "source_files": {
+    "legacy": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-candidate/packages/rg-mix-env/rg_mix_env.py",
+      "sha256": "192abf40704cfc6f8f0b3f0aca33bc0aa3cf9c7a38a0dab7bc66a781855d5c82"
+    },
+    "shared": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-candidate/packages/rg-mix-env/rg_mix_shared.py",
+      "sha256": "6f7d09529742b52851143417bc81a43a624ca270c8452dcb79cf0174b51c69eb"
+    },
+    "native": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-candidate/packages/rg-mix-env/rg_mix_v1/taskset.py",
+      "sha256": "23d2d1e3722c72caf066202980ecd908f2078f2129ecf7cd8c96b22c717d6a5c"
+    },
+    "parser": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-candidate/packages/rg-mix-env/rg_mix_v1/scoring.py",
+      "sha256": "95ff7954220570ec4beec2517941d87cb548d6df0de75b55569a2d2272d83382"
+    }
+  },
+  "frozen_source": {
+    "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-results/frozen-legacy-package/rg_mix_env.py",
+    "sha256": "592950ed34eb49cf8eb397fd1baa7b6fbb6d1e8f92b3feea9e63bde01d7f9ea4"
+  },
+  "actual_xml_parser": {
+    "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-cpu/.venv/lib/python3.12/site-packages/verifiers/parsers/xml_parser.py",
+    "sha256": "ab860e90ad86e4d74c78cd2b08e0ae27ab4ec988158bb6536fc132114bf8fe4d"
+  },
+  "scorer_sources": {
+    "zebra_puzzles_7": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-cpu/.venv/lib/python3.12/site-packages/reasoning_gym/logic/zebra_puzzles.py",
+      "sha256": "41312f2635a0a7f920fd6a8006a9e8b1b7e4225d7900da504078b1fd5560e580"
+    },
+    "arc_1d": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-cpu/.venv/lib/python3.12/site-packages/reasoning_gym/dataset.py",
+      "sha256": "480caacca5b12865e13bac68937687a799977e040ace5ae0496e71c1d77971e6"
+    },
+    "sokoban_hard": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-cpu/.venv/lib/python3.12/site-packages/reasoning_gym/games/sokoban.py",
+      "sha256": "19bdaa006e58627dbc76c46ae7641e34b2c9305603b1e68d47640e51c7c6b4bb"
+    },
+    "cryptarithm": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-cpu/.venv/lib/python3.12/site-packages/reasoning_gym/algorithmic/cryptarithm.py",
+      "sha256": "9dfd7012e4fda20c15e62559b7a508d211992fa33fc8641ca76ef384119bb10f"
+    },
+    "countdown_7": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-cpu/.venv/lib/python3.12/site-packages/reasoning_gym/games/countdown.py",
+      "sha256": "349cd7042a92a8b598954f4e2e771d4d4eb0ac18f81ac4a91f1c4e765ed15321"
+    }
+  },
+  "dataset_metadata": {
+    "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-results/dataset-cache/rg-dataset/metadata.json",
+    "sha256": "10aaf0d4bdfa88dee559a3f7fd447abe2c568d040e4d58307f5f95932b5bff43"
+  },
+  "harness": {
+    "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-rg-candidate/experiments/native-rg/package_parity.py",
+    "sha256": "e2811c82136f65fdfcb54ce8cc958c947c6c2b63f1ba2392c8b312bfa7a66423"
+  },
+  "scope": "Exact saved10256-row research artifact; all train/eval selection, prompt bytes, private payload and parser checks. Actual frozen/retained legacy reward functions and native Task.score on5real variants, shared-vs-perTask scorer repeat/reversed order. No generation, model, GPU or policy-quality claim."
+}

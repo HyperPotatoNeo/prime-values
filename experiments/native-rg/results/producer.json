@@ -1,0 +1,147 @@
+{
+  "status": "passed",
+  "mixed_reward_credit_and_loo_exact": true,
+  "dataset_file_sha256": {
+    "metadata.json": "10aaf0d4bdfa88dee559a3f7fd447abe2c568d040e4d58307f5f95932b5bff43",
+    "dataset/data-00000-of-00001.arrow": "56f215b921146fd91e8e4b1ef7e1563b20f3ba24bf47f63fa23f97e502bbe359",
+    "dataset/dataset_info.json": "90a88b0133711a49c49b0d6a87f3d459d176fb940a213beef27b2cec6974d2bb",
+    "dataset/state.json": "0e1bcef0062a3aec52a7049ce0e5575a8fab879b846a292f15fcafd62706cce0"
+  },
+  "credit_and_peer_context_sha256": "82c140c09e7357bba0ef001a0b0992a328b8ef00855e7a6829a47e0ccfd34cba",
+  "provenance": {
+    "harness_sha256": "ff53c6db2539b7243bc5ba04d99e2d00d9373591d026cdf62ed693a819c1a1aa",
+    "source_sha256": {
+      "src/prime_rl/orchestrator/episodes.py": "30c679b49a3efc3231d5225d2a12dd98305b7037fd245d4b9e60917533076a14",
+      "src/prime_rl/orchestrator/trajectories.py": "24562fdf93693e4a07d6019026ee44656dfb0fc5f174478c6ba84bd71f54c7d7",
+      "src/prime_rl/value/trajectory.py": "68b1b0d0d277e0caee15cf835c29f788a058edc7fe06f82f73c281a14ccf4db6",
+      "src/prime_rl/orchestrator/train_sink.py": "7760a4dd13b730c504002ec7d45b83dce31bef312d510f9aabe1406c2dae9e42",
+      "src/prime_rl/orchestrator/algo/base.py": "0f5064e05650a317c0e941507547c8e4b94ec9fe1d685b923711215af2199349",
+      "src/prime_rl/orchestrator/algo/grpo.py": "e7aa4244a0c98521fc21bf0af45f61dbeaeb3b8f19eb4fe04453a091bb10662b",
+      "src/prime_rl/value/credit.py": "004d505dcc0d2aac35c19e251b43f459823324162266bc6ce7f5570515525b9c",
+      "src/prime_rl/orchestrator/value_context.py": "1b21dc9db6548fc6421f132b641ff90265e7ef5d723c95a9aebae07c41ab2042",
+      "packages/rg-mix-env/rg_mix_v1/taskset.py": "23d2d1e3722c72caf066202980ecd908f2078f2129ecf7cd8c96b22c717d6a5c",
+      "packages/rg-mix-env/rg_mix_v1/scoring.py": "95ff7954220570ec4beec2517941d87cb548d6df0de75b55569a2d2272d83382",
+      "packages/rg-mix-env/rg_mix_shared.py": "6f7d09529742b52851143417bc81a43a624ca270c8452dcb79cf0174b51c69eb",
+      "deps/renderers/renderers/client.py": "58c5a0752410fbe7fe691f4ef393ba99fb74d355e4c50c53aa9ead14faf4091f",
+      "deps/verifiers/verifiers/v1/clients/train.py": "df2d81b4beda61e49a8a49c9cca87ec0b1ec7e2e789c0e29b77041590dd138cb",
+      "deps/verifiers/verifiers/v1/legacy.py": "6f9dc40c33889aef2b49a651fd913b8cd6904c9e9a230e53f21c655d4e1f4e1d",
+      "deps/verifiers/verifiers/v1/serve/server.py": "1e855ff7171b983d88cc803d9206479316174fca95ad6b3d52ef5528fd119a23"
+    },
+    "verifier_python_files_exact_to_pinned_source": 309,
+    "versions": {
+      "torch": "2.11.0",
+      "transformers": "5.6.2",
+      "verifiers": "0.2.2.dev17",
+      "renderers": "0.1.9.dev1",
+      "reasoning-gym": "0.1.25",
+      "rg-mix-env": "0.1.5.dev0"
+    }
+  },
+  "cases": [
+    {
+      "answer_index": "0",
+      "split_local_idx": 0,
+      "variant": "zebra_puzzles_7",
+      "payload_sha256": "ff88a3884258241c9f438ca5c74d6c244e933561904a8391ded52ee72faa6348",
+      "request_sha256": "cd49a8a7e57a122eec97e3d52fc7e7ec2314e79806c22d018b2027165c261ecc",
+      "projection_sha256": "a590c119eef3ee843936a693a366fbf7b61126dc2dc1ad8895cae83eebea2e43",
+      "reward": 0.0,
+      "tokens": 660,
+      "sampled_tokens": 9
+    },
+    {
+      "answer_index": "1",
+      "split_local_idx": 1,
+      "variant": "arc_1d",
+      "payload_sha256": "9786b1cc594d2957152c85c05c55715edf6aff55fdda924eb290c9646af87ae0",
+      "request_sha256": "73bc91d5e0a7ad232da8d15709338d113898b8b33356cb3db8d1a0b7e2a5a225",
+      "projection_sha256": "46bea3b318947f7c4764d8e6ce5e4376c7703bd09cf5c06c92bd4413f38aef77",
+      "reward": 0.0,
+      "tokens": 574,
+      "sampled_tokens": 9
+    },
+    {
+      "answer_index": "2",
+      "split_local_idx": 2,
+      "variant": "sokoban_hard",
+      "payload_sha256": "964f07f439937c9685d8f1366f1f0b50c495685d4e0ac17b414a415c31437b13",
+      "request_sha256": "3e02ba86e8a1d99ba62e96541124d5ec52f0589cc84064bd20432e4d5f3a1d57",
+      "projection_sha256": "ba9051391f4d157dce2fb430f5bc5abc9cf382182d256785d6aa54d36e3dd6d6",
+      "reward": 0.0,
+      "tokens": 248,
+      "sampled_tokens": 9
+    },
+    {
+      "answer_index": "4",
+      "split_local_idx": 4,
+      "variant": "cryptarithm",
+      "payload_sha256": "8b7d37038e102c7a36e28a9a747d13fd6671cb2ae911cccc3dff98867ef826a2",
+      "request_sha256": "ae00a7b49e83f6392266f39168a9cba51cffa3e2086bb620bb8c3dd43c3e55c1",
+      "projection_sha256": "58be5629d497cbe67878889876396e60408760ee1d9194597914f39f61f1a12e",
+      "reward": 0.0,
+      "tokens": 185,
+      "sampled_tokens": 9
+    },
+    {
+      "answer_index": "8",
+      "split_local_idx": 8,
+      "variant": "countdown_7",
+      "payload_sha256": "eb2e144273ce0368ab7b4233dda731674825c464f35a4f1ee2e157f8ba5a40af",
+      "request_sha256": "8af3d45e4a61e251575b39c0d445083ae48eefc01501e00389ba38f32b208634",
+      "projection_sha256": "2529fb0f46eaa759f9973d98152cc10b6dd9e658fc3c93c2aedfe673cb557c8d",
+      "reward": 0.01,
+      "tokens": 215,
+      "sampled_tokens": 9
+    },
+    {
+      "answer_index": "9999",
+      "split_local_idx": 9999,
+      "variant": "arc_1d",
+      "payload_sha256": "6d056d76b1ed2c929c9db170000ef700300f0da1916c97faabddda871ce5534a",
+      "request_sha256": "f2307bb8f302185678f559d69b3f11482de6e6b9a87bc0431425095e0510374a",
+      "projection_sha256": "cd3ff18724d8c060b76c1cbb8d6d6b527eecba4cef0123d97ee6ca9109a546df",
+      "reward": 0.0,
+      "tokens": 630,
+      "sampled_tokens": 9
+    },
+    {
+      "answer_index": "10000",
+      "split_local_idx": 0,
+      "variant": "cryptarithm",
+      "payload_sha256": "4cf3d7a19d03d0f98c608cc90b96dfa117483b93009d07279f66a4f9923e9514",
+      "request_sha256": "745737fd5dde61ef14290fc7869824cfa2c13362bf2e56d712d9fcddacc241cb",
+      "projection_sha256": "499f8aed2ec97b43b6032bdd1683494cde58d4b36e7561a66e60ba5d38a22ebb",
+      "reward": 0.0,
+      "tokens": 191,
+      "sampled_tokens": 9
+    },
+    {
+      "answer_index": "10255",
+      "split_local_idx": 255,
+      "variant": "zebra_puzzles_7",
+      "payload_sha256": "b68543d62738feb971e6a6e8e8f16c9f91240d4ee5274f31bc2a1cea565f7f5c",
+      "request_sha256": "7ac8f675989813118041fa7c30e282959ee22b60ec76bb960c13819065644d65",
+      "projection_sha256": "0dc71742ddfc9ee621bd0017ee34b26b0f47df319a66bfa0d7f50835cedec1d7",
+      "reward": 0.0,
+      "tokens": 620,
+      "sampled_tokens": 9
+    }
+  ],
+  "two_distinct_worker_pids": [
+    58223,
+    58224
+  ],
+  "worker_dataset_path_absent": true,
+  "cancellation_and_recovery": true,
+  "cancellation_scope": "EnvClient cancellation then worker recovery; dispatcher arrival accounting is covered separately",
+  "http_requests": 29,
+  "frozen_legacy_sha256": "592950ed34eb49cf8eb397fd1baa7b6fbb6d1e8f92b3feea9e63bde01d7f9ea4",
+  "tokenizer_files": {
+    "config.json": "5beea1a4a34c62782bfb2f911c606741a3bab8f92d80a118fa053c28af12e8ba",
+    "merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+    "tokenizer.json": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+    "tokenizer_config.json": "a62ff0a2472a0fa1b8eaabcb57c59b58afa42a22831dc141400b6e0cf2b65ce3",
+    "vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+  },
+  "scope": "Actual frozen legacy and native training renderers, two real worker processes with ZMQ, deterministic token endpoint, real RG scoring, exact production materialization and value snapshots; no model inference or learning-curve claim."
+}
