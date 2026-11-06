@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "production_changes": [
+    "src/prime_rl/trainer/rl/metrics.py",
+    "src/prime_rl/trainer/rl/train.py"
+  ],
+  "protected_source_files": 213,
+  "protected_value_loss_transport_configs_unchanged": true,
+  "cpu_tests": 3,
+  "real_two_rank_gloo_cases": 5,
+  "gpu_runs": 0,
+  "source_hashes": {
+    "src/prime_rl/trainer/rl/metrics.py": "20ebfdfcd9331b8bd3b015b69af7771dae333e1274ae47ab5bf5ae91054c7ebd",
+    "src/prime_rl/trainer/rl/train.py": "8f2f44e082df7fffea78fa10bb3812541f4b838a4af7b4e45a6b5da592b06865"
+  },
+  "test_hashes": {
+    "tests/unit/train/rl/test_policy_provenance.py": "8aa47a015546d9f16f391db9f3af9da16aba101509c1df69831346dfc2514396",
+    "experiments/provenance-diagnostics/distributed_probe.py": "f314b9149f77d70830df76a7ef86dbb25bf9da4bf0a018510140f8ad84fbc478"
+  },
+  "scope": "Detached aggregation only. No new GPU or performance claim. Exact CPU production-loss/full-gradient/Adam proof; real packed geometry and distributed population controls.",
+  "upstream": "b2df580d19957e74580ca3d352d76d433cbd5e74",
+  "environment_project": "work/native-producer-cpu",
+  "gloo_module_hash_matches": true,
+  "post_test_format_only_ast_equal": true
+}

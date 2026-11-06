@@ -490,6 +490,7 @@ def train(config: TrainerConfig):
                 eligible_mask=mismatch_mask,
                 reference_version=reference_version,
                 observe=cp_rank == 0,
+                mismatch_kl=mismatch_kl,
             )
 
             token_exporter.export(

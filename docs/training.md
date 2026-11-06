@@ -338,6 +338,14 @@ uv run rl @ rl.toml --wandb \
 
 prime-rl deliberately logs a **large number of metrics** for maximum observability: every rollout metric is emitted per subset (`all`/`effective`), per statistic (`mean`/`max`/`min`/`p10`/`p90`), and per environment alongside a cross-env aggregate, so a multi-env run can emit thousands of series. To keep that navigable, W&B mode **auto-creates an `overview` saved view** on the first run into a project — curating the handful of metrics that matter into `train`, `eval`, `stability`, and `performance` sections (with per-env breakdowns). The view is created once per project and adapts to the run's environments; if a later run uses a different set of environments, a new versioned view (`overview-v2`, …) is created instead of overwriting the first.
 
+### Sampled policy diagnostics
+
+The trainer reports `observed_policy_version/` coverage over its RL/reference-KL token population. Missing or opaque labels remain unknown. For single-run training without LoRA, `sampled_weight_age/` compares known nonfuture labels with the policy version used for the forward pass, before its optimizer update. Future labels are reported separately. Context-parallel replicas contribute once to these token counts.
+
+`mismatch_kl_by_sampled_age/` reports count, mean, maximum and saturation fraction for age groups `0`, `1`, `2-3`, `4-7`, `8-15`, `16-31`, `32-63` and `64+`, plus separate unknown/future populations. These use the existing stable mismatch diagnostic and its numerical ceiling; the saturation fraction identifies values reaching that ceiling. Empty populations have counts but no mean or maximum. Valid NaNs remain visible. Without a comparable version namespace, numeric age groups are omitted.
+
+These metrics observe sampled weights. They do not describe critic versions or all weights that produced an in-flight request's cached context. They do not change training masks, losses, concurrency or sampling.
+
 ### Platform Monitoring
 
 Register a run on the Prime Intellect platform (Prime Lab) and stream training metrics, samples, and distributions to the platform dashboard. Bare flag uses defaults:

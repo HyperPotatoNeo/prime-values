@@ -67,6 +67,18 @@ def compute_token_metrics(summaries: TensorSummaries, diagnostics: TensorSummari
     return metrics
 
 
+SAMPLED_AGE_BINS = (
+    ("0", 0, 1),
+    ("1", 1, 2),
+    ("2-3", 2, 4),
+    ("4-7", 4, 8),
+    ("8-15", 8, 16),
+    ("16-31", 16, 32),
+    ("32-63", 32, 64),
+    ("64+", 64, None),
+)
+
+
 def policy_version_reference(*, step: int, max_concurrent_runs: int, has_lora: bool) -> int | None:
     """Only base-model, single-run steps identify the weights used by this forward."""
     if max_concurrent_runs != 1 or has_lora:
@@ -84,6 +96,7 @@ def accumulate_policy_provenance(
     eligible_mask: Tensor,
     reference_version: int | None,
     observe: bool = True,
+    mismatch_kl: Tensor | None = None,
 ) -> None:
     """Observe the validated physical-axis carrier, without changing token eligibility.
 
@@ -102,10 +115,27 @@ def accumulate_policy_provenance(
     else:
         versions = None
         known = torch.zeros_like(eligible_mask)
+    if mismatch_kl is not None:
+        if mismatch_kl.shape != eligible_mask.shape or mismatch_kl.device != eligible_mask.device:
+            raise ValueError("Mismatch values must match the physical token mask shape and device")
+        mismatch_kl = mismatch_kl.detach()
+        saturated = mismatch_kl >= DIAGNOSTIC_RATIO_LIMIT
+        nonfinite_nan = mismatch_kl.isnan()
+
+    def add_mismatch(population: str, mask: Tensor) -> None:
+        if mismatch_kl is None:
+            return
+        key = f"mismatch_kl_by_sampled_age/{population}"
+        summaries.add(key, mismatch_kl, mask)
+        summaries.add(f"{key}/saturated", saturated, mask)
+        # Distributed MIN/MAX need not propagate a NaN on every backend.
+        summaries.add(f"{key}/nan", nonfinite_nan, mask)
+
     one = torch.ones_like(eligible_mask)
     summaries.add("observed_policy_version/eligible", one, eligible_mask)
     summaries.add("observed_policy_version/known", one, eligible_mask & known)
     summaries.add("observed_policy_version/unknown", one, eligible_mask & ~known)
+    add_mismatch("unknown", eligible_mask & ~known)
     if reference_version is None:
         return
     if type(reference_version) is not int or not 0 <= reference_version <= 2**63 - 1:
@@ -121,6 +151,12 @@ def accumulate_policy_provenance(
         else torch.zeros_like(eligible_mask, dtype=torch.int64)
     )
     summaries.add("sampled_weight_age", ages, valid_age)
+    add_mismatch("future", eligible_mask & future)
+    for name, lower, upper in SAMPLED_AGE_BINS:
+        member = valid_age & (ages >= lower)
+        if upper is not None:
+            member = member & (ages < upper)
+        add_mismatch(name, member)
 
 
 def compute_policy_provenance(summaries: TensorSummaries) -> dict[str, float | int]:
@@ -143,6 +179,17 @@ def compute_policy_provenance(summaries: TensorSummaries) -> dict[str, float | i
         if count:
             for stat in ("mean", "max"):
                 metrics[f"sampled_weight_age/{stat}"] = reduced[f"sampled_weight_age/{stat}"]
+    for population in [*(name for name, _, _ in SAMPLED_AGE_BINS), "unknown", "future"]:
+        key = f"mismatch_kl_by_sampled_age/{population}"
+        if f"{key}/count" not in reduced:
+            continue
+        count = reduced[f"{key}/count"]
+        metrics[f"{key}/count"] = count
+        if count:
+            has_nan = reduced[f"{key}/nan/mean"] > 0
+            for stat in ("mean", "max"):
+                metrics[f"{key}/{stat}"] = float("nan") if has_nan else reduced[f"{key}/{stat}"]
+            metrics[f"{key}/saturated_fraction"] = reduced[f"{key}/saturated/mean"]
     return metrics
 
 

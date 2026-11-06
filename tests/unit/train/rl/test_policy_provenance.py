@@ -2,6 +2,7 @@
 
 import copy
 import inspect
+import math
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,7 +22,7 @@ from prime_rl.orchestrator.episodes import from_episode
 from prime_rl.orchestrator.trajectories import materialize_training_data
 from prime_rl.trainer.batch import prepare_batch
 from prime_rl.trainer.rl.data import DataLoader
-from prime_rl.trainer.rl.loss import compute_loss, setup_rl_loss_fn
+from prime_rl.trainer.rl.loss import DIAGNOSTIC_RATIO_LIMIT, compute_loss, compute_mismatch_kl, setup_rl_loss_fn
 from prime_rl.trainer.rl.metrics import (
     accumulate_policy_provenance,
     accumulate_token_metrics,
@@ -39,19 +40,24 @@ def actual_cpu_collectives(tmp_path_factory):
     if expected_root := os.environ.get("PRIME_RL_TEST_SOURCE_ROOT"):
         source = Path(inspect.getfile(inspect.unwrap(accumulate_policy_provenance))).resolve()
         assert source.is_relative_to(Path(expected_root).resolve())
+        for function in (compute_loss, TensorSummaries, materialize_training_data, prepare_batch):
+            assert (
+                Path(inspect.getfile(inspect.unwrap(function))).resolve().is_relative_to(Path(expected_root).resolve())
+            )
     rendezvous = tmp_path_factory.mktemp("provenance") / "gloo"
     dist.init_process_group("gloo", init_method=rendezvous.as_uri(), rank=0, world_size=1)
     yield
     dist.destroy_process_group()
 
 
-def summarize(labels, mask, reference):
+def summarize(labels, mask, reference, mismatch=None):
     summary = TensorSummaries("cpu")
     accumulate_policy_provenance(
         summary,
         token_policy_versions=None if labels is None else torch.tensor([labels], dtype=torch.int64),
         eligible_mask=torch.tensor([mask]),
         reference_version=reference,
+        mismatch_kl=None if mismatch is None else torch.tensor([mismatch], dtype=torch.float64),
     )
     return compute_policy_provenance(summary)
 
@@ -94,6 +100,48 @@ def test_literal_first_resume_unknown_future_and_integer_boundaries():
         result = summarize([0, 9, -1], [True] * 3, None)
         assert result["observed_policy_version/known_count"] == 2
         assert not any("future" in key or "age" in key for key in result)
+
+    # Literal half-open boundaries, not a reimplementation of the bucket helper.
+    ages = [0, 1, 2, 3, 4, 7, 8, 15, 16, 31, 32, 63, 64, 100]
+    labels = [100 - age for age in ages] + [-1, 101, 0]
+    values = list(range(1, 15)) + [17, DIAGNOSTIC_RATIO_LIMIT, float("nan")]
+    result = summarize(labels, [True] * 16 + [False], 100, values)
+    expected = {
+        "0": [1],
+        "1": [2],
+        "2-3": [3, 4],
+        "4-7": [5, 6],
+        "8-15": [7, 8],
+        "16-31": [9, 10],
+        "32-63": [11, 12],
+        "64+": [13, 14],
+        "unknown": [17],
+        "future": [DIAGNOSTIC_RATIO_LIMIT],
+    }
+    for name, observations in expected.items():
+        key = f"mismatch_kl_by_sampled_age/{name}"
+        assert result[f"{key}/count"] == len(observations)
+        assert result[f"{key}/mean"] == sum(observations) / len(observations)
+        assert result[f"{key}/max"] == max(observations)
+        assert result[f"{key}/saturated_fraction"] == (name == "future")
+    assert sum(result[f"mismatch_kl_by_sampled_age/{name}/count"] for name in expected) == 16
+    for reference in [2**53 + 1, 2**63 - 1]:
+        result = summarize([reference, reference - 1, 0], [True] * 3, reference, [1, 2, 3])
+        assert result["mismatch_kl_by_sampled_age/0/mean"] == 1
+        assert result["mismatch_kl_by_sampled_age/1/mean"] == 2
+        assert result["mismatch_kl_by_sampled_age/64+/mean"] == 3
+    result = summarize([0, -1], [True, True], None, [1, 2])
+    assert result["mismatch_kl_by_sampled_age/unknown/mean"] == 2
+    assert not any("mismatch_kl_by_sampled_age/0/" in key or "future" in key for key in result)
+    result = summarize(None, [True, True], 0, [2, 4])
+    assert result["mismatch_kl_by_sampled_age/unknown/mean"] == 3
+    assert result["mismatch_kl_by_sampled_age/0/count"] == 0
+    assert "mismatch_kl_by_sampled_age/0/mean" not in result
+    result = summarize([0], [False], 0, [float("nan")])
+    assert not any(key.endswith(("/mean", "/max", "fraction")) for key in result)
+    result = summarize([0, 0], [True, True], 0, [float("nan"), 3])
+    assert math.isnan(result["mismatch_kl_by_sampled_age/0/mean"])
+    assert math.isnan(result["mismatch_kl_by_sampled_age/0/max"])
 
 
 def node(parent, ids, mask, spans=None):
@@ -187,11 +235,11 @@ def test_real_materializer_projection_packing_and_cpu_decoder_cohort_is_observat
     for row in rows:
         batch = DataLoader._micro_batch_to_tensor(holder, row)
         names, ids = prepare_token_env_ids(batch["env_names"], torch.device("cpu"))
-        _, mask = accumulate_token_metrics(
+        mismatch, mask = accumulate_token_metrics(
             TensorSummaries("cpu"),
             TensorSummaries("cpu"),
             entropy=torch.zeros_like(batch["inference_logprobs"]),
-            trainer_logprobs=batch["inference_logprobs"],
+            trainer_logprobs=batch["inference_logprobs"] + batch["input_ids"].float() / 100,
             inference_logprobs=batch["inference_logprobs"],
             loss_mask=batch["loss_mask"],
             rl_weights=batch["rl_weights"],
@@ -205,7 +253,9 @@ def test_real_materializer_projection_packing_and_cpu_decoder_cohort_is_observat
             for i, token in enumerate(row.input_ids)
             if bool(mask[0, i])
         ]
-        accumulate_policy_provenance(summary, token_policy_versions=labels, eligible_mask=mask, reference_version=10)
+        accumulate_policy_provenance(
+            summary, token_policy_versions=labels, eligible_mask=mask, reference_version=10, mismatch_kl=mismatch
+        )
     assert sorted(table) == [(2, 7), (3, 8), (5, 9), (6, 9), (8, 10), (14, -1), (14, 7), (104, 9), (106, 11)]
     result = compute_policy_provenance(summary)
     assert result["observed_policy_version/eligible_count"] == 9
@@ -215,6 +265,21 @@ def test_real_materializer_projection_packing_and_cpu_decoder_cohort_is_observat
     assert result["sampled_weight_age/count"] == 7
     assert result["sampled_weight_age/mean"] == 11 / 7
     assert result["sampled_weight_age/max"] == 3
+    for name, tokens in {"0": [8], "1": [5, 6, 104], "2-3": [2, 3, 14], "unknown": [14], "future": [106]}.items():
+        key = f"mismatch_kl_by_sampled_age/{name}"
+        expected = [math.expm1(token / 100) - token / 100 for token in tokens]
+        assert result[f"{key}/count"] == len(tokens)
+        assert result[f"{key}/mean"] == pytest.approx(sum(expected) / len(expected), abs=2e-7)
+        assert result[f"{key}/max"] == pytest.approx(max(expected), abs=2e-7)
+        assert result[f"{key}/saturated_fraction"] == 0
+    assert (
+        sum(
+            value
+            for key, value in result.items()
+            if key.startswith("mismatch_kl_by_sampled_age/") and key.endswith("/count")
+        )
+        == 9
+    )
     assert msgspec.msgpack.encode(rows) == original
 
 
@@ -250,6 +315,7 @@ def test_observation_preserves_actual_policy_loss_full_gradients_and_adam_update
                 token_policy_versions=torch.tensor([[-1, 0, 1, -1, 2**63 - 1, -1]]),
                 eligible_mask=mask,
                 reference_version=1,
+                mismatch_kl=compute_mismatch_kl(logprobs - (logprobs.detach() + 0.01)),
             )
             assert all(not value.requires_grad for value in summary.summaries.values())
             assert compute_policy_provenance(summary)["sampled_weight_age/count"] == 2
