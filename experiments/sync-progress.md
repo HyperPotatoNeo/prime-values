@@ -1,4 +1,6 @@
-# Upstream synchronization status
+# Upstream synchronization: execution milestones
+
+Current status (November 6, 2026): units 1–16 are published on the synchronization branch and [draft PR #8](https://github.com/HyperPotatoNeo/prime-values/pull/8) is open. The supported migration profile is native RG mix and reverse-text, with the historical runtime retained separately. See the [current index](README.md) and [native-profile readiness](dependency-migration/native-profile-readiness.md). The milestone narrative below records the earlier pre-migration stage; its "next dependency boundary" has since been completed.
 
 The value-function implementation already existed in Prime Values. This work ports selected Prime RL infrastructure changes while preserving its independent critic trainer, evaluator, replay, credit construction and learning defaults. It is not a merge of every upstream commit.
 
