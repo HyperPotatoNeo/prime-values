@@ -40,7 +40,7 @@ from prime_rl.trainer.models.qwen3_moe.converting_qwen3_moe import (
     convert_tt_layer_to_hf,
     convert_tt_to_hf_moe,
 )
-from prime_rl.utils.sequence import get_cu_seqlens_from_position_ids
+from prime_rl.utils.sequence import PackedSequenceMetadata, get_cu_seqlens_from_position_ids
 
 logger = logging.get_logger(__name__)
 
@@ -206,6 +206,7 @@ class Qwen3MoeModel(Qwen3MoePreTrainedModel):
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         routed_experts: Optional[torch.LongTensor] = None,
+        packing_metadata: PackedSequenceMetadata | None = None,
     ) -> MoeModelOutputWithPast:
         """
         routed_experts (`torch.LongTensor` of shape `(batch_size, sequence_length, num_hidden_layers, num_experts_per_tok)`, *optional*):
@@ -217,8 +218,14 @@ class Qwen3MoeModel(Qwen3MoePreTrainedModel):
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
 
+        if packing_metadata is not None:
+            packing_metadata.validate_shape(inputs_embeds.shape[0], inputs_embeds.shape[1], inputs_embeds.device)
+
         if self.config._attn_implementation in ("flash_attention_2", "flash_attention_3", "fa4"):
-            cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+            if packing_metadata is None:
+                cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+            else:
+                cu_seqlens, max_seqlen = packing_metadata.cu_seqlens, packing_metadata.max_seqlen
             torch._dynamo.mark_dynamic(cu_seqlens, 0)
         else:
             max_seqlen = None
@@ -244,6 +251,8 @@ class Qwen3MoeModel(Qwen3MoePreTrainedModel):
 
 @auto_docstring
 class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel, GenerationMixin):
+    supports_packed_sequence_metadata = True
+
     _tied_weights_keys = {"lm_head.weight": "model.embed_tokens.weight"}
     _tp_plan = {"lm_head": "colwise_rep"}
     _pp_plan = {"lm_head": (["hidden_states"], ["logits"])}
@@ -282,6 +291,7 @@ class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel, GenerationMixin):
         logits_to_keep: Union[int, torch.Tensor] = 0,
         temperature: Union[torch.Tensor, None] = None,
         routed_experts: Optional[torch.LongTensor] = None,
+        packing_metadata: PackedSequenceMetadata | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> PrimeLmOutput:
         r"""
@@ -329,6 +339,7 @@ class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel, GenerationMixin):
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs: MoeModelOutputWithPast = self.model(
             input_ids=input_ids,
+            packing_metadata=packing_metadata,
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             routed_experts=routed_experts,

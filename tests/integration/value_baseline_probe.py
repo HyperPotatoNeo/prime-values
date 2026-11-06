@@ -5,6 +5,8 @@ it deliberately does not launch replay transport or an evaluator service.
 """
 
 import argparse
+import hashlib
+import inspect
 import json
 from pathlib import Path
 
@@ -13,6 +15,11 @@ import torch.distributed as dist
 from torch.distributed.tensor import DTensor
 from transformers import LlamaConfig, LlamaForCausalLM
 
+import prime_rl.trainer.model as model_module
+import prime_rl.trainer.models.llama.modeling_llama as llama_module
+import prime_rl.utils.sequence as sequence_module
+import prime_rl.value.batch as batch_module
+from prime_rl.configs.trainer import CompileConfig
 from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.trainer.parallel_dims import get_parallel_dims
 from prime_rl.trainer.utils import setup_torch_distributed
@@ -113,7 +120,32 @@ def _compare_updates(initial_left, initial_right, left, right):
     return maximum
 
 
-def run(output, resume):
+def _source_receipt(expected_root):
+    sources = {
+        "runtime": Path(inspect.getfile(ValueTrainerRuntime)).resolve(),
+        "model": Path(model_module.__file__).resolve(),
+        "llama_backbone": Path(llama_module.__file__).resolve(),
+        "sequence": Path(sequence_module.__file__).resolve(),
+        "value_batch": Path(batch_module.__file__).resolve(),
+        "config": Path(inspect.getfile(ValueFunctionConfig)).resolve(),
+    }
+    if expected_root is not None:
+        expected_root = expected_root.resolve()
+        assert all(path.is_relative_to(expected_root) for path in sources.values()), sources
+    return {
+        "expected_root": str(expected_root) if expected_root is not None else None,
+        "files": {
+            key: {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            for key, path in sources.items()
+        },
+        "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    }
+
+
+def run(output, resume, compiled=False, source_root=None):
+    source_receipt = _source_receipt(source_root)
+    if compiled and output.exists():
+        raise FileExistsError(f"Compiled fresh run requires a new output directory: {output}")
     world = get_world()
     setup_logger("info")
     setup_torch_distributed()
@@ -147,7 +179,7 @@ def run(output, resume):
                 "attn": "flash_attention_2",
                 "impl": "custom",
                 "ep": 1,
-                "compile": None,
+                "compile": CompileConfig().model_dump() if compiled else None,
                 "ac": None,
                 "ac_offloading": None,
                 "optim_cpu_offload": False,
@@ -165,7 +197,12 @@ def run(output, resume):
     if world.is_master:
         (output / "config.json").write_text(config.model_dump_json(indent=2))
     dims = get_parallel_dims(config.model)
+    captured_before = int(torch._dynamo.utils.counters["stats"]["unique_graphs"])
     runtime = ValueTrainerRuntime(config, dims)
+    compiled_layers = sum(layer._compiled_call_impl is not None for layer in runtime.model.model.layers)
+    if compiled:
+        assert compiled_layers == len(runtime.model.model.layers) == 2
+        assert all(parameter.dtype == torch.float32 for parameter in runtime.model.parameters())
     # Load-independent head initialization eliminates rank-local RNG layout as
     # a confounder; the real pretrained backbone and runtime setup stay intact.
     with torch.no_grad():
@@ -188,6 +225,23 @@ def run(output, resume):
     uninterrupted = _snapshot(runtime)
     assert uninterrupted["total_tokens"] == 20
     assert uninterrupted["total_samples"] == 6
+    compiled_graphs = int(torch._dynamo.utils.counters["stats"]["unique_graphs"]) - captured_before
+    moment_dtypes = sorted(
+        {
+            str(value.dtype)
+            for state in runtime.optimizer.state.values()
+            for key, value in state.items()
+            if key in {"exp_avg", "exp_avg_sq"}
+        }
+    )
+    if compiled:
+        assert compiled_graphs > 0, "compiled blocks must actually capture and execute graphs"
+        assert moment_dtypes == ["torch.float32"], moment_dtypes
+    compile_receipts = [None] * world.world_size
+    dist.all_gather_object(
+        compile_receipts,
+        {"compiled_layers": compiled_layers, "captured_graphs": compiled_graphs, "moment_dtypes": moment_dtypes},
+    )
     runtime.finish()
     if world.is_master:
         for name, state in (("initial", initial), ("step1", step1), ("step2", uninterrupted)):
@@ -199,6 +253,10 @@ def run(output, resume):
                     "layouts": layouts,
                     "total_tokens": 20,
                     "total_samples": 6,
+                    "compiled": compiled,
+                    "compile_config": config.model.compile.model_dump() if config.model.compile is not None else None,
+                    "rank_compile_receipts": compile_receipts,
+                    "sources": source_receipt,
                 },
                 indent=2,
             )
@@ -243,8 +301,33 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--compare", type=Path, nargs=2)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--compiled", action="store_true", help="Use the normal model-block compilation configuration")
+    parser.add_argument(
+        "--source-root", type=Path, help="Require runtime and configuration imports under this checkout"
+    )
+    parser.add_argument("--compare-compiled", type=Path, nargs=2, help="Compare frozen/candidate two-rank fresh states")
     args = parser.parse_args()
-    if args.compare:
+    if args.compare_compiled:
+        if args.compare or args.resume or args.compiled:
+            parser.error("--compare-compiled is a separate operation")
+        originals = [json.loads((path / "result.json").read_text()) for path in args.compare_compiled]
+        assert all(result["world_size"] == 2 and result["compiled"] for result in originals), originals
+        assert originals[0]["sources"]["harness_sha256"] == originals[1]["sources"]["harness_sha256"]
+        assert originals[0]["compile_config"] == originals[1]["compile_config"]
+        assert originals[0]["layouts"] == originals[1]["layouts"]
+        results = {}
+        initial_left, initial_right = [
+            torch.load(path / "initial.pt", weights_only=False) for path in args.compare_compiled
+        ]
+        for name in ("initial", "step1", "step2"):
+            left, right = [torch.load(path / f"{name}.pt", weights_only=False) for path in args.compare_compiled]
+            results[name] = _compare(left, right, rtol=0, atol=0)
+            if name != "initial":
+                _assert_update(initial_left, left)
+                _assert_update(initial_right, right)
+                results[name]["max_update_relative_l2"] = _compare_updates(initial_left, initial_right, left, right)
+        print(json.dumps(results, indent=2))
+    elif args.compare:
         if args.resume:
             parser.error("--resume and --compare are separate operations")
         originals = [json.loads((path / "result.json").read_text()) for path in args.compare]
@@ -266,7 +349,9 @@ def main():
     else:
         if args.output is None:
             parser.error("--output is required when not comparing")
-        run(args.output, args.resume)
+        if args.compiled and (args.resume or args.source_root is None):
+            parser.error("--compiled requires --source-root and a fresh run without --resume")
+        run(args.output, args.resume, compiled=args.compiled, source_root=args.source_root)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,291 @@
+{
+  "status": "completed; independent parent acceptance pending",
+  "source_patch": "798752e5498745ee461dbb1b02cf439f12d8f7ef124d2ce534381ebfc21937c8",
+  "runtime_construction": "Original4ea patch applied; later eca/798 changed only model_oracle.py via verified old/new bytes. Final798 standalone XML patch encoding is malformed; actual runtime XML matches intendedfe107. All source files verified.",
+  "archive": {
+    "sha256": "d75d0f4d850c9c1934b5ce12bffec7d8fceb907b6080b2925f14d29416abe6cb",
+    "bytes": 50050930,
+    "files_verified": 120,
+    "verification": {
+      "driver_exit": 0,
+      "frozen_entries_verified": 2342,
+      "candidate_files_verified": 2348,
+      "observed_at": "2026-11-06T02:20:57.362692+00:00",
+      "limitations": [
+        "Tiny-model numerical and compiled runtime probes, not a fresh large-model pipeline or reward-quality test.",
+        "Selected GPU roles and phase timestamps are not utilization.",
+        "External ring helper retains host scalar reads."
+      ],
+      "failed_harness_attempt_preserved": true
+    },
+    "transfer": "Initial cat truncated despite clientexit0; fetched exact remaining tail; full archive SHA and all member hashes verified."
+  },
+  "model": {
+    "mode": "explicit",
+    "source_hashes": {
+      "/data/packed-boundary-001/candidate/src/prime_rl/utils/sequence.py": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29",
+      "/data/packed-boundary-001/candidate/src/prime_rl/utils/cp.py": "150b24c8c06b2fabcbfb7b8a9d42fb46913cd09c09fbcd8a4a9ee42330734050",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/model.py": "c669a091e5090a53808b48710647af69cbb1be843aa45c10a5ec4534dd390b51",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3/modeling_qwen3.py": "f833619956b7b445ee4a2d35da8389961dfa44404b5e9fae8afea2188e33716f",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py": "2e8671c83e7b1cfb68a3251b63986df4c79f1c29e399258dffd9e7b5fd53558c",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/attn.py": "7022d4c0f3a6d210821de5e037054c8e0b302020f0a05a9b53bf4027b5e476ef",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/ulysses_attn.py": "687e8266ff66fc99f79237f2d17ae678063626925d254510a51db0282de89219",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/rl/loss.py": "9055806615e428360139da18a862b82a07b22934435abc17dc492d0eb89c06f4",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/batch.py": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/inference.py": "2a0f04e6008ba409bc2b074092dda7a57fc06ae32c03c059692b226d683cb621",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/math.py": "6f8a26845a6995ba9624761e15541ec392773fb2563f95cedd8e0184064b58b5"
+    },
+    "harness_sha256": "0ad6dd52ba9492d1257056cf25b5dcaf9950f93dc86769c36fc2952b70c4554d",
+    "precision_scope": "BF16 model and gradient storage, SGD step; production FSDP optimizer/reduction behavior is outside this probe",
+    "metrics": {
+      "actor": {
+        "worst_gradient_relative_l2": 0.004107499495148659,
+        "changed_parameters": 16
+      },
+      "critic": {
+        "worst_gradient_relative_l2": 0.005082577001303434,
+        "changed_parameters": 18
+      },
+      "routed_moe": {
+        "gradient_parameters": 27,
+        "routing_positive_control": true,
+        "expert_initialization": "seed 911, real MoE.init_weights, complete finite initial state recorded"
+      },
+      "hf_fallback": {
+        "separate_sequences": 2,
+        "implicit_packing": false
+      }
+    },
+    "comparison": {
+      "tensors": 220,
+      "unequal": [],
+      "exact": true
+    }
+  },
+  "ring": {
+    "mode": "explicit",
+    "source_hashes": {
+      "/data/packed-boundary-001/candidate/src/prime_rl/utils/sequence.py": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29",
+      "/data/packed-boundary-001/candidate/src/prime_rl/utils/cp.py": "150b24c8c06b2fabcbfb7b8a9d42fb46913cd09c09fbcd8a4a9ee42330734050",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/model.py": "c669a091e5090a53808b48710647af69cbb1be843aa45c10a5ec4534dd390b51",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3/modeling_qwen3.py": "f833619956b7b445ee4a2d35da8389961dfa44404b5e9fae8afea2188e33716f",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py": "2e8671c83e7b1cfb68a3251b63986df4c79f1c29e399258dffd9e7b5fd53558c",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/attn.py": "7022d4c0f3a6d210821de5e037054c8e0b302020f0a05a9b53bf4027b5e476ef",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/ulysses_attn.py": "687e8266ff66fc99f79237f2d17ae678063626925d254510a51db0282de89219",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/rl/loss.py": "9055806615e428360139da18a862b82a07b22934435abc17dc492d0eb89c06f4",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/batch.py": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/inference.py": "2a0f04e6008ba409bc2b074092dda7a57fc06ae32c03c059692b226d683cb621",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/math.py": "6f8a26845a6995ba9624761e15541ec392773fb2563f95cedd8e0184064b58b5"
+    },
+    "harness_sha256": "0ad6dd52ba9492d1257056cf25b5dcaf9950f93dc86769c36fc2952b70c4554d",
+    "precision_scope": "BF16 model and gradient storage, SGD step; production FSDP optimizer/reduction behavior is outside this probe",
+    "metrics": {
+      "worst_gradient_relative_l2": 0.004050231538712978,
+      "changed_parameters": 16,
+      "style": "ring",
+      "world_size": 2,
+      "lengths": [
+        6,
+        5,
+        3,
+        2
+      ]
+    },
+    "comparison": {
+      "tensors": 77,
+      "unequal": [],
+      "exact": true
+    }
+  },
+  "ulysses": {
+    "mode": "explicit",
+    "source_hashes": {
+      "/data/packed-boundary-001/candidate/src/prime_rl/utils/sequence.py": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29",
+      "/data/packed-boundary-001/candidate/src/prime_rl/utils/cp.py": "150b24c8c06b2fabcbfb7b8a9d42fb46913cd09c09fbcd8a4a9ee42330734050",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/model.py": "c669a091e5090a53808b48710647af69cbb1be843aa45c10a5ec4534dd390b51",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3/modeling_qwen3.py": "f833619956b7b445ee4a2d35da8389961dfa44404b5e9fae8afea2188e33716f",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py": "2e8671c83e7b1cfb68a3251b63986df4c79f1c29e399258dffd9e7b5fd53558c",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/attn.py": "7022d4c0f3a6d210821de5e037054c8e0b302020f0a05a9b53bf4027b5e476ef",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/ulysses_attn.py": "687e8266ff66fc99f79237f2d17ae678063626925d254510a51db0282de89219",
+      "/data/packed-boundary-001/candidate/src/prime_rl/trainer/rl/loss.py": "9055806615e428360139da18a862b82a07b22934435abc17dc492d0eb89c06f4",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/batch.py": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/inference.py": "2a0f04e6008ba409bc2b074092dda7a57fc06ae32c03c059692b226d683cb621",
+      "/data/packed-boundary-001/candidate/src/prime_rl/value/math.py": "6f8a26845a6995ba9624761e15541ec392773fb2563f95cedd8e0184064b58b5"
+    },
+    "harness_sha256": "0ad6dd52ba9492d1257056cf25b5dcaf9950f93dc86769c36fc2952b70c4554d",
+    "precision_scope": "BF16 model and gradient storage, SGD step; production FSDP optimizer/reduction behavior is outside this probe",
+    "metrics": {
+      "worst_gradient_relative_l2": 0.003310692962259054,
+      "changed_parameters": 16,
+      "style": "ulysses",
+      "world_size": 2,
+      "lengths": [
+        6,
+        5,
+        3,
+        2
+      ]
+    },
+    "comparison": {
+      "tensors": 77,
+      "unequal": [],
+      "exact": true
+    }
+  },
+  "compiled": {
+    "world_size": 2,
+    "layouts": [
+      [
+        [
+          0
+        ],
+        [
+          2
+        ]
+      ],
+      [
+        [
+          1
+        ],
+        [
+          -1
+        ]
+      ]
+    ],
+    "total_tokens": 20,
+    "total_samples": 6,
+    "compiled": true,
+    "compile_config": {
+      "fullgraph": false
+    },
+    "rank_compile_receipts": [
+      {
+        "compiled_layers": 2,
+        "captured_graphs": 2,
+        "moment_dtypes": [
+          "torch.float32"
+        ]
+      },
+      {
+        "compiled_layers": 2,
+        "captured_graphs": 2,
+        "moment_dtypes": [
+          "torch.float32"
+        ]
+      }
+    ],
+    "sources": {
+      "expected_root": "/data/packed-boundary-001/candidate",
+      "files": {
+        "runtime": {
+          "path": "/data/packed-boundary-001/candidate/src/prime_rl/value/trainer.py",
+          "sha256": "9e4cb051c303b87abbdceb8d43243760c0248cebd1a711d7dbd7bd42fcb2c536"
+        },
+        "model": {
+          "path": "/data/packed-boundary-001/candidate/src/prime_rl/trainer/model.py",
+          "sha256": "c669a091e5090a53808b48710647af69cbb1be843aa45c10a5ec4534dd390b51"
+        },
+        "llama_backbone": {
+          "path": "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/llama/modeling_llama.py",
+          "sha256": "d97ccf56495823949299f8bee4893dba943fe784fa0cb1ae312e6f050a0fe388"
+        },
+        "sequence": {
+          "path": "/data/packed-boundary-001/candidate/src/prime_rl/utils/sequence.py",
+          "sha256": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29"
+        },
+        "value_batch": {
+          "path": "/data/packed-boundary-001/candidate/src/prime_rl/value/batch.py",
+          "sha256": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2"
+        },
+        "config": {
+          "path": "/data/packed-boundary-001/candidate/packages/prime-rl-configs/src/prime_rl/configs/value.py",
+          "sha256": "a379a646ee6139031f45fccabdcf6a7ebe50c90ab924af55b954a3c07a74a149"
+        }
+      },
+      "harness_sha256": "99f2a94c1a6b1dbcfb5b1f8847329fbec4fb8f977bf8ccad8427e8e18ee2a02c"
+    }
+  },
+  "compiled_frozen_reuse": {
+    "receipt": "/data/packed-boundary-001/output-attempt002/frozen-compiled/result.json",
+    "source_guards_verified": {
+      "expected_root": "/data/task-ownership-001/source",
+      "files": {
+        "runtime": {
+          "path": "/data/task-ownership-001/source/src/prime_rl/value/trainer.py",
+          "sha256": "f8bc1b8ba758744fbbd17d283d40802dfcf31255a73f89306c53c68c8bf13e37"
+        },
+        "model": {
+          "path": "/data/task-ownership-001/source/src/prime_rl/trainer/model.py",
+          "sha256": "cc63bcebcaa7ed78181bb492fbbf6b2f49df4e5c7638b4bee884965b76b65f5d"
+        },
+        "llama_backbone": {
+          "path": "/data/task-ownership-001/source/src/prime_rl/trainer/models/llama/modeling_llama.py",
+          "sha256": "1b4b1b50c574883d9781cf0cdaf20bd6358878f0964897d5f728c89d614b213f"
+        },
+        "sequence": {
+          "path": "/data/task-ownership-001/source/src/prime_rl/utils/sequence.py",
+          "sha256": "be024e90bebf72176bf3262dedf2e2a552f6b31f8950da088938fedc1609e99b"
+        },
+        "value_batch": {
+          "path": "/data/task-ownership-001/source/src/prime_rl/value/batch.py",
+          "sha256": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2"
+        },
+        "config": {
+          "path": "/data/task-ownership-001/source/packages/prime-rl-configs/src/prime_rl/configs/value.py",
+          "sha256": "a379a646ee6139031f45fccabdcf6a7ebe50c90ab924af55b954a3c07a74a149"
+        }
+      },
+      "harness_sha256": "99f2a94c1a6b1dbcfb5b1f8847329fbec4fb8f977bf8ccad8427e8e18ee2a02c"
+    },
+    "reason": "Independent compiled harness and every frozen source byte unchanged; only model_oracle fixture initialized its custom MoE tensors."
+  },
+  "profiler": {
+    "scope": "boundary preparation only; no full-model or throughput claim",
+    "limitation": "The host-to-device offset upload may still synchronize. This checks removal of device-derived boundary discovery, not all synchronization.",
+    "lengths": [
+      1023,
+      513,
+      2047,
+      1025,
+      511,
+      1537,
+      1021,
+      515
+    ],
+    "tokens": 8192,
+    "repetitions": 10,
+    "source": "/data/packed-boundary-001/candidate/src/prime_rl/utils/sequence.py",
+    "source_sha256": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29",
+    "exact_offsets_and_max": true
+  },
+  "profiler_counts": {
+    "position": {
+      "nonzero": 10,
+      "local_scalar_dense": 20,
+      "item": 20
+    },
+    "explicit": {
+      "nonzero": 0,
+      "local_scalar_dense": 0,
+      "item": 0
+    }
+  },
+  "post_phase_gpu_processes": "",
+  "sampling": "No sampling/generation in this bounded numerical phase.",
+  "limitations": [
+    "Small representative models, not a full Qwen4B pipeline or reward improvement test.",
+    "BF16 model oracle compares same-layout frozen/current exactly; separately packed-vs-independent-sequence gradients have predeclared rounding tolerances.",
+    "Compiled ValueTrainerRuntime validates production FP32 optimization/reduction/Adam behavior separately.",
+    "External ring setup still has scalar host reads; profiler scope is only boundary preparation."
+  ],
+  "failures": [
+    {
+      "attempt": "001",
+      "reason": "Namespace package provenance anchor None; fixture receipt only."
+    },
+    {
+      "attempt": "002",
+      "reason": "Custom MoE fixture experts uninitialized by generic HF initialization; seeded actual MoE.init_weights added, initial states recorded, routing assertion unchanged, frozen repeat exact."
+    }
+  ]
+}

@@ -40,6 +40,7 @@ from prime_rl.trainer.rl.normalization import global_loss_scales
 from prime_rl.trainer.rl.token_export import setup_token_exporter
 from prime_rl.trainer.model import (
     forward,
+    model_supports_packed_sequence_metadata,
     setup_tokenizer,
     setup_model,
     is_tt_moe_model,
@@ -63,6 +64,7 @@ from prime_rl.trainer.utils import (
 from prime_rl.trainer.world import get_world
 from prime_rl.trainer.runs import setup_multi_run_manager, Progress, get_multi_run_manager
 from prime_rl.trainer.models.layers.lora import set_lora_num_tokens
+from prime_rl.utils.sequence import prepare_packed_sequence_metadata
 from prime_rl.utils.heartbeat import Heartbeat
 from prime_rl.utils.metrics_server import HealthServer, MetricsServer, RunStats
 from prime_rl.utils.monitor import setup_monitor
@@ -311,6 +313,13 @@ def train(config: TrainerConfig):
         for micro_step, micro_batch in enumerate(micro_batches):
             input_ids = micro_batch["input_ids"].to("cuda")
             position_ids = micro_batch["position_ids"].to("cuda")
+            packing_metadata = (
+                prepare_packed_sequence_metadata(
+                    micro_batch["sequence_lengths"], total_tokens=input_ids.shape[1], device=input_ids.device
+                )
+                if model_supports_packed_sequence_metadata(model)
+                else None
+            )
             advantages = micro_batch["advantages"].to("cuda")
             loss_mask = micro_batch["loss_mask"].to("cuda")
             inference_logprobs = micro_batch["inference_logprobs"].to("cuda")
@@ -352,9 +361,19 @@ def train(config: TrainerConfig):
                 raise NotImplementedError("Context parallelism is not supported with VLM/multimodal training")
 
             if cp_enabled:
-                input_ids, forward_position_ids = setup_cp_params(
-                    input_ids, position_ids, cp_rank, cp_size, cp_group, cp_style=config.model.cp_style
+                local_packing_metadata = (
+                    packing_metadata.for_cp(cp_rank, cp_size) if packing_metadata is not None else None
                 )
+                input_ids, forward_position_ids = setup_cp_params(
+                    input_ids,
+                    position_ids,
+                    cp_rank,
+                    cp_size,
+                    cp_group,
+                    cp_style=config.model.cp_style,
+                    packing_metadata=packing_metadata,
+                )
+                packing_metadata = local_packing_metadata
                 labels = shard_for_cp(labels, cp_rank=cp_rank, cp_world_size=cp_size)
                 if routed_experts is not None:
                     routed_experts = shard_for_cp(routed_experts, cp_rank=cp_rank, cp_world_size=cp_size)
@@ -390,6 +409,7 @@ def train(config: TrainerConfig):
                     mm_kwargs=mm_kwargs,
                     mm_token_type_ids=mm_token_type_ids,
                     routed_experts=routed_experts,
+                    packing_metadata=packing_metadata,
                 )
 
             if out.get("logprobs") is None:

@@ -1,0 +1,73 @@
+{
+  "status": "Complete: integrated after frozen-first CPU/GPU acceptance and independent parent artifact verification.",
+  "upstream_reference": "8dcf55acbcc01b4792e86b61ce411d2d803e8a7c",
+  "base": "work/task-ownership-candidate final staged source",
+  "cpu_tests": {
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0
+  },
+  "production_files": [
+    "src/prime_rl/value/inference.py",
+    "src/prime_rl/value/trainer.py",
+    "src/prime_rl/utils/sequence.py",
+    "src/prime_rl/utils/cp.py",
+    "src/prime_rl/trainer/model.py",
+    "src/prime_rl/trainer/models/base.py",
+    "src/prime_rl/trainer/rl/train.py",
+    "src/prime_rl/trainer/models/laguna/modeling_laguna.py",
+    "src/prime_rl/trainer/models/minimax_m2/modeling_minimax_m2.py",
+    "src/prime_rl/trainer/models/qwen3/modeling_qwen3.py",
+    "src/prime_rl/trainer/models/afmoe/modeling_afmoe.py",
+    "src/prime_rl/trainer/models/glm4_moe/modeling_glm4_moe.py",
+    "src/prime_rl/trainer/models/llama/modeling_llama.py",
+    "src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py"
+  ],
+  "protected_files_identical": [
+    "src/prime_rl/value/math.py",
+    "src/prime_rl/value/batch.py",
+    "src/prime_rl/value/trajectory.py",
+    "src/prime_rl/orchestrator/value_context.py",
+    "src/prime_rl/trainer/batch.py",
+    "src/prime_rl/transport/types.py",
+    "src/prime_rl/trainer/sft/data.py",
+    "src/prime_rl/trainer/sft/train.py",
+    "src/prime_rl/trainer/models/gpt_oss/modeling_gpt_oss.py",
+    "src/prime_rl/trainer/models/glm_moe_dsa/modeling_glm_moe_dsa.py",
+    "src/prime_rl/trainer/models/nemotron_h/modeling_nemotron_h.py",
+    "src/prime_rl/trainer/models/qwen3_5_moe/modeling_qwen3_5_moe.py",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "independent_review": "safe_loss reviewed helper, all seven model forward paths, actor/value and CP plumbing; no blocker found. pipeline_validation independently reviewed numerical/CP/profiler harnesses. CP deterministic kernel binding was corrected before any GPU run. Compiled runtime probe reviewed: actual runtime/two updates/dummy rank, FP32 parameter and moment guards, compiled-callable and graph evidence, full exact state comparisons. Added fresh-output refusal and actual Llama backbone source guard before freezing.",
+  "limitations": [
+    "Tiny fixed-input models and actual compiled critic runtime were tested; no new large-model pipeline or reward-quality experiment was run for this unit.",
+    "Standalone BF16 SGD and compiled FP32 FSDP/Adam probes cover distinct numerical paths; they do not establish every model/backend combination.",
+    "Hybrid and specialized backend performance remains unchanged; no new packed hybrid CP correctness claim.",
+    "Host-to-device uploads and external ring scalar reads remain; no end-to-end throughput or zero-synchronization claim."
+  ],
+  "style": "Ruff check and format pass; all changed production files AST parse",
+  "integration_gate": "Satisfied by recorded task-ownership completion, frozen-first numerical checks, compiled runtime checks and independent artifact verification.",
+  "compiled_probe_sha256": "99f2a94c1a6b1dbcfb5b1f8847329fbec4fb8f977bf8ccad8427e8e18ee2a02c",
+  "integration": {
+    "base_revision": "5f80407b57f035b3d0de0dce46b26fffb849ab94",
+    "root_verification": "root-verification.json",
+    "source_hashes_checked": 329,
+    "changed_files_match_actual_runtime": 23,
+    "archive_members_checked": 120,
+    "model_tensors_exact": 220,
+    "cp_tensors_exact_each": 77,
+    "compiled_states_and_moments_exact": true,
+    "gpu_driver_exit": 0,
+    "harness_attempts": "Two fixture defects corrected and retained; no production or tolerance changes.",
+    "patch_roundtrip": "Final standalone patch corrected for missing newline marker in XML evidence; all23 outputs round-trip exactly."
+  },
+  "executed_gpu_checks": [
+    "frozen position then candidate explicit Qwen actor/critic exact outputs/full gradients/SGD update and shared value inference",
+    "routed Qwen3MoE argument positive control and complete matching gradients",
+    "ordinary HF SDPA critic fallback",
+    "two-rank dense ring and Ulysses CP versus independent unsharded reference",
+    "boundary discovery profiler with old positive controls and copy/sync telemetry",
+    "two-rank actual ValueTrainerRuntime/FSDP/compiled-block FP32 parameter and Adam moment states, fresh two updates, same-harness frozen/candidate exact comparison"
+  ]
+}

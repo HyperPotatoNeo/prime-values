@@ -1,0 +1,8 @@
+{
+  "reason": "namespace package prime_rl.__file__ is None; provenance anchor changed to concrete ValueFunctionModel module, numerical harness unchanged",
+  "old_harness": "9225281874f0f04ee49266c6df19c03fba771b214e946d4f3d77068f22abee7c",
+  "new_harness": "6a41d53a4603ab4fbb57c72d0e0dc845c890f64025cf166b3f04d598223a8cc6",
+  "patch_sha256": "eca2f777074e12e8d28e0e8a90385f9e88d51d75e38ce8e4c98548048d936a47",
+  "failed_attempt_preserved": "output-attempt001",
+  "candidate_file_hashes_verified": 2348
+}

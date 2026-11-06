@@ -1,0 +1,42 @@
+{
+  "mode": "explicit",
+  "source_hashes": {
+    "/data/packed-boundary-001/candidate/src/prime_rl/utils/sequence.py": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29",
+    "/data/packed-boundary-001/candidate/src/prime_rl/utils/cp.py": "150b24c8c06b2fabcbfb7b8a9d42fb46913cd09c09fbcd8a4a9ee42330734050",
+    "/data/packed-boundary-001/candidate/src/prime_rl/trainer/model.py": "c669a091e5090a53808b48710647af69cbb1be843aa45c10a5ec4534dd390b51",
+    "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3/modeling_qwen3.py": "f833619956b7b445ee4a2d35da8389961dfa44404b5e9fae8afea2188e33716f",
+    "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py": "2e8671c83e7b1cfb68a3251b63986df4c79f1c29e399258dffd9e7b5fd53558c",
+    "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/attn.py": "7022d4c0f3a6d210821de5e037054c8e0b302020f0a05a9b53bf4027b5e476ef",
+    "/data/packed-boundary-001/candidate/src/prime_rl/trainer/models/layers/ulysses_attn.py": "687e8266ff66fc99f79237f2d17ae678063626925d254510a51db0282de89219",
+    "/data/packed-boundary-001/candidate/src/prime_rl/trainer/rl/loss.py": "9055806615e428360139da18a862b82a07b22934435abc17dc492d0eb89c06f4",
+    "/data/packed-boundary-001/candidate/src/prime_rl/value/batch.py": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2",
+    "/data/packed-boundary-001/candidate/src/prime_rl/value/inference.py": "2a0f04e6008ba409bc2b074092dda7a57fc06ae32c03c059692b226d683cb621",
+    "/data/packed-boundary-001/candidate/src/prime_rl/value/math.py": "6f8a26845a6995ba9624761e15541ec392773fb2563f95cedd8e0184064b58b5"
+  },
+  "harness_sha256": "0ad6dd52ba9492d1257056cf25b5dcaf9950f93dc86769c36fc2952b70c4554d",
+  "precision_scope": "BF16 model and gradient storage, SGD step; production FSDP optimizer/reduction behavior is outside this probe",
+  "metrics": {
+    "actor": {
+      "worst_gradient_relative_l2": 0.004107499495148659,
+      "changed_parameters": 16
+    },
+    "critic": {
+      "worst_gradient_relative_l2": 0.005082577001303434,
+      "changed_parameters": 18
+    },
+    "routed_moe": {
+      "gradient_parameters": 27,
+      "routing_positive_control": true,
+      "expert_initialization": "seed 911, real MoE.init_weights, complete finite initial state recorded"
+    },
+    "hf_fallback": {
+      "separate_sequences": 2,
+      "implicit_packing": false
+    }
+  },
+  "comparison": {
+    "tensors": 220,
+    "unequal": [],
+    "exact": true
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "world_size": 2,
+  "layouts": [
+    [
+      [
+        0
+      ],
+      [
+        2
+      ]
+    ],
+    [
+      [
+        1
+      ],
+      [
+        -1
+      ]
+    ]
+  ],
+  "total_tokens": 20,
+  "total_samples": 6,
+  "compiled": true,
+  "compile_config": {
+    "fullgraph": false
+  },
+  "rank_compile_receipts": [
+    {
+      "compiled_layers": 2,
+      "captured_graphs": 2,
+      "moment_dtypes": [
+        "torch.float32"
+      ]
+    },
+    {
+      "compiled_layers": 2,
+      "captured_graphs": 2,
+      "moment_dtypes": [
+        "torch.float32"
+      ]
+    }
+  ],
+  "sources": {
+    "expected_root": "/data/task-ownership-001/source",
+    "files": {
+      "runtime": {
+        "path": "/data/task-ownership-001/source/src/prime_rl/value/trainer.py",
+        "sha256": "f8bc1b8ba758744fbbd17d283d40802dfcf31255a73f89306c53c68c8bf13e37"
+      },
+      "model": {
+        "path": "/data/task-ownership-001/source/src/prime_rl/trainer/model.py",
+        "sha256": "cc63bcebcaa7ed78181bb492fbbf6b2f49df4e5c7638b4bee884965b76b65f5d"
+      },
+      "llama_backbone": {
+        "path": "/data/task-ownership-001/source/src/prime_rl/trainer/models/llama/modeling_llama.py",
+        "sha256": "1b4b1b50c574883d9781cf0cdaf20bd6358878f0964897d5f728c89d614b213f"
+      },
+      "sequence": {
+        "path": "/data/task-ownership-001/source/src/prime_rl/utils/sequence.py",
+        "sha256": "be024e90bebf72176bf3262dedf2e2a552f6b31f8950da088938fedc1609e99b"
+      },
+      "value_batch": {
+        "path": "/data/task-ownership-001/source/src/prime_rl/value/batch.py",
+        "sha256": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2"
+      },
+      "config": {
+        "path": "/data/task-ownership-001/source/packages/prime-rl-configs/src/prime_rl/configs/value.py",
+        "sha256": "a379a646ee6139031f45fccabdcf6a7ebe50c90ab924af55b954a3c07a74a149"
+      }
+    },
+    "harness_sha256": "99f2a94c1a6b1dbcfb5b1f8847329fbec4fb8f977bf8ccad8427e8e18ee2a02c"
+  }
+}

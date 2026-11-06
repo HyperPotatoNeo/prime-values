@@ -1,0 +1,8 @@
+{
+  "reason": "Direct _from_config left custom GroupedExperts torch.empty parameters uninitialized. Fixture now calls actual MoE.init_weights, checks finite distinct experts, and records initial parameters. Routing positive control unchanged. Frozen model repeat is required before candidate acceptance.",
+  "old_harness": "6a41d53a4603ab4fbb57c72d0e0dc845c890f64025cf166b3f04d598223a8cc6",
+  "new_harness": "0ad6dd52ba9492d1257056cf25b5dcaf9950f93dc86769c36fc2952b70c4554d",
+  "patch_sha256": "798752e5498745ee461dbb1b02cf439f12d8f7ef124d2ce534381ebfc21937c8",
+  "failed_attempt_preserved": "output-attempt002",
+  "candidate_file_hashes_verified": 2348
+}

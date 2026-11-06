@@ -1,0 +1,31 @@
+{
+  "mode": "position",
+  "source_hashes": {
+    "/data/task-ownership-001/source/src/prime_rl/utils/sequence.py": "be024e90bebf72176bf3262dedf2e2a552f6b31f8950da088938fedc1609e99b",
+    "/data/task-ownership-001/source/src/prime_rl/utils/cp.py": "65d6d9b687b0ed79dd27663c17e8812edb116e6b5dc12f25da4e054a207a8eed",
+    "/data/task-ownership-001/source/src/prime_rl/trainer/model.py": "cc63bcebcaa7ed78181bb492fbbf6b2f49df4e5c7638b4bee884965b76b65f5d",
+    "/data/task-ownership-001/source/src/prime_rl/trainer/models/qwen3/modeling_qwen3.py": "3948a58fa9aa39645383b67c1d9798491cd88071fc25c9b8f14adee4e909d9a1",
+    "/data/task-ownership-001/source/src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py": "1e7fb971f553ce9a1b13711ba9bccd6ded7bd85011726763121015cdbead0b22",
+    "/data/task-ownership-001/source/src/prime_rl/trainer/models/layers/attn.py": "7022d4c0f3a6d210821de5e037054c8e0b302020f0a05a9b53bf4027b5e476ef",
+    "/data/task-ownership-001/source/src/prime_rl/trainer/models/layers/ulysses_attn.py": "687e8266ff66fc99f79237f2d17ae678063626925d254510a51db0282de89219",
+    "/data/task-ownership-001/source/src/prime_rl/trainer/rl/loss.py": "9055806615e428360139da18a862b82a07b22934435abc17dc492d0eb89c06f4",
+    "/data/task-ownership-001/source/src/prime_rl/value/batch.py": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2",
+    "/data/task-ownership-001/source/src/prime_rl/value/inference.py": "92df8c408c4177ca12a5e9e217eedcbefad33a6a17b2b15e22c40a610568ae57",
+    "/data/task-ownership-001/source/src/prime_rl/value/math.py": "6f8a26845a6995ba9624761e15541ec392773fb2563f95cedd8e0184064b58b5"
+  },
+  "harness_sha256": "0ad6dd52ba9492d1257056cf25b5dcaf9950f93dc86769c36fc2952b70c4554d",
+  "precision_scope": "BF16 model and gradient storage, SGD step; production FSDP optimizer/reduction behavior is outside this probe",
+  "metrics": {
+    "worst_gradient_relative_l2": 0.003310692962259054,
+    "changed_parameters": 16,
+    "style": "ulysses",
+    "world_size": 2,
+    "lengths": [
+      6,
+      5,
+      3,
+      2
+    ]
+  },
+  "comparison": null
+}

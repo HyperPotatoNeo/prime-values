@@ -1,0 +1,35 @@
+{
+  "production_files": [
+    "src/prime_rl/value/inference.py",
+    "src/prime_rl/value/trainer.py",
+    "src/prime_rl/utils/sequence.py",
+    "src/prime_rl/utils/cp.py",
+    "src/prime_rl/trainer/model.py",
+    "src/prime_rl/trainer/models/base.py",
+    "src/prime_rl/trainer/rl/train.py",
+    "src/prime_rl/trainer/models/laguna/modeling_laguna.py",
+    "src/prime_rl/trainer/models/minimax_m2/modeling_minimax_m2.py",
+    "src/prime_rl/trainer/models/qwen3/modeling_qwen3.py",
+    "src/prime_rl/trainer/models/afmoe/modeling_afmoe.py",
+    "src/prime_rl/trainer/models/glm4_moe/modeling_glm4_moe.py",
+    "src/prime_rl/trainer/models/llama/modeling_llama.py",
+    "src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py"
+  ],
+  "protected_files_identical": [
+    "src/prime_rl/value/math.py",
+    "src/prime_rl/value/batch.py",
+    "src/prime_rl/value/trajectory.py",
+    "src/prime_rl/orchestrator/value_context.py",
+    "src/prime_rl/trainer/batch.py",
+    "src/prime_rl/transport/types.py",
+    "src/prime_rl/trainer/sft/data.py",
+    "src/prime_rl/trainer/sft/train.py",
+    "src/prime_rl/trainer/models/gpt_oss/modeling_gpt_oss.py",
+    "src/prime_rl/trainer/models/glm_moe_dsa/modeling_glm_moe_dsa.py",
+    "src/prime_rl/trainer/models/nemotron_h/modeling_nemotron_h.py",
+    "src/prime_rl/trainer/models/qwen3_5_moe/modeling_qwen3_5_moe.py",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "status": "scratch only, GPU numerical/runtime validation pending"
+}

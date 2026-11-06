@@ -1,0 +1,152 @@
+{
+  "status": "fixed patch serialization; all resulting bytes independently verified after applying to fresh temporary tree",
+  "invalid_previous_patch_sha256": "798752e5498745ee461dbb1b02cf439f12d8f7ef124d2ce534381ebfc21937c8",
+  "patch_sha256": "81117262e4bfc7b9be201a72f0d522be4fd195c005ba8750080fdab77ca200a2",
+  "changed_source_files": [],
+  "no_newline_markers": [
+    "experiments/packed-boundary/results/cpu-metadata.xml"
+  ],
+  "checks": [
+    {
+      "path": "experiments/packed-boundary/README.md",
+      "sha256": "026e62a6c4c92ca8076b1607d24b6fc0dea94741c6cb3948c5712c8f0fdfaee8",
+      "bytes": 5915,
+      "matches_manifest": true
+    },
+    {
+      "path": "experiments/packed-boundary/cp_oracle.py",
+      "sha256": "da48dcc1961f288859c4d7fc1ada4d18d1498b1f3af32c06360a34819e7b3eba",
+      "bytes": 4355,
+      "matches_manifest": true
+    },
+    {
+      "path": "experiments/packed-boundary/model_oracle.py",
+      "sha256": "0ad6dd52ba9492d1257056cf25b5dcaf9950f93dc86769c36fc2952b70c4554d",
+      "bytes": 19535,
+      "matches_manifest": true
+    },
+    {
+      "path": "experiments/packed-boundary/profile_boundaries.py",
+      "sha256": "ab205f1e6fbd9c246ee1cacd9946ea983ff0711769f3d84fb6a5c77b85dd7663",
+      "bytes": 3299,
+      "matches_manifest": true
+    },
+    {
+      "path": "experiments/packed-boundary/results/cpu-metadata.xml",
+      "sha256": "fe107241b50fac5db0cef537fd21dc2776b6d3435c1d4a05f66430951a0cbb5c",
+      "bytes": 2808,
+      "matches_manifest": true
+    },
+    {
+      "path": "experiments/packed-boundary/results/receipt.json",
+      "sha256": "0a3cc5ff93128a3f3e3275a8c699474e1199c3738a15292eac5cc8a4a4d70c0f",
+      "bytes": 3792,
+      "matches_manifest": true
+    },
+    {
+      "path": "experiments/packed-boundary/results/source-review.json",
+      "sha256": "0dad00fb4570085dafab39c4c50b66d3f2e0f6bf4dd37fd31179b240acf55581",
+      "bytes": 1470,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/model.py",
+      "sha256": "c669a091e5090a53808b48710647af69cbb1be843aa45c10a5ec4534dd390b51",
+      "bytes": 61814,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/afmoe/modeling_afmoe.py",
+      "sha256": "11015bd74599e2992d31407280c0cb08f2d7a7c55efe3168a566e1c628b6a16b",
+      "bytes": 25148,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/base.py",
+      "sha256": "b17cab99e972ebe28414f48e670e456b971d43f4b9703a15c17ffa2d53f8971a",
+      "bytes": 6161,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/glm4_moe/modeling_glm4_moe.py",
+      "sha256": "c96a68b2925c9d665ce9cd00de3e0f17264b6a4df0357b6a9477864576173882",
+      "bytes": 16140,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/laguna/modeling_laguna.py",
+      "sha256": "c57ceb6e9cb286f4ce836a0107eaaf39a261adf42398bfc00170ec25c03a9fe0",
+      "bytes": 22198,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/llama/modeling_llama.py",
+      "sha256": "d97ccf56495823949299f8bee4893dba943fe784fa0cb1ae312e6f050a0fe388",
+      "bytes": 13631,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/minimax_m2/modeling_minimax_m2.py",
+      "sha256": "fb734cb0470519568a0526373d6be4b3218416052e7de860ee0a85f29339db7c",
+      "bytes": 12650,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/qwen3/modeling_qwen3.py",
+      "sha256": "f833619956b7b445ee4a2d35da8389961dfa44404b5e9fae8afea2188e33716f",
+      "bytes": 11559,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/models/qwen3_moe/modeling_qwen3_moe.py",
+      "sha256": "2e8671c83e7b1cfb68a3251b63986df4c79f1c29e399258dffd9e7b5fd53558c",
+      "bytes": 16595,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/trainer/rl/train.py",
+      "sha256": "112bb5ae9171d3119e796c051901463f6dc0dc272f0f209636a44696368e0b14",
+      "bytes": 38589,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/utils/cp.py",
+      "sha256": "150b24c8c06b2fabcbfb7b8a9d42fb46913cd09c09fbcd8a4a9ee42330734050",
+      "bytes": 7362,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/utils/sequence.py",
+      "sha256": "726992779dd74406b644483fca1ff0702908cb04805bcd256b9c67a7054d0a29",
+      "bytes": 5222,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/value/inference.py",
+      "sha256": "2a0f04e6008ba409bc2b074092dda7a57fc06ae32c03c059692b226d683cb621",
+      "bytes": 2949,
+      "matches_manifest": true
+    },
+    {
+      "path": "src/prime_rl/value/trainer.py",
+      "sha256": "9e4cb051c303b87abbdceb8d43243760c0248cebd1a711d7dbd7bd42fcb2c536",
+      "bytes": 22850,
+      "matches_manifest": true
+    },
+    {
+      "path": "tests/integration/value_baseline_probe.py",
+      "sha256": "99f2a94c1a6b1dbcfb5b1f8847329fbec4fb8f977bf8ccad8427e8e18ee2a02c",
+      "bytes": 16113,
+      "matches_manifest": true
+    },
+    {
+      "path": "tests/unit/utils/test_packed_sequence_metadata.py",
+      "sha256": "be57375c279dcb678867ec1ff76fb26424264799d679403424aaf2efa27d5bc3",
+      "bytes": 3702,
+      "matches_manifest": true
+    }
+  ],
+  "xml_parses": true,
+  "no_extra_files": true,
+  "limitation": "Local patch application validation only; runtime source preflight receipt is separate and must be reconciled by runtime owner."
+}

@@ -1,0 +1,20 @@
+2026-11-06T02:18:34Z	frozen-model	start	0	/data/task-ownership-001/source
+2026-11-06T02:18:46Z	frozen-model	end	0
+2026-11-06T02:18:46Z	frozen-model-repeat	start	0	/data/task-ownership-001/source
+2026-11-06T02:18:58Z	frozen-model-repeat	end	0
+2026-11-06T02:18:58Z	frozen-cp-ring	start	0,1	/data/task-ownership-001/source
+2026-11-06T02:19:14Z	frozen-cp-ring	end	0
+2026-11-06T02:19:14Z	frozen-cp-ulysses	start	0,1	/data/task-ownership-001/source
+2026-11-06T02:19:29Z	frozen-cp-ulysses	end	0
+2026-11-06T02:19:29Z	candidate-model	start	0	/data/packed-boundary-001/candidate
+2026-11-06T02:19:41Z	candidate-model	end	0
+2026-11-06T02:19:41Z	candidate-cp-ring	start	0,1	/data/packed-boundary-001/candidate
+2026-11-06T02:19:56Z	candidate-cp-ring	end	0
+2026-11-06T02:19:56Z	candidate-cp-ulysses	start	0,1	/data/packed-boundary-001/candidate
+2026-11-06T02:20:12Z	candidate-cp-ulysses	end	0
+2026-11-06T02:20:12Z	candidate-compiled	start	0,1	/data/packed-boundary-001/candidate
+2026-11-06T02:20:34Z	candidate-compiled	end	0
+2026-11-06T02:20:34Z	compare-compiled	start	0	/data/packed-boundary-001/candidate
+2026-11-06T02:20:46Z	compare-compiled	end	0
+2026-11-06T02:20:46Z	boundary-profile	start	0	/data/packed-boundary-001/candidate
+2026-11-06T02:20:49Z	boundary-profile	end	0
