@@ -46,11 +46,17 @@ def save():
 
 
 def kubectl(*parts):
-    result = subprocess.run([str(args.clusterctl), "kubectl", "-n", "siddarth", *parts],
-                            capture_output=True, text=True, timeout=90)
-    if result.returncode:
-        raise RuntimeError(result.stderr[-1000:])
-    return result.stdout
+    for attempt in range(4):
+        result = subprocess.run([str(args.clusterctl), "kubectl", "-n", "siddarth", *parts],
+                                capture_output=True, text=True, timeout=90)
+        if result.returncode == 0:
+            return result.stdout
+        # The authenticated API intermittently rejects individual requests.
+        # Retrying these idempotent reads/applies does not relax admission limits.
+        transient_auth = "Unauthorized" in result.stderr or "provide credentials" in result.stderr
+        if not transient_auth or attempt == 3:
+            raise RuntimeError(result.stderr[-1000:])
+        time.sleep(1)
 
 
 def tick():
