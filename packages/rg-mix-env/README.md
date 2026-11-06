@@ -15,7 +15,16 @@ For evaluation, configure the same taskset with `split = "eval"`. Evaluation tak
 
 The policy receives the original reasoning-gym system prompt and question. Private scoring data never becomes a policy message or value-function prefix. The task takes one model turn and scores its answer with the selected reasoning-gym scorer. Answer extraction follows the package's XML answer convention; the format metric has weight zero and does not affect reward. There is no group-dependent reward function.
 
-On the frozen current-stack branch, `rg_mix_env.load_environment` supports the legacy dataset-loading and generation APIs. `generate_rg_mix_dataset.py` creates dataset artifacts for either entrypoint. The native taskset requires a cached artifact so its selected private inputs survive worker reconstruction without regenerating questions.
+To create a new public artifact using the installed, pinned scorer dependency, run from the repository root:
+
+```bash
+uv run python packages/rg-mix-env/generate_rg_mix_dataset.py \
+  --output ./data/rg-dataset --num-train 10000 --num-test 256 --seed 42 --workers 4
+```
+
+Then edit `dataset_path` in your native RG config to the generated directory. Generation is explicit and may be expensive; loading the native taskset never regenerates questions. Save the generator arguments, dependency lock and artifact hashes with each experiment. This creates a new artifact; it does not reproduce an unavailable private cache by assertion.
+
+The generator imports shared task/scorer definitions directly and runs with the current native verifier. The retained legacy environment class requires its separately frozen runtime.
 
 For a native training configuration that must retain the legacy actor-length
 cap, add `training_projection = { type = "single_turn" }` beside the `env`

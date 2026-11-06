@@ -1,6 +1,6 @@
 # Overview
 
-`prime-rl` is a framework for large-scale, asynchronous reinforcement learning of large language models. It is designed to be easy to use and hackable, yet capable of training 1T+-parameter MoE models on 1000+ GPU clusters.
+Prime Values extends `prime-rl`, a framework for large-scale, asynchronous reinforcement learning of large language models. It is designed to be easy to use and hackable, yet capable of training 1T+-parameter MoE models on 1000+ GPU clusters.
 
 ## Architecture
 
@@ -16,23 +16,23 @@ The three processes communicate through configurable transports — by default t
 
 ## Installation
 
-```bash
-curl -sSL https://raw.githubusercontent.com/PrimeIntellect-ai/prime-rl/main/scripts/install.sh | bash
-```
-
-The script clones the repo, initializes the [`verifiers`](https://github.com/PrimeIntellect-ai/verifiers) / [`renderers`](https://github.com/PrimeIntellect-ai/renderers) / [`research-environments`](https://github.com/PrimeIntellect-ai/research-environments) submodules, installs `uv`, and runs `uv sync --all-extras`. For manual setup, or troubleshooting, see the [README](https://github.com/PrimeIntellect-ai/prime-rl#setup).
-
-You need at least one NVIDIA GPU (RTX 3090/4090/5090, A100, H100, H200, or B200). Single-GPU runs are supported for debugging; production RL is typically 1× inference node + 1+ trainer nodes.
+Install this repository and its pinned dependencies using the [Prime Values setup instructions](../README.md#setup). Installation requires no private infrastructure.
 
 ## Quick Run
 
-Train an SFT-warmed `Qwen3-0.6B` on the `reverse-text` task — the env is bundled with the [`verifiers`](https://github.com/PrimeIntellect-ai/verifiers) submodule so no separate install is needed. This config ships in the repo and runs on two GPUs (one for inference, one for the trainer):
+The supported native reverse-text policy example uses the public Qwen3-4B model, groups of eight, three updates, and two GPU roles. Choose hardware with sufficient memory; GPU count alone does not establish capacity. Inspect its resolved configuration first:
 
 ```bash
-uv run rl @ examples/reverse_text/rl.toml
+uv run rl @ configs/native/reverse_text_policy.toml --dry-run --output-dir outputs/native-check
 ```
 
-The `rl` entrypoint reads `examples/reverse_text/rl.toml`, splits it into per-process sub-configs, picks GPU 0 for inference and GPU 1 for the trainer, launches all three processes, and tees their stdout into `outputs/logs/{trainer,orchestrator,inference}.log`. Within a minute the trainer should log `step 1` and a reward sample; after 20 steps the run completes and final HF-compatible weights land at `outputs/weights/step_20`.
+Then launch on a provisioned machine:
+
+```bash
+WANDB_MODE=offline uv run rl @ configs/native/reverse_text_policy.toml --output-dir outputs/native-smoke
+```
+
+The `rl` entrypoint resolves per-role configs and launches inference, orchestrator and trainer. The [native profile](../configs/native/README.md) also provides an independent-value example with four GPU roles and cached RG variants. These are bounded lifecycle examples, not convergence benchmarks.
 
 ## Documentation
 

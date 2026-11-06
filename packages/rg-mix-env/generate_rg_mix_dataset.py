@@ -7,7 +7,7 @@ runs can load instantly, avoiding the slow puzzle generation each time.
 Uses multiprocessing to parallelize entry generation across CPU cores.
 
 Usage:
-    python generate_rg_mix_dataset.py --output /path/to/output \
+    uv run python generate_rg_mix_dataset.py --output /path/to/output \
         --num-train 7500 --num-test 100 --seed 42
 """
 
@@ -60,7 +60,7 @@ def main():
     output_path = Path(args.output)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    from rg_mix_env import TASK_VARIANTS
+    from rg_mix_shared import TASK_VARIANTS
 
     total_examples = args.num_train + args.num_test
     seed = args.seed

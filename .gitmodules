@@ -1,12 +1,12 @@
 [submodule "verifiers"]
 	path = deps/verifiers
-	url = git@github.com:PrimeIntellect-ai/verifiers.git
+	url = https://github.com/PrimeIntellect-ai/verifiers.git
 [submodule "renderers"]
 	path = deps/renderers
-	url = git@github.com:PrimeIntellect-ai/renderers.git
+	url = https://github.com/PrimeIntellect-ai/renderers.git
 [submodule "research-environments"]
 	path = deps/research-environments
-	url = git@github.com:PrimeIntellect-ai/research-environments.git
+	url = https://github.com/PrimeIntellect-ai/research-environments.git
 [submodule "pydantic-config"]
 	path = deps/pydantic-config
 	url = https://github.com/PrimeIntellect-ai/pydantic-config

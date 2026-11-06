@@ -2,7 +2,7 @@
 
 This page covers everything you need to launch, observe, checkpoint, and recover a `prime-rl` training run — the RL trainer (and the distillation algorithms that run through it) and the SFT trainer. For multi-node and cluster layouts, see [Scaling](scaling.md). For the loss math and algorithm knobs, see [Algorithms](algorithms.md). For an independently trained async critic, see [Value Functions](value-functions.md).
 
-> **AI agents working in this repo:** the equivalent runbooks are at [`skills/training/`](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/skills/training) — top-level routing in [`skills/training/SKILL.md`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/skills/training/SKILL.md), launch details in [`skills/training/start-run/SKILL.md`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/skills/training/start-run/SKILL.md), and check-in / restart procedures in [`skills/training/monitor-run/SKILL.md`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/skills/training/monitor-run/SKILL.md).
+> **AI agents working in this repo:** the equivalent runbooks are at [`skills/training/`](../skills/training) — top-level routing in [`skills/training/SKILL.md`](../skills/training/SKILL.md), launch details in [`skills/training/start-run/SKILL.md`](../skills/training/start-run/SKILL.md), and check-in / restart procedures in [`skills/training/monitor-run/SKILL.md`](../skills/training/monitor-run/SKILL.md).
 
 ## Table of Contents
 
@@ -43,10 +43,10 @@ This page covers everything you need to launch, observe, checkpoint, and recover
 
 ### Launch
 
-The minimal RL run trains an SFT-warmed `Qwen3-0.6B` on the `reverse-text` task — the env is bundled with the [`verifiers`](https://github.com/PrimeIntellect-ai/verifiers) submodule, so nothing else needs to be installed:
+The supported native policy example runs three updates of public Qwen3-4B on reverse-text, with groups of eight and two GPU roles. Install the locked environment extras first; provision sufficient memory or select a smaller compatible model. See the [native profile](../configs/native/README.md) for value-enabled and cached RG examples:
 
 ```bash
-uv run rl @ examples/reverse_text/rl.toml
+WANDB_MODE=offline uv run rl @ configs/native/reverse_text_policy.toml
 ```
 
 ### Useful Knobs
@@ -365,7 +365,7 @@ Requires `PRIME_API_KEY` (set via `prime login` or env var) and an allowlisted t
 
 ## Rules of Thumb
 
-- **Start small.** Run `examples/reverse_text/rl.toml` end-to-end on 2 GPUs before scaling. If the smoke run finishes cleanly, your install is good.
+- **Start small.** Run `configs/native/reverse_text_policy.toml` on adequately provisioned GPUs before scaling. If the smoke run finishes cleanly, your install is good.
 - **Batch size ≥ 64.** Smaller batches give noisy gradient estimates and the trainer's overhead-per-step dominates throughput. 64 is the practical floor; 128–512 is the range for quick ablations; production RL often runs at 1024+.
 - **Group size ≥ 8.** Bigger groups (`orchestrator.group_size`) make it more likely that a task produces a mix of high- and low-reward rollouts, which is what gives the trainer a usable signal — if all rollouts in a group succeed or all fail, the within-group advantage collapses to zero and the trainer learns nothing from that task. Bigger groups also tighten advantage normalization. 8 is the floor; 16–32 is common.
 - **Pin `output_dir` per run.** Sharing a directory across runs will mix rollouts and break resumes. `--output-dir outputs/<unique-name>` is the simplest discipline.

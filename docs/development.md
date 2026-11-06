@@ -23,28 +23,27 @@ The test suite is split into three tiers, each with its own CI workflow.
 
 - **`tests/unit/`** — fast-running, hermetic tests for isolated logic: config parsing and validation, advantage / loss / scheduler / packer math, individual dataset paths, model-conversion roundtrips, etc. Tests that need a GPU are tagged with the `gpu` marker.
 - **`tests/integration/`** — full-stack RL/SFT runs on a tiny model end-to-end through inference + orchestrator + trainer.
-- **`tests/nightly/`** — runs the configs in [`examples/`](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples) every night to catch regressions in the shipped examples.
+- **`tests/nightly/`** — preserved scenario assertions available through the explicitly pinned manual workflow; these do not run nightly on the native profile.
 
 ### Running Tests Locally
 
 ```bash
-uv run pytest -v                                           # everything
-uv run pytest tests/unit -v                                # unit only
-uv run pytest tests/integration -v                         # integration only
-uv run pytest -v -m "not gpu"                              # CPU-only subset (mirrors CPU CI)
-uv run pytest -v -m gpu                                    # GPU-only subset
-uv run pytest tests/integration/test_reverse_text.py -vvs  # one specific scenario
+uv run pytest tests/unit -v -m "not gpu"                    # CPU unit suite
+uv run pytest tests/unit -v -m gpu                          # GPU unit suite
+uv run pytest tests/integration/test_native_profile.py -vvs # native policy/value lifecycle
 ```
+
+Use the manual, pinned workflow for preserved scenario tests; a broad integration-directory sweep is not the current native acceptance command.
 
 ### CI Workflows
 
 | Workflow | Trigger | What runs | Where |
 |---|---|---|---|
-| [`cpu_tests.yaml`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/.github/workflows/cpu_tests.yaml) | every PR + push to `main` | `pytest tests/unit -m "not gpu"`, plus a slim-wheel install check that `prime-rl-configs` imports cleanly without heavy deps (no torch / vllm / transformers / wandb / verifiers / datasets / liger / loguru in `sys.modules`) | `ubuntu-latest` |
-| [`gpu_tests.yaml`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/.github/workflows/gpu_tests.yaml) | every non-draft PR + push to `main` | `pytest tests/unit -m gpu`, plus a matrix of named integration scenarios (`reverse_text`, `reverse_text_sft`, `reverse_text_lora`, `reverse_text_moe`, `reverse_text_multi_run`, `reverse_text_rl_opd`, `reverse_text_rl_sft`, `reverse_text_sft_lora`, `alphabet_sort`, `benchmark_regression`) | self-hosted GPU runners (`vm`, `4xa6000`) |
-| [`nightly_tests.yaml`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/.github/workflows/nightly_tests.yaml) | 03:00 PST daily + manual `workflow_dispatch` (single-file filter optional) | every file in `tests/nightly/`, one matrix job per file | `research-cluster` |
+| [`cpu_tests.yaml`](../.github/workflows/cpu_tests.yaml) | every PR + push to `main` | All CPU unit tests, plus an isolated exact-pin config/plugin wheel install and native CLI check without heavy trainer/inference imports | `ubuntu-latest` |
+| [`gpu_tests.yaml`](../.github/workflows/gpu_tests.yaml) | repository opt-in for non-draft PRs/pushes, or manual dispatch | GPU unit tests and native reverse-text policy/value fresh-resume integration | self-hosted GPU runners (`vm`, `4xa6000`) |
+| [`nightly_tests.yaml`](../.github/workflows/nightly_tests.yaml) | manual only | Explicitly selected preserved test on fixed source/lock `1801d112`; no current-branch compatibility claim | self-hosted GPU runners |
 
-The GPU + Nightly workflows skip drafts — open the PR as **Draft** until you're ready to consume CI compute, then mark it ready for review to trigger the GPU matrix.
+The GPU workflow requires configured self-hosted runners labeled `vm` and `4xa6000`. Enable automatic execution with repository variable `ENABLE_GPU_CI=true`, or launch it manually with `workflow_dispatch`; automatic PR runs still skip drafts. Without runners, run `uv run pytest tests/integration/test_native_profile.py -vvs` on an appropriately provisioned local machine. A skipped job is not acceptance. External H200 validation is separate evidence and does not establish A6000 memory fit. RG's external artifact is not provisioned by Actions. The recorded [acceptance index](../experiments/README.md) distinguishes completed runtime evidence from pending workflow execution.
 
 ### Markers
 

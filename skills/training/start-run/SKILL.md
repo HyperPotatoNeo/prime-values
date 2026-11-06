@@ -39,7 +39,7 @@ uv run rl @ configs/native/reverse_text_value.toml --dry-run                    
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
 - SLURM: single- and multi-node
 - Validate launcher serialization, not only `RLConfig` JSON roundtrips: `write_subconfigs` omits `None` fields in TOML. Default-enabled optional sections such as model compilation, activation checkpointing and activation offloading therefore restore their defaults when child CLIs reload the file. Reload each generated component config through `cli(ComponentConfig, args=["@", path])` and compare with the intended resolved config before claiming these features are disabled. The safety pipeline harness records and checks both generated and actual child configs.
-- Native tasksets use `env.taskset = { id = "reverse-text" }` or `id = "rg-mix-v1"` inside that table. Top-level environment `id`, `args` and `extra_env_kwargs` reject during configuration validation; the removed legacy bridge is not available in this profile. Keep the historical branch/lock for those runs and track environment migration before a main-branch replacement.
+- Native tasksets use `env.taskset = { id = "reverse-text" }` or `id = "rg-mix-v1"` inside that table. Top-level environment `id`, `args` and `extra_env_kwargs` reject during configuration validation; the removed legacy bridge is not available in this profile. Keep the historical branch/lock for those runs when running those historical configurations.
 - Use `env.agent.harness = { id = "null" }` and `env.agent.runtime = { type = "subprocess" }`. Runtime now belongs to the agent. PrimeRL preserves subprocess as its default; an explicitly selected runtime remains honored. The old nested harness.runtime placement is migrated once, and conflicting placements reject. Do not silently provision the upstream default remote runtime.
 - PrimeRL's environment wrapper composes native `EnvConfig` with serving settings from `ServeConfig`. `pool`, `address`, and `max_concurrent` remain on the PrimeRL environment entry; `env.taskset` and `env.agent` describe execution. Standalone `env-server` consumes the same resolved wrapper. Verify the generated child TOML, including these fields, before launch.
 - Preflight the actual two-worker native server: the orchestrator loads tasks once and workers reconstruct the selected data. Exact task classes/configs and lossless task-data roundtrips are required. Explicit integer idx values, including duplicate/gappy values, are preserved; an unset idx gets its row position. Taskset views are not silently applied by the existing sampler. Infinite eval requires `num_examples`; training pulls remain bounded by admitted groups. Source RNG/cursor/generator state is not checkpointed, so resume remains a cold task restart.
@@ -98,9 +98,8 @@ not JSON. Use `ValueEvaluatorClient` or decode the response bytes with
   requires it to resolve to zero.
 - Multi-node runs similarly reserve value-trainer nodes and reserve evaluator
   nodes only in dedicated placement. Start from
-  the deployment/value sections of `configs/native/reverse_text_value.toml`, explicitly
-  replacing its legacy environment entry with a validated native configuration;
-  set scheduler fields for the target environment.
+  the deployment/value sections of `configs/native/reverse_text_value.toml`;
+  retain its native environment configuration and set scheduler fields for the target environment.
 - Privileged value context defaults to an optional static native-v1 task
   `value_function_prompt` declared by the task's own data type (RG declares it;
   the upstream TaskData base does not). Confirm it survives worker reconstruction

@@ -11,7 +11,8 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
-REPO_ID="prime-rl"
+REPO_ID="prime-values"
+REPO_OWNER="HyperPotatoNeo"
 
 # Flag defaults (can be overridden via env)
 SKIP_CLONE=${SKIP_CLONE:-0}
@@ -103,10 +104,10 @@ main() {
     log_info "Determining best way to clone (SSH vs HTTPS)..."
     if has_ssh_access; then
       log_info "SSH access to GitHub works. Cloning via SSH."
-      git clone git@github.com:PrimeIntellect-ai/${REPO_ID}.git
+      git clone git@github.com:${REPO_OWNER}/${REPO_ID}.git
     else
       log_warn "SSH auth to GitHub not available. Cloning via HTTPS."
-      git clone https://github.com/PrimeIntellect-ai/${REPO_ID}.git
+      git clone https://github.com/${REPO_OWNER}/${REPO_ID}.git
     fi
 
     log_info "Entering project directory..."
@@ -138,20 +139,13 @@ main() {
   uv tool install prime
 
   log_info "Syncing virtual environment..."
-  uv sync --all-extras
+  uv sync --all-extras --locked
 
   log_info "Installing pre-commit hooks..."
   uv run pre-commit install
 
-  # aarch64 has no prebuilt flash-attn wheel; build it from source for the local GPU.
-  # Without this, `import flash_attn` fails with `ModuleNotFoundError: flash_attn_2_cuda`.
-  # Run last so no subsequent uv operation (which implicitly syncs against the lockfile)
-  # rebuilds flash-attn from PyPI with FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE and undoes this.
-  if [ "$(uname -m)" = "aarch64" ]; then
-    log_info "aarch64 detected: building flash-attn from source (this takes 20-30 minutes)..."
-    log_warn "Future 'uv sync --all-extras' or 'uv run' will remove this build. Use 'uv sync --inexact' or 'uv run --no-sync' to keep it."
-    bash scripts/docker-arm64-post-install.sh
-  fi
+  # The lock selects architecture-specific attention wheels. Do not replace
+  # them with an unpinned source build during installation.
 
   log_info "Installation completed!"
 }

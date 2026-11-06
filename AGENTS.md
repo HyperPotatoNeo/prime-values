@@ -54,7 +54,7 @@ Write tests as plain functions with pytest fixtures. Don't use class-based tests
 
 ## GPU accounting
 
-- Record each cluster launch and end in the Resolution research cache's GPU accounting records, with job/pod IDs, GPU model/count, source/config references and observed timestamps. Reuse the shared accounting helper/schema when available.
+- Record each cluster launch and end in the project's chosen experiment records, with job/pod IDs, GPU model/count, source/config references and observed timestamps. Use organization-specific accounting tools only when configured by that project; public workflows require no private service.
 - Separate requested/reserved GPU-hours from measured compute utilization. Mark admission, start, end or utilization gaps as unknown; do not infer them from file modification times.
 - Include failed attempts and intervals when a node is retained idle. Reusing one job for several validation phases is one allocation, with separate phase records.
 - Preserve ongoing runs while collecting accounting evidence. Never store credentials in reports, logs or Git.
