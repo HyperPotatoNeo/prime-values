@@ -23,27 +23,30 @@ All entrypoints run via `uv run <command>` and accept TOML configs via `@ path/t
 
 ## `rl` — RL training
 
-Launches inference server, orchestrator, and trainer as subprocesses.
+Launches inference server, orchestrator, and trainer as subprocesses. This branch
+currently supports the native RG/reverse-text producer profile; historical legacy
+examples require revision `1801d112` and its lock. Start from an explicitly
+validated native config, not an automatic alias of an old `id`/`args` config.
+Replace the path below with that config.
 
 ```bash
-uv run rl @ examples/reverse_text/rl.toml
-uv run rl @ examples/reverse_text/rl.toml @ examples/reverse_text/slurm_rl.toml   # SLURM
-uv run rl @ examples/reverse_text/rl.toml --dry-run                                # write scripts, don't run
+uv run rl @ /path/to/native-rl.toml
+uv run rl @ /path/to/native-rl.toml @ /path/to/native-slurm.toml   # SLURM
+uv run rl @ /path/to/native-rl.toml --dry-run                                # write scripts, don't run
 ```
 
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
 - Entrypoint: `src/prime_rl/entrypoints/rl.py`
 - SLURM: single- and multi-node
 - Validate launcher serialization, not only `RLConfig` JSON roundtrips: `write_subconfigs` omits `None` fields in TOML. Default-enabled optional sections such as model compilation, activation checkpointing and activation offloading therefore restore their defaults when child CLIs reload the file. Reload each generated component config through `cli(ComponentConfig, args=["@", path])` and compare with the intended resolved config before claiming these features are disabled. The safety pipeline harness records and checks both generated and actual child configs.
-- Native v1 tasksets use `env.taskset = { id = "reverse-text-v1" }`, not a top-level `id` (which selects the upstream legacy `load_environment` bridge). For reverse text, also set `env.agent.harness = { id = "null", runtime = { type = "subprocess" } }`; see `configs/debug/v1/reverse_text.toml`. The orchestrator loads native tasks once; workers reconstruct selected task data without loading a dataset. Preflight the actual native `EnvServer` with the nested `env` config, client-side task loading and worker reconstruction before launching models. Native task classes and per-task configs must match the declared taskset contract; task data must survive serialization. Infinite eval requires explicit `num_examples`. Source RNG/cursor/generator state is not checkpointed, so restarting training does not promise identical task order. Monitor `logs/` recursively: environment failures appear in nested `envs/train/<env>.log`, not necessarily the top-level orchestrator log.
-- Environment servers return canonical verifier episodes. This training slice accepts exactly one original trace per episode; multi-agent episodes fail explicitly even when only one agent is trainable. Joint legacy group scoring remains in the upstream bridge, with each returned trace retaining its group membership. A failed episode or failed/non-trainable trace cannot become policy or value credit.
-- Harbor-derived tasksets require their grading `task_dir/tests` paths on the worker host. This launcher supports spawned local Harbor workers and rejects externally addressed Harbor workers until shared artifacts can be verified. The pinned verifier reads Harbor task network metadata: restricted tasks require Docker URL-policy support, and unsupported runtimes fail explicitly. Check task metadata and runtime compatibility before a substantive Harbor run; unrestricted fixture success does not validate restricted Docker egress.
-- Environment packages: before launching a config with a non-core verifier env id,
-  verify the package imports under `uv run` (for example
-  `uv run python -c "import importlib.util; print(importlib.util.find_spec('r2e_gym_v1'))"`).
-  If a local env exists under `deps/research-environments/environments/` but does not
-  import, add it to the root `pyproject.toml` env extra and an editable local
-  `[tool.uv.sources]` entry, then run `uv sync --all-extras`.
+- Native tasksets use `env.taskset = { id = "reverse-text" }` or `id = "rg-mix-v1"` inside that table. Top-level environment `id`, `args` and `extra_env_kwargs` reject during configuration validation; the removed legacy bridge is not available in this profile. Keep the historical branch/lock for those runs and track environment migration before a main-branch replacement.
+- Use `env.agent.harness = { id = "null" }` and `env.agent.runtime = { type = "subprocess" }`. Runtime now belongs to the agent. PrimeRL preserves subprocess as its default; an explicitly selected runtime remains honored. The old nested harness.runtime placement is migrated once, and conflicting placements reject. Do not silently provision the upstream default remote runtime.
+- PrimeRL's environment wrapper composes native `EnvConfig` with serving settings from `ServeConfig`. `pool`, `address`, and `max_concurrent` remain on the PrimeRL environment entry; `env.taskset` and `env.agent` describe execution. Standalone `env-server` consumes the same resolved wrapper. Verify the generated child TOML, including these fields, before launch.
+- Preflight the actual two-worker native server: the orchestrator loads tasks once and workers reconstruct the selected data. Exact task classes/configs and lossless task-data roundtrips are required. Explicit integer idx values, including duplicate/gappy values, are preserved; an unset idx gets its row position. Taskset views are not silently applied by the existing sampler. Infinite eval requires `num_examples`; training pulls remain bounded by admitted groups. Source RNG/cursor/generator state is not checkpointed, so resume remains a cold task restart.
+- Await the official `EnvClient.run` final assembled Episode; streamed deltas are not completed rollouts. This slice accepts exactly one original trace before eligibility filtering, so multi-agent episodes reject even if only one trace is trainable. Failed or non-trainable traces cannot become credit. Generic plain shared-prefix branches remain supported; semantic/compaction branches reject before credit.
+- The target-native profile has no accepted Harbor, multimodal, namespaced-tool or token-sidecar migration yet. Historical local Harbor admission checks do not establish compatibility with this dependency pair. Do not make an unavailable env work by blindly adding its package to the env extra or reusing an old source pin; review its TaskData/config/scoring APIs first.
+- Renderer clients now use the native elastic multiplexed pool. Explicit `pool_size` rejects because fixed pool size has no equivalent multiplex setting; the former internal pool_size=1 is no longer emitted. This changes resource scheduling, not sampling settings, and carries no throughput claim.
+- Monitor nested `logs/envs/train/<env>.log` and eval counterparts, not only the top-level orchestrator log. Use `experiments/native-producer/README.md` for exact current scope and evidence.
 - Native RG uses `rg-mix-v1` with the same null/subprocess harness. It requires
   a saved dataset directory containing `metadata.json` and `dataset/`; see
   `packages/rg-mix-env/README.md`. Pin the dataset artifact and scorer version.
@@ -52,7 +55,10 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
   orchestrator loads the cached data; workers reconstruct selected private
   scoring entries without reading that directory. These entries must never
   become policy messages or value prefixes. The accepted `seed` field does
-  not regenerate or verify a cached dataset.
+  not regenerate or verify a cached dataset. Inline custom system text belongs in
+  `env.taskset.prompt_text`; canonical `system_prompt` is now a file path, not
+  inline text. Migrate old inline values explicitly and validate the file when
+  using a file override.
 - To retain a single-turn legacy run's post-generation training-token cap when
   moving it to a native taskset, set `training_projection = { type = "single_turn" }`
   on its `[[orchestrator.train.env]]` entry. The cap resolves to the actor's
@@ -64,7 +70,8 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
   evaluation or generation limit. It rejects multi-turn, branched, tool,
   multimodal and token-sidecar traces rather than guessing their clipping
   semantics. Preflight the actual environment shape before a model run.
-  See `experiments/sequence-boundary/README.md` for the legacy comparison.
+  The historical `experiments/sequence-boundary/README.md` records the parent-stack
+  legacy comparison; its old harness/config IDs are not current launch recipes.
 
 ### Optional async value plane
 
@@ -88,10 +95,13 @@ not JSON. Use `ValueEvaluatorClient` or decode the response bytes with
   requires it to resolve to zero.
 - Multi-node runs similarly reserve value-trainer nodes and reserve evaluator
   nodes only in dedicated placement. Start from
-  `examples/value_function/rl.toml` and set the multi-node deployment and
-  scheduler fields for the target environment.
+  the deployment/value sections of `examples/value_function/rl.toml`, explicitly
+  replacing its legacy environment entry with a validated native configuration;
+  set scheduler fields for the target environment.
 - Privileged value context defaults to an optional static native-v1 task
-  `value_function_prompt`. Set `value_function.privileged_context =
+  `value_function_prompt` declared by the task's own data type (RG declares it;
+  the upstream TaskData base does not). Confirm it survives worker reconstruction
+  and is redacted in public records. Set `value_function.privileged_context =
   "group_leave_one_out"` to use each complete GRPO group member's K-1 peer
   trajectories and rewards instead. Conditioned branches are never truncated
   and must fit `value_function.model.seq_len`.
@@ -195,3 +205,10 @@ matching training processes. Keep test source, output directories and runtime
 environments separate from active experiments. Use a fresh process for critic
 checkpoint resume; runtime monitoring is process-global. Tiny-model checks do
 not replace model-specific or live evaluator/transport validation.
+
+Renderer parity is limited to the tested default single-turn RG/reverse cases.
+A supplemental disabled-thinking multi-turn fixture intentionally changes its
+physical prompt from47 to51 tokens under the new Qwen renderer, retaining the
+historical empty think wrapper; the generation suffix matches. This upstream
+prompt change can affect continuations even though private value ownership and
+credit math are unchanged. Do not claim universal prompt parity.

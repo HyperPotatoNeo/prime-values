@@ -8,9 +8,9 @@ training sample directly. Token-length readers (`completion_len`, `total_tokens`
 live on `vf.Trace` itself.
 
 Training is renderer-only across every mode (RL/OPD student, SFT teacher), so every node
-always carries its tokens — no backfill needed. For multimodal rollouts the branch also carries
-the images it introduced (`branch.multi_modal_data`), rebuilt here into the flat `mm_kwargs` /
-`mm_token_type_ids` the trainer forwards.
+always carries its physical tokens — no backfill needed. This native producer profile
+admits text graphs; multimodal media reconstruction is an explicit migration prerequisite,
+not an implicit text-only fallback.
 """
 
 from __future__ import annotations
@@ -187,6 +187,9 @@ def materialize_training_data(
     the branch tokens). Branches with no sampled tokens (e.g. an openai client carrying none)
     yield nothing.
     """
+    from prime_rl.orchestrator.episodes import validate_training_trace
+
+    validate_training_trace(trace)
     samples: list[TrainingSample] = []
     sampled_masks: list[tuple[bool, ...]] = []
     sample_branch_indices: list[int] = []
@@ -201,11 +204,10 @@ def materialize_training_data(
         token_ids = branch.token_ids
         mm_kwargs: dict[str, EncodedTensor] | None = None
         mm_token_type_ids: list[int] | None = None
-        mmd = branch.multi_modal_data
-        if mmd is not None:
-            mm_kwargs = _encode_mm_kwargs(mmd.mm_items)
-            mapping = mm_token_type_ids_mapping or {}
-            mm_token_type_ids = [mapping.get(t, 0) for t in token_ids]
+        # The native text producer has no image tensor sidecar. Refuse media
+        # rather than silently materializing text-only samples from image tokens.
+        if trace.mm_token_type_id_map or any(branch.mm_token_type_ids or []):
+            raise ValueError("Multimodal training requires the native physical-media adapter")
         samples.append(
             TrainingSample(
                 token_ids=token_ids,

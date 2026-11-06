@@ -1,20 +1,21 @@
 # RG mix environment
 
-The package provides the `rg-mix-env` legacy environment and the `rg-mix-v1` canonical native taskset. Both use the same five reasoning-gym variants and deterministic scorer dependency, pinned to `reasoning-gym==0.1.25`.
+This native producer profile provides the `rg-mix-v1` taskset, using the same five reasoning-gym variants and scorer dependency pinned to `reasoning-gym==0.1.25`. Historical `rg-mix-env` source is retained, but requires the frozen current-stack branch and lock; it cannot execute under this profile’s native-only verifier.
 
 The native taskset reads an existing generated dataset directory containing `metadata.json` and `dataset/`. The orchestrator selects task data; workers receive the selected question and private scoring entry and create only a lightweight scorer. Workers do not load or regenerate the dataset.
 
 ```toml
 [[orchestrator.train.env]]
 env.taskset = { id = "rg-mix-v1", dataset_path = "/data/rg-dataset", num_train_examples = 10000, num_eval_examples = 256, seed = 42, split = "train" }
-env.agent.harness = { id = "null", runtime = { type = "subprocess" } }
+env.agent.harness = { id = "null" }
+env.agent.runtime = { type = "subprocess" }
 ```
 
 For evaluation, configure the same taskset with `split = "eval"`. Evaluation takes rows immediately following the configured training slice. Task indices start at zero within each split; the private scorer index remains the global dataset index. The `seed` field is accepted for configuration compatibility and is unused when selecting cached rows. Dataset contents and their recorded hashes establish provenance; this field is not checked against the artifact metadata.
 
 The policy receives the original reasoning-gym system prompt and question. Private scoring data never becomes a policy message or value-function prefix. The task takes one model turn and scores its answer with the selected reasoning-gym scorer. Answer extraction follows the package's XML answer convention; the format metric has weight zero and does not affect reward. There is no group-dependent reward function.
 
-`rg_mix_env.load_environment` supports the existing legacy dataset-loading and generation APIs. `generate_rg_mix_dataset.py` creates dataset artifacts for either entrypoint. The native taskset requires a cached artifact so its selected private inputs survive worker reconstruction without regenerating questions.
+On the frozen current-stack branch, `rg_mix_env.load_environment` supports the legacy dataset-loading and generation APIs. `generate_rg_mix_dataset.py` creates dataset artifacts for either entrypoint. The native taskset requires a cached artifact so its selected private inputs survive worker reconstruction without regenerating questions.
 
 For a native training configuration that must retain the legacy actor-length
 cap, add `training_projection = { type = "single_turn" }` beside the `env`
@@ -23,3 +24,10 @@ clips only the owned training trace after full-response scoring. The generated
 text and reward stay complete; policy filters and value inputs use the same
 retained tokens. Omit this option to retain full native training geometry.
 This projection is not a generation or evaluation limit.
+
+The RG default system prompt is unchanged. To provide inline text, use
+`env.taskset.prompt_text`; the canonical `env.taskset.system_prompt` now names a
+UTF-8 file whose contents override the task prompt. Migrate an older inline
+`system_prompt` value to `prompt_text` explicitly; it must not be interpreted as
+a filesystem path. `RGMixData.value_function_prompt` is an optional custom
+critic-only prefix; the scorer entry is never used as that prefix.

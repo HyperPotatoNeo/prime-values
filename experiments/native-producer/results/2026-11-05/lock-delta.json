@@ -1,0 +1,774 @@
+{
+  "baseline": "1801d1129f1adeeed6dcfabb0295451e4b5cb4b8",
+  "changed": {
+    "aiohttp": {
+      "before": [
+        [
+          "3.13.5",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "3.14.1",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "anthropic": {
+      "before": [
+        [
+          "0.104.1",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "1.0.0",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "idna": {
+      "before": [
+        [
+          "3.16",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "3.18",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "mcp": {
+      "before": [
+        [
+          "1.27.1",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "2.0.0",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "openai": {
+      "before": [
+        [
+          "2.38.0",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "2.54.0",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "prime": {
+      "before": [
+        [
+          "0.6.10",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "0.8.0",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "prime-evals": {
+      "before": [
+        [
+          "0.2.2",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "0.2.4",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "prime-sandboxes": {
+      "before": [
+        [
+          "0.2.31",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "0.4.2",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "prime-tunnel": {
+      "before": [
+        [
+          "0.1.8",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "0.1.14",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    },
+    "reverse-text": {
+      "before": [
+        [
+          "0.1.4",
+          {
+            "git": "https://github.com/PrimeIntellect-ai/verifiers?subdirectory=environments%2Freverse_text&rev=9c6b155#9c6b155e10e58981a2495840b8a9026becbcfb9e"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "0.1.0",
+          {
+            "editable": "deps/verifiers/environments/reverse_text"
+          }
+        ]
+      ]
+    },
+    "rg-mix-env": {
+      "before": [
+        [
+          "0.1.5.dev0",
+          {
+            "editable": "packages/rg-mix-env"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "0.1.6.dev0",
+          {
+            "editable": "packages/rg-mix-env"
+          }
+        ]
+      ]
+    },
+    "uvicorn": {
+      "before": [
+        [
+          "0.48.0",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ],
+      "after": [
+        [
+          "0.52.0",
+          {
+            "registry": "https://pypi.org/simple"
+          }
+        ]
+      ]
+    }
+  },
+  "added": {
+    "connectrpc": [
+      [
+        "0.11.1",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "httpcore2": [
+      [
+        "2.12.0",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "httpx2": [
+      [
+        "2.12.0",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "mcp-types": [
+      [
+        "2.0.0",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "prime-runs": [
+      [
+        "0.1.4",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "prime-traces": [
+      [
+        "0.0.11",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "protobuf-py": [
+      [
+        "0.1.1",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "protobuf-py-ext": [
+      [
+        "0.1.1",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ],
+    "truststore": [
+      [
+        "0.10.5",
+        {
+          "registry": "https://pypi.org/simple"
+        }
+      ]
+    ]
+  },
+  "removed": [
+    "addict",
+    "aime24-v1",
+    "aime25-v1",
+    "aime26-v1",
+    "alphabet-sort",
+    "alphabet-sort-v1",
+    "apex-shortlist-v1",
+    "appdirs",
+    "arxivmath-v1",
+    "backoff",
+    "bcrypt",
+    "blis",
+    "browsecomp-v1",
+    "cachebox",
+    "catalogue",
+    "chess",
+    "chromadb",
+    "claude-agent-sdk",
+    "cloudpathlib",
+    "code-golf-v1",
+    "color-codeword-v1",
+    "confection",
+    "connect-python",
+    "cymem",
+    "deepdiff",
+    "deepdive-v1",
+    "deepwiki-v1",
+    "deprecation",
+    "dirhash",
+    "durationpy",
+    "emoji",
+    "faker",
+    "farama-notifications",
+    "fastuuid",
+    "flatbuffers",
+    "forth-lang-v1",
+    "fs",
+    "general-agent-v1",
+    "glossary-v1",
+    "google-auth",
+    "google-genai",
+    "gpqa-v1",
+    "graphwalks-v1",
+    "griffelib",
+    "gsm8k-v1",
+    "gymnasium",
+    "h2",
+    "harbor",
+    "hpack",
+    "httpx-sse",
+    "hyperframe",
+    "i3-code-v1",
+    "i3-science-v1",
+    "ifbench-v1",
+    "ifeval-v1",
+    "immutabledict",
+    "importlib-metadata",
+    "importlib-resources",
+    "joblib",
+    "kubernetes",
+    "langdetect",
+    "langfuse",
+    "lean-v1",
+    "linkify-it-py",
+    "litellm",
+    "livecodebench-v1",
+    "logic-env",
+    "longcot",
+    "longcot-mini-v1",
+    "longcot-v1",
+    "longpdfs-v1",
+    "math-env",
+    "math-env-v1",
+    "math-python",
+    "math500-v1",
+    "mdit-py-plugins",
+    "mmh3",
+    "mmlu-pro-v1",
+    "mrcr-v2-v1",
+    "murmurhash",
+    "narwhals",
+    "nltk",
+    "oauthlib",
+    "onnxruntime",
+    "oolong-pairs-v1",
+    "oolong-real-v1",
+    "oolong-synth-v1",
+    "openai-agents",
+    "openseeker-v1",
+    "openthoughts-tblite-v1",
+    "orderly-set",
+    "overrides",
+    "papersearchqa-v1",
+    "pathspec",
+    "patterned-needle-in-haystack-v1",
+    "pip",
+    "plotly",
+    "postgrest",
+    "preshed",
+    "prolog-v1",
+    "pyasn1",
+    "pyasn1-modules",
+    "pydantic-argparse",
+    "pypika",
+    "r2e-gym-v1",
+    "rdkit",
+    "realtime",
+    "redis",
+    "redsearcher-v1",
+    "requests-oauthlib",
+    "reverse-text-v1",
+    "s1-deepresearch-v1",
+    "scaleswe-v1",
+    "scantree",
+    "scikit-learn",
+    "scipy",
+    "seaborn",
+    "shortuuid",
+    "simpleqa-v1",
+    "simpleqa-verified-v1",
+    "smart-open",
+    "spacy",
+    "spacy-legacy",
+    "spacy-loggers",
+    "srsly",
+    "storage3",
+    "strenum",
+    "supabase",
+    "supabase-auth",
+    "supabase-functions",
+    "swebench-pro-v1",
+    "swebench-verified-v1",
+    "swelego-v1",
+    "syllapy",
+    "tau2",
+    "tau2-bench-v1",
+    "terminal-bench-2-v1",
+    "textarena",
+    "textual",
+    "textual-hires-canvas",
+    "textual-plot",
+    "thinc",
+    "threadpoolctl",
+    "types-requests",
+    "uc-micro-py",
+    "unscramble-v1",
+    "uuid-ctf-v1",
+    "verbatim-copy-v1",
+    "wasabi",
+    "watchdog",
+    "weasel",
+    "websocket-client",
+    "wideseek-v1",
+    "wiki-search",
+    "wiki-search-v1",
+    "wikispeedia-v1",
+    "wordle",
+    "wordle-v1",
+    "wrapt",
+    "zipp"
+  ],
+  "unchanged_complete_entries": [
+    "absl-py",
+    "aiofiles",
+    "aiohappyeyeballs",
+    "aiolimiter",
+    "aiosignal",
+    "annotated-doc",
+    "annotated-types",
+    "antlr4-python3-runtime",
+    "anyio",
+    "apache-tvm-ffi",
+    "arckit",
+    "astor",
+    "asttokens",
+    "attrs",
+    "beartype",
+    "bfi",
+    "blake3",
+    "build",
+    "cachetools",
+    "cbor2",
+    "cellpylib",
+    "certifi",
+    "cffi",
+    "cfgv",
+    "charset-normalizer",
+    "click",
+    "cloudpickle",
+    "comm",
+    "compressed-tensors",
+    "contourpy",
+    "cryptography",
+    "cuda-bindings",
+    "cuda-pathfinder",
+    "cuda-python",
+    "cuda-tile",
+    "cuda-toolkit",
+    "cycler",
+    "datasets",
+    "debugpy",
+    "decorator",
+    "deep-ep",
+    "deep-gemm",
+    "depyf",
+    "detect-installer",
+    "dill",
+    "dion",
+    "diskcache",
+    "distlib",
+    "distro",
+    "dnspython",
+    "docstring-parser",
+    "drawsvg",
+    "einops",
+    "email-validator",
+    "executing",
+    "fastapi",
+    "fastapi-cli",
+    "fastapi-cloud-cli",
+    "fastar",
+    "fastsafetensors",
+    "filelock",
+    "flash-attn",
+    "flash-attn-3",
+    "flash-attn-4",
+    "flash-linear-attention",
+    "flashinfer-cubin",
+    "flashinfer-python",
+    "fonttools",
+    "frozenlist",
+    "fsspec",
+    "gepa",
+    "gitdb",
+    "gitignore-parser",
+    "gitpython",
+    "googleapis-common-protos",
+    "grpcio",
+    "h11",
+    "hf-xet",
+    "httpcore",
+    "httptools",
+    "huggingface-hub",
+    "humming-kernels",
+    "identify",
+    "ijson",
+    "iniconfig",
+    "interegular",
+    "ipykernel",
+    "ipython",
+    "ipython-pygments-lexers",
+    "ipywidgets",
+    "jaxtyping",
+    "jedi",
+    "jinja2",
+    "jiter",
+    "jmespath",
+    "jsonschema",
+    "jsonschema-specifications",
+    "jupyter-client",
+    "jupyter-core",
+    "jupyterlab-widgets",
+    "kernels",
+    "kernels-data",
+    "kiwisolver",
+    "lark",
+    "latex2sympy2-extended",
+    "liger-kernel",
+    "llguidance",
+    "llvmlite",
+    "lm-format-enforcer",
+    "loguru",
+    "magiccube",
+    "mamba-ssm",
+    "markdown",
+    "markupsafe",
+    "math-verify",
+    "matplotlib",
+    "matplotlib-inline",
+    "mdurl",
+    "mistral-common",
+    "ml-dtypes",
+    "model-hosting-container-standards",
+    "modelexpress",
+    "mooncake-transfer-engine",
+    "mpmath",
+    "msgpack",
+    "msgspec",
+    "multidict",
+    "multiprocess",
+    "nest-asyncio",
+    "networkx",
+    "ninja",
+    "nixl",
+    "nixl-cu12",
+    "nodeenv",
+    "numba",
+    "numpy",
+    "nvidia-cublas-cu12",
+    "nvidia-cuda-cccl-cu12",
+    "nvidia-cuda-crt",
+    "nvidia-cuda-cupti-cu12",
+    "nvidia-cuda-nvcc",
+    "nvidia-cuda-nvcc-cu12",
+    "nvidia-cuda-nvrtc-cu12",
+    "nvidia-cuda-runtime",
+    "nvidia-cuda-runtime-cu12",
+    "nvidia-cuda-tileiras",
+    "nvidia-cudnn-cu12",
+    "nvidia-cudnn-frontend",
+    "nvidia-cufft-cu12",
+    "nvidia-cufile-cu12",
+    "nvidia-curand-cu12",
+    "nvidia-cusolver-cu12",
+    "nvidia-cusparse-cu12",
+    "nvidia-cusparselt-cu12",
+    "nvidia-cutlass-dsl",
+    "nvidia-cutlass-dsl-libs-base",
+    "nvidia-ml-py",
+    "nvidia-nccl-cu12",
+    "nvidia-nvjitlink-cu12",
+    "nvidia-nvshmem-cu12",
+    "nvidia-nvtx-cu12",
+    "nvidia-nvvm",
+    "openai-harmony",
+    "opencv-python-headless",
+    "opentelemetry-api",
+    "opentelemetry-exporter-otlp",
+    "opentelemetry-exporter-otlp-proto-common",
+    "opentelemetry-exporter-otlp-proto-grpc",
+    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-proto",
+    "opentelemetry-sdk",
+    "opentelemetry-semantic-conventions",
+    "opentelemetry-semantic-conventions-ai",
+    "orjson",
+    "outlines-core",
+    "packaging",
+    "pandas",
+    "parso",
+    "partial-json-parser",
+    "pexpect",
+    "pillow",
+    "platformdirs",
+    "pluggy",
+    "pre-commit",
+    "prime-pydantic-config",
+    "prime-rl-configs",
+    "prometheus-client",
+    "prometheus-fastapi-instrumentator",
+    "prompt-toolkit",
+    "propcache",
+    "protobuf",
+    "psutil",
+    "ptyprocess",
+    "pure-eval",
+    "py-cpuinfo",
+    "pyarrow",
+    "pybase64",
+    "pycosat",
+    "pycountry",
+    "pycparser",
+    "pydantic",
+    "pydantic-core",
+    "pydantic-extra-types",
+    "pydantic-settings",
+    "pyelftools",
+    "pyfiglet",
+    "pygments",
+    "pyjwt",
+    "pyparsing",
+    "pyproject-hooks",
+    "pyqwest",
+    "pytest",
+    "pytest-asyncio",
+    "python-dateutil",
+    "python-discovery",
+    "python-dotenv",
+    "python-json-logger",
+    "python-multipart",
+    "pytz",
+    "pyyaml",
+    "pyzmq",
+    "quack-kernels",
+    "reasoning-gym",
+    "referencing",
+    "regex",
+    "requests",
+    "rich",
+    "rich-toolkit",
+    "rignore",
+    "ring-flash-attn",
+    "rpds-py",
+    "ruff",
+    "safetensors",
+    "sentencepiece",
+    "sentry-sdk",
+    "setproctitle",
+    "setuptools",
+    "shellingham",
+    "six",
+    "smmap",
+    "sniffio",
+    "sse-starlette",
+    "stack-data",
+    "starlette",
+    "supervisor",
+    "sympy",
+    "tabulate",
+    "tenacity",
+    "tensorboard",
+    "tensorboard-data-server",
+    "tiktoken",
+    "tilelang",
+    "tokenizers",
+    "tokenspeed-mla",
+    "tokenspeed-triton",
+    "toml",
+    "tomli",
+    "tomli-w",
+    "tomlkit",
+    "torch",
+    "torch-c-dlpack-ext",
+    "torchaudio",
+    "torchdata",
+    "torchtitan",
+    "torchvision",
+    "tornado",
+    "tqdm",
+    "traitlets",
+    "transformers",
+    "triton",
+    "typeguard",
+    "typer",
+    "typing-extensions",
+    "typing-inspection",
+    "tyro",
+    "urllib3",
+    "uvloop",
+    "virtualenv",
+    "vllm",
+    "vllm-router",
+    "wadler-lindig",
+    "wandb",
+    "wandb-workspaces",
+    "watchfiles",
+    "wcwidth",
+    "websockets",
+    "werkzeug",
+    "widgetsnbextension",
+    "xgrammar",
+    "xxhash",
+    "yarl",
+    "z3-solver",
+    "zss"
+  ],
+  "numerical_complete_entry_equality": [
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "transformers",
+    "vllm",
+    "numpy",
+    "dion",
+    "torchtitan",
+    "flash-attn",
+    "flash-attn-3",
+    "flash-attn-4",
+    "flash-linear-attention",
+    "ring-flash-attn",
+    "tilelang",
+    "liger-kernel",
+    "triton",
+    "nvidia-cudnn-cu12"
+  ],
+  "all_nvidia_entries_equal": true,
+  "root_pyproject_sha256": "8f079d95154bd50b2ca23df7bea38fdef93d41ad9e1b0e7ff0fd3f8c463f328c",
+  "root_lock_sha256": "b0c0728e6341eb903751264e0a44f7064ecd36e89a9dde2d812762b50f7d5169"
+}

@@ -1,0 +1,154 @@
+{
+  "status": "passed",
+  "same_harness_sha256": "e90cbaac4ba0f35492b78c2791389848ca0290c04eb6223dabf9c112fda1a97e",
+  "baseline_raw_sha256": "e7e10ffc90b59649a95909cee52ffdf248c768e8f8f9e56c253a3cdbdc8e5d79",
+  "candidate_raw_sha256": "163512f1ad519ea98ff0d87a8b474d1e207c44894b1b9425d4120f5e185d3604",
+  "checked_source_files": {
+    "baseline": 18,
+    "candidate": 18
+  },
+  "cases": [
+    {
+      "env": "reverse",
+      "case": "clipped",
+      "actions": [
+        [
+          3
+        ],
+        [
+          3
+        ]
+      ],
+      "records_credit_exact": true,
+      "selected_payload_fields": [
+        "idx",
+        "prompt",
+        "system_prompt",
+        "answer"
+      ],
+      "contexts": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    },
+    {
+      "env": "reverse",
+      "case": "within",
+      "actions": [
+        [
+          25
+        ],
+        [
+          25
+        ]
+      ],
+      "records_credit_exact": true,
+      "selected_payload_fields": [
+        "idx",
+        "prompt",
+        "system_prompt",
+        "answer"
+      ],
+      "contexts": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    },
+    {
+      "env": "rg",
+      "case": "clipped",
+      "actions": [
+        [
+          3
+        ],
+        [
+          3
+        ]
+      ],
+      "records_credit_exact": true,
+      "selected_payload_fields": [
+        "idx",
+        "prompt",
+        "system_prompt",
+        "answer",
+        "variant_id",
+        "scorer_entry"
+      ],
+      "contexts": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    },
+    {
+      "env": "rg",
+      "case": "within",
+      "actions": [
+        [
+          10
+        ],
+        [
+          10
+        ]
+      ],
+      "records_credit_exact": true,
+      "selected_payload_fields": [
+        "idx",
+        "prompt",
+        "system_prompt",
+        "answer",
+        "variant_id",
+        "scorer_entry"
+      ],
+      "contexts": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    }
+  ],
+  "literal_request_body_sets_exact": true,
+  "request_counts": {
+    "baseline": 12,
+    "candidate": 18
+  },
+  "private_prefix": "Explicit typed task field survives actual worker and wire; public records redact; same policy request token arrays; actual evaluator prefix requests independently checked in shared harness. Saved prompts exact sentinel.",
+  "worker_payloads": "All8 saved worker audit files checked, each received dictionary equals reconstructed dictionary.",
+  "stream_controls": {
+    "rg": {
+      "cancelled": true,
+      "recovery_reward": 1.0,
+      "worker_pids": [
+        67950,
+        67958
+      ],
+      "delta_count": 47,
+      "partial_not_final": true
+    },
+    "reverse": {
+      "cancelled": true,
+      "recovery_reward": 1.0,
+      "worker_pids": [
+        68229,
+        68266
+      ],
+      "delta_count": 29,
+      "partial_not_final": true
+    }
+  },
+  "failure_control": "Actual completed failed Episode has rollout_ok=false and no materialization in harness; synthetic marker private ownership covered by11 pure tests.",
+  "serving_contract_receipt": "independent-contract004-review.json",
+  "scope_limits": [
+    "Deterministic HTTP/evaluator fixtures; no new model inference, GPU training, or throughput claim.",
+    "Complete Episode barrier and cancellation/recovery observed; no separate claim of whole-Episode retry equivalence.",
+    "Experimental native RG/reverse profile only; removed legacy runtime is an explicit backlog before main integration, parent1801 branch retains historical full legacy stack.",
+    "Physical array coordinates and old provider-Usage branch accounting preserved; semantic compaction, namespaced tools, multimodal and populated version/credit sidecars rejected before credit.",
+    "weight_versions alignment is prerequisite to later vLLM0.32 backend adoption, not optional diagnostics after launch."
+  ],
+  "comparison_file_sha256": "02e0b1ef059bc3bd5d53ba447290bca8ba5c378084cdd51edd84f547b6385390",
+  "pure_test_receipt": "independent-contract004-review.json",
+  "supplemental_renderer_review": "disabled-thinking-continuation-review.json",
+  "supplemental_launcher_roundtrip": "launcher-roundtrip/result.json"
+}

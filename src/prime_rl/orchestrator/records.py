@@ -23,3 +23,34 @@ def public_rollout_record(rollout) -> dict[str, Any]:
     if "task" in record:
         record["task"] = redact_task_record(record["task"])
     return record
+
+
+def rollout_monitor_sample(rollout) -> dict[str, Any]:
+    """The existing Prime sample columns, derived from the completed owned rollout.
+
+    This small presentation adapter is local because native verifier no longer
+    exports its former platform push formatter. Private task fields stay redacted.
+    """
+    branches = rollout.branches
+
+    def messages(branch):
+        return [message.model_dump(mode="json", exclude_none=True) for message in branch.messages]
+
+    timing = rollout.timing.model_dump(mode="json", exclude_none=True)
+    timing["generation"] = timing.pop("agent")
+    return {
+        "example_id": rollout.task.data.idx,
+        "task": redact_task_record(rollout.task.data.model_dump(mode="json", exclude_none=True)),
+        "completion": messages(branches[-1]) if branches else [],
+        "trajectory": [
+            {
+                "messages": messages(branch),
+                "num_input_tokens": branch.num_total_tokens - branch.num_output_tokens,
+                "num_output_tokens": branch.num_output_tokens,
+            }
+            for branch in branches
+        ],
+        "reward": rollout.reward,
+        "metrics": {name: value for name, value in rollout.metrics.items() if value is not None},
+        "timing": timing,
+    }

@@ -1,0 +1,36 @@
+{
+  "baseline005": {
+    "verifiers": {
+      "revision": "b13ba60da63cea91389e7575766b7270d0d11fc5",
+      "tracked_python_files_matched": 309,
+      "observed_python_files": 309
+    },
+    "renderers": {
+      "revision": "bdb96b0c84a307e2b71c6a366c9d718c3ac7fe78",
+      "tracked_python_files_matched": 24,
+      "observed_python_files": 25
+    },
+    "pydantic-config": {
+      "revision": "4f5ae373582ceffdbf7e6bd1998c9ad568fcc1ad",
+      "tracked_python_files_matched": 2,
+      "observed_python_files": 2
+    }
+  },
+  "candidate005": {
+    "verifiers": {
+      "revision": "3f142cc61adb4b0168d925fb44e76370d6299a37",
+      "tracked_python_files_matched": 199,
+      "observed_python_files": 199
+    },
+    "renderers": {
+      "revision": "0526944665ac9f00e8d56e110babe97a2c174fa4",
+      "tracked_python_files_matched": 32,
+      "observed_python_files": 33
+    },
+    "pydantic-config": {
+      "revision": "65b15dffba82d4be19efdaf8b2b9705cc1756be8",
+      "tracked_python_files_matched": 2,
+      "observed_python_files": 2
+    }
+  }
+}

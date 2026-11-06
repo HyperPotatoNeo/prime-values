@@ -1,0 +1,18 @@
+{
+  "status": "documented_upstream_behavior_change",
+  "baseline_tokens": 47,
+  "candidate_tokens": 51,
+  "exact_decoded_difference": "Historical assistant with no reasoning_content gains the empty <think>\\n\\n</think>\\n\\n wrapper when enable_thinking=False; final generation wrapper unchanged.",
+  "baseline_source_sha256": "dac2891e9eb7ea4a1abca18ed44e5e029f5e110d90f66729287f115a0da7b984",
+  "candidate_source_sha256": "9fa7803482c42a7c47ac1511d9a8740f472c1d1e2e18db20836632096f00cff9",
+  "harness_sha256": "895fdadbd7c83d06c52cdbd2e8b98e9413d35d2bd6424796d3b134a91a6d7966",
+  "source_guard": "Both actual imported qwen3.py bytes equal their final005 dependency receipts; baseline pinned outside mutable active clone.",
+  "interpretation": "Target upstream explicitly documents retention as continuation token-stability fix. It is an intentional rendering change, not historical disabled-thinking continuation parity. Default single-turn005 exact comparisons remain valid.",
+  "limits": "One actual renderer contrast, no HTTP or model generation; disabled-thinking multi-turn policy/value parity is not claimed by this profile.",
+  "attempt_note": "Initial guard assumed editable path and rejected installed target wheel; corrected to exact bytes. A subsequent oldenv read raced parent active-dependency integration, producing51/51; records retained with -raced suffix and rejected. Final baseline uses frozen sequence-boundary-candidate renderer SHA verified against baseline005.",
+  "files_sha256": {
+    "disabled_thinking_continuation.py": "895fdadbd7c83d06c52cdbd2e8b98e9413d35d2bd6424796d3b134a91a6d7966",
+    "disabled-thinking-baseline.json": "b7661e77cf601b2711ea21d34bcf187fb7521745d6bb73122dc6bf393aa8c1d1",
+    "disabled-thinking-candidate.json": "3322b42ff723a759abeca2c7f991504ca74aa4bc2c0b536ae7cb1bee1f2d8c7b"
+  }
+}

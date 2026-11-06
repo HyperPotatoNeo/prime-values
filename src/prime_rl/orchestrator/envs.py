@@ -1,8 +1,7 @@
 """Client-owned native tasksets with server-owned agent execution.
 
-Native workers reconstruct each selected task from its serialized data. Legacy
-workers retain their datasets and row addressing, including joint group scoring.
-Both return canonical verifier episodes through the single-trace adapter; task
+Workers reconstruct each selected task from its serialized data and return a
+completed canonical Episode through the single-trace adapter; task
 data remains opaque to policy and value consumers.
 """
 
@@ -22,7 +21,6 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 import verifiers.v1 as vf
 from verifiers.v1.serve import EnvClient
-from verifiers.v1.task import task_data_cls
 
 from prime_rl.configs.orchestrator import EnvConfig, EvalEnvConfig, TrainEnvConfig
 from prime_rl.orchestrator.algo import Algorithm, build_algorithm
@@ -43,7 +41,6 @@ def _run_env_server(
     log_file: str,
     log_level: str,
     json_logging: bool,
-    legacy: bool = False,
     **kwargs,
 ) -> None:
     """Spawned-process entry point: redirect this process's output to ``log_file`` (the
@@ -52,7 +49,7 @@ def _run_env_server(
     from the env's ``pool``). ``serve_env`` applies ``log_setup`` here and in every spawned
     worker; a worker inherits this process's redirected stdout/stderr, so its per-rollout
     logs reach ``log_file`` too. Top-level so it stays picklable for the ``spawn`` start
-    method. ``legacy`` picks the v0 bridge."""
+    method."""
     from functools import partial
 
     from verifiers.v1.serve import serve_env
@@ -63,7 +60,6 @@ def _run_env_server(
     os.dup2(fh.fileno(), sys.stdout.fileno())
     os.dup2(fh.fileno(), sys.stderr.fileno())
     serve_env(
-        legacy=legacy,
         log_setup=partial(setup_env_server_logging, log_level, json_logging),
         **kwargs,
     )
@@ -94,26 +90,39 @@ class Env:
 
     async def start(self, log_dir: Path, log_level: str | None = None, json_logging: bool = False) -> None:
         """Load native tasks once, then connect to their execution worker."""
-        if not self.config.is_legacy:
-            taskset = vf.load_taskset(self.config.env.taskset)
-            self._task_class = type(taskset).task_type()
-            if self.config.address is not None:
-                from verifiers.v1.tasksets.harbor import HarborTask
+        taskset = vf.load_taskset(self.config.env.taskset)
+        self._task_class = type(taskset).task_type()
+        if self.config.address is not None:
+            from verifiers.v1.tasksets.harbor import HarborTask
 
-                if issubclass(self._task_class, HarborTask):
-                    raise ValueError(
-                        f"Env {self.name}: external Harbor workers require verified shared grading-artifact paths; "
-                        "this launcher supports spawned local Harbor workers only"
-                    )
-            if type(taskset).INFINITE:
-                if isinstance(self.config, EvalEnvConfig) and self.config.num_examples < 0:
-                    raise ValueError(f"Eval env {self.name} has an infinite taskset; set num_examples to bound it")
-                self.tasks = (self.validate_task(task) for task in taskset.load())
-                self.num_tasks = None
-            else:
-                tasks = await asyncio.to_thread(lambda: [self.validate_task(task) for task in taskset.load()])
-                self.tasks = iter(tasks)
-                self.num_tasks = len(tasks)
+            if issubclass(self._task_class, HarborTask):
+                raise ValueError(
+                    f"Env {self.name}: external Harbor workers require verified shared grading-artifact paths; "
+                    "this launcher supports spawned local Harbor workers only"
+                )
+        if taskset.transform is not None:
+            raise ValueError(
+                "Taskset views are not supported by this sampler; configure dataset selection in the taskset"
+            )
+
+        def selected_tasks():
+            # Preserve caller-supplied identities; new native loaders may leave idx unset.
+            # This deliberately does not use Taskset.__iter__, which overwrites every idx.
+            for position, task in enumerate(taskset.load()):
+                update = {} if taskset.system_prompt is None else {"system_prompt": taskset.system_prompt}
+                if task.data.idx is None:
+                    update["idx"] = position
+                yield self.validate_task(task.with_data(**update) if update else task)
+
+        if type(taskset).INFINITE:
+            if isinstance(self.config, EvalEnvConfig) and self.config.num_examples < 0:
+                raise ValueError(f"Eval env {self.name} has an infinite taskset; set num_examples to bound it")
+            self.tasks = selected_tasks()
+            self.num_tasks = None
+        else:
+            tasks = await asyncio.to_thread(lambda: list(selected_tasks()))
+            self.tasks = iter(tasks)
+            self.num_tasks = len(tasks)
         external = self.config.address is not None
         address = self.config.address or await self._spawn(log_dir, log_level or "INFO", json_logging)
         get_logger().debug(f"Connecting {self.name} to env server {address}")
@@ -121,12 +130,6 @@ class Env:
         # Spawned workers report after binding. External workers need a health handshake.
         if external:
             await self.env_client.wait_for_server_startup()
-        if self.config.is_legacy:
-            info = await self.env_client.info()
-            if info.num_tasks is None:
-                raise ValueError(f"Legacy env {self.name} must report a finite dataset count")
-            self.num_tasks = info.num_tasks
-            self.requires_group_scoring = info.requires_group_scoring
         get_logger().info(
             f"Env {self.name} ready: num_tasks={self.num_tasks} group_scoring={self.requires_group_scoring}"
         )
@@ -143,7 +146,7 @@ class Env:
             raise ValueError(f"Env {self.name} yielded per-row task config that differs from its worker config")
         if type(task.data.idx) is not int:
             raise ValueError(f"Env {self.name} requires an integer task.data.idx for rollout records")
-        data_class = task_data_cls(self._task_class)
+        data_class = self._task_class.data_type()
         if any(field.exclude for field in data_class.model_fields.values()):
             raise ValueError(f"Env {self.name} task data contains excluded fields that cannot survive dispatch")
         payload = task.data.model_dump(mode="json")
@@ -167,15 +170,8 @@ class Env:
         log_file = log_dir / f"{self.name}.log"
         log_file.parent.mkdir(parents=True, exist_ok=True)
         get_logger().debug(f"Spawning env server {self.name} (id={self.config.env_id}, log={log_file})")
-        server_kwargs = (
-            dict(
-                legacy=True,
-                env_id=self.config.env_id,
-                env_args=self.config.args,
-                extra_env_kwargs=self.config.extra_env_kwargs,
-            )
-            if self.config.is_legacy
-            else dict(legacy=False, config_data=self.config.env.model_dump(mode="json"))
+        server_kwargs = dict(
+            config_data=self.config.env.model_dump(mode="json"), max_concurrent=self.config.max_concurrent
         )
         process = ctx.Process(
             target=_run_env_server,
@@ -219,11 +215,10 @@ class Env:
         cache_salt: str | None,
         task_data: dict | None = None,
     ) -> vf.WireEpisode:
-        """Run selected native data or a legacy dataset row through the episode producer."""
-        if self.config.is_legacy == (task_data is not None):
-            raise ValueError("Native requests require task_data; legacy requests require a dataset row")
+        """Await the upstream client's complete assembled episode, never partial deltas."""
+        if task_data is None:
+            raise ValueError("Native requests require the selected owned task_data")
         return await self.env_client.run(
-            task_idx=task_idx if self.config.is_legacy else None,
             task_data=task_data,
             client=client,
             model=model_name,
@@ -253,19 +248,7 @@ class Env:
         group_size: int,
         cache_salt: str | None,
     ) -> list[Rollout]:
-        """Preserve upstream legacy joint scoring; each returned trace is one group member."""
-        if not self.config.is_legacy:
-            raise ValueError("Joint run_group scoring is supported only by the upstream legacy producer")
-        wires = await self.env_client.run_group(
-            task_idx=task_idx,
-            n=group_size,
-            client=client,
-            model=model_name,
-            sampling=self._sampling(cache_salt),
-        )
-        if len(wires) != group_size:
-            raise RuntimeError(f"Legacy group producer returned {len(wires)} traces for {group_size} requested members")
-        return [from_episode(vf.Episode.of(wire, env=self.config.env_id), task_idx=task_idx) for wire in wires]
+        raise ValueError("Joint legacy group scoring requires the frozen current-stack producer")
 
     def shutdown(self) -> None:
         if self._env_server_process is None:

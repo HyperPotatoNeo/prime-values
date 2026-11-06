@@ -98,7 +98,7 @@ class TimingMetrics(StatGroup):
 
     @property
     def generation(self) -> Stat:
-        return Stat([r.timing.generation.duration for r in self.rollouts])
+        return Stat([r.timing.agent.duration for r in self.rollouts])
 
     @property
     def finalize(self) -> Stat:
@@ -110,7 +110,12 @@ class TimingMetrics(StatGroup):
 
     @property
     def total(self) -> Stat:
-        return Stat([sum(getattr(r.timing, p).duration for p in self.PHASES) for r in self.rollouts])
+        return Stat(
+            [
+                sum(getattr(r.timing, "agent" if p == "generation" else p).duration for p in self.PHASES)
+                for r in self.rollouts
+            ]
+        )
 
     def stats(self) -> dict[str, Stat]:
         return {**{phase: getattr(self, phase) for phase in self.PHASES}, "total": self.total}
@@ -125,11 +130,12 @@ class CustomMetrics(StatGroup):
         self.attr = attr
 
     def stats(self) -> dict[str, Stat]:
-        names = sorted({name for r in self.rollouts for name in getattr(r, self.attr)})
-        return {
-            name: Stat([getattr(r, self.attr)[name] for r in self.rollouts if name in getattr(r, self.attr)])
-            for name in names
-        }
+        observed: dict[str, list[float]] = {}
+        for rollout in self.rollouts:
+            for name, value in getattr(rollout, self.attr).items():
+                if value is not None:
+                    observed.setdefault(name, []).append(value.value if self.attr == "rewards" else value)
+        return {name: Stat(observed[name]) for name in sorted(observed)}
 
 
 class RolloutMetrics:

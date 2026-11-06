@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, Literal, Protocol
 
 import verifiers.v1 as vf
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, computed_field
 from verifiers.v1.task import DataT
 
 from prime_rl.orchestrator.trajectories import TrainingLayout
@@ -115,6 +115,34 @@ class Rollout(vf.Trace[DataT], Generic[DataT]):
     is_filtered: bool = Field(default=False, exclude=True)
     filter_results: dict[str, bool] = Field(default_factory=dict, exclude=True)
     eval_step: int | None = Field(default=None, exclude=True)
+
+    @property
+    def trainable(self) -> bool:
+        return self.agent.trainable
+
+    @property
+    def agent_name(self) -> str:
+        return self.agent.name
+
+    @property
+    def error(self) -> vf.Error | None:
+        return self.last_error
+
+    @property
+    def is_truncated(self) -> bool:
+        # Keep historical framework-limit flags alongside the native length marker.
+        return self.stop_condition in {"context_length", "harness_timeout"} or super().is_truncated
+
+    @computed_field
+    @property
+    def num_total_tokens(self) -> int:
+        """Preserve PrimeRL's pre-migration branch accounting for batching and length penalties."""
+        return sum(branch.num_total_tokens for branch in self.branches)
+
+    @computed_field
+    @property
+    def num_input_tokens(self) -> int:
+        return self.num_total_tokens - self.num_output_tokens
 
     def assign_advantages(self, values: float | list[float]) -> None:
         """Write the rl advantage stream: a scalar broadcast over the

@@ -13,7 +13,7 @@ from httpx import AsyncClient
 from openai import AsyncOpenAI, NotFoundError
 from renderers import RendererConfig
 from tenacity import AsyncRetrying, retry, retry_if_exception, stop_after_attempt, stop_after_delay, wait_exponential
-from verifiers.v1.clients.config import EvalClientConfig, TrainClientConfig
+from verifiers.v1.configs.client import EvalClientConfig, TrainClientConfig
 
 from prime_rl.configs.shared import ClientConfig
 from prime_rl.utils.logger import get_logger
@@ -226,13 +226,17 @@ def setup_clients(
     ``renderer`` → token-in/out (``TrainClientConfig``, with the renderer the env
     server should use forwarded as a serialized config so it doesn't fall back to the
     default renderer); otherwise plain chat-completions (``EvalClientConfig``)."""
+    if pool_size is not None:
+        raise ValueError(
+            "pool_size is obsolete in the native producer: renderers now use an elastic multiplexed pool; "
+            "a fixed pool size cannot be translated to multiplex. Remove pool_size."
+        )
     is_renderer = client_type == "renderer"
     config_cls = TrainClientConfig if is_renderer else EvalClientConfig
     renderer_extra: dict = {}
     if is_renderer:
         renderer_extra = {
             "renderer": renderer_config,
-            "pool_size": pool_size or 1,
             "renderer_model_name": renderer_model_name,
         }
     env_headers = {

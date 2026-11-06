@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections import Counter, defaultdict
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Literal
@@ -48,6 +49,17 @@ from prime_rl.orchestrator.types import (
 from prime_rl.utils.async_utils import safe_cancel, safe_cancel_all
 from prime_rl.utils.client import InferencePool, client_identity
 from prime_rl.utils.logger import get_logger
+
+
+def _failure_rollout(group: GroupState | None, task_idx: int, *, cancelled: bool = False) -> Rollout:
+    """A non-trainable accounting marker retaining the dispatched task's owned data."""
+    payload = deepcopy(group.task_data) if group is not None and group.task_data is not None else {"idx": task_idx}
+    return Rollout(
+        task=vf.TraceTask(type="DispatchTask", data=vf.WireTaskData.model_validate(payload)),
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=False),
+        errors=[vf.Error(type="Cancelled", message="Off-policy cancel")] if cancelled else [],
+        stop_condition="error" if cancelled else None,
+    )
 
 
 class DispatcherMode(Enum):
@@ -511,12 +523,10 @@ class RolloutDispatcher:
         except Exception as exc:
             get_logger().warning(f"Rollout task failed in group {meta.group_id} ({meta.env_name}): {exc!r}")
             task_idx = group.task_idx if group is not None else -1
-            rollouts = [
-                Rollout(task=vf.TraceTask(type="DispatchTask", data=vf.WireTaskData(idx=task_idx, prompt=None)))
-                for _ in range(meta.rollout_count)
-            ]
+            rollouts = [_failure_rollout(group, task_idx) for _ in range(meta.rollout_count)]
             for r in rollouts:
-                r.capture_error(exc)
+                r.record_error(exc)
+                r.stop("error", override=True)
             is_synth_exception = True
 
         for r in rollouts:
@@ -582,11 +592,7 @@ class RolloutDispatcher:
         last_meta: InflightRollout | None = claimed[-1][1] if claimed else None
         for _, meta in claimed:
             for _ in range(meta.rollout_count):
-                trace = Rollout(
-                    task=vf.TraceTask(type="DispatchTask", data=vf.WireTaskData(idx=task_idx, prompt=None)),
-                    errors=[vf.Error(type="Cancelled", message="Off-policy cancel")],
-                    stop_condition="error",
-                )
+                trace = _failure_rollout(group, task_idx, cancelled=True)
                 await self.emit_rollout(meta, group, trace)
 
         # For non-group-scoring envs, the group may have rollouts that
@@ -608,11 +614,7 @@ class RolloutDispatcher:
             )
             unscheduled_cancelled = group.rollouts_to_schedule
             for _ in range(unscheduled_cancelled):
-                trace = Rollout(
-                    task=vf.TraceTask(type="DispatchTask", data=vf.WireTaskData(idx=task_idx, prompt=None)),
-                    errors=[vf.Error(type="Cancelled", message="Off-policy cancel")],
-                    stop_condition="error",
-                )
+                trace = _failure_rollout(group, task_idx, cancelled=True)
                 await self.emit_rollout(fallback_meta, group, trace)
 
         cancelled = inflight_cancelled + unscheduled_cancelled

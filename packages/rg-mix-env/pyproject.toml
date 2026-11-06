@@ -1,9 +1,9 @@
 [project]
 name = "rg-mix-env"
-version = "0.1.5.dev0"
-description = "Weighted reasoning-gym mix with legacy and canonical native taskset entrypoints"
+version = "0.1.6.dev0"
+description = "Cached reasoning-gym mix for the native producer profile; legacy source retained for the frozen runtime"
 requires-python = ">=3.11"
-dependencies = ["verifiers>=0.2.2.dev17", "reasoning-gym==0.1.25", "datasets"]
+dependencies = ["verifiers>=0.4.1.dev39", "reasoning-gym==0.1.25", "datasets"]
 
 [build-system]
 requires = ["hatchling"]

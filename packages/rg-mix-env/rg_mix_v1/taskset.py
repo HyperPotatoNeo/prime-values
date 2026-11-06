@@ -15,6 +15,9 @@ _VARIANTS = {variant["id"]: variant for variant in TASK_VARIANTS}
 
 
 class RGMixData(vf.TaskData):
+    value_function_prompt: str | None = None
+    """Optional critic-only prefix; preserved on the worker wire and redacted in public records."""
+
     answer: str
     """Global scorer index, distinct from the split-local task idx."""
     variant_id: str
@@ -57,7 +60,8 @@ class RGMixConfig(vf.TasksetConfig):
     seed: int = 42
     """Accepted for configuration compatibility; unused when selecting cached rows."""
     split: Literal["train", "eval"] = "train"
-    system_prompt: str = DEFAULT_SYSTEM_PROMPT
+    prompt_text: str = DEFAULT_SYSTEM_PROMPT
+    """Inline RG system prompt. The inherited system_prompt is an optional file override."""
 
 
 class RGMixTaskset(vf.Taskset[RGMixTask, RGMixConfig]):
@@ -78,7 +82,7 @@ class RGMixTaskset(vf.Taskset[RGMixTask, RGMixConfig]):
             data = RGMixData(
                 idx=idx,
                 prompt=row["question"],
-                system_prompt=self.config.system_prompt,
+                system_prompt=self.config.prompt_text,
                 answer=answer,
                 variant_id=variant_id,
                 scorer_entry=entries_cache[global_idx],

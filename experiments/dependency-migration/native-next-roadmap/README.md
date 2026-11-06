@@ -1,15 +1,62 @@
 # Native producer and backend roadmap
 
-This source-only plan starts from additive native RG commit `e019cb55`. No proposed dependency stack has been installed, no GPU work is running, and existing research configurations remain unchanged. Exact pins, API paths and gates are in [plan.json](plan.json).
+This is the current roadmap after unit10 at `1801d112` and the CPU-accepted
+unit11 native producer candidate. The original read-only audit informed these
+units; it is no longer accurate to say the dependency pair is uninstalled.
+Exact pins and staged gates are in [plan.json](plan.json). Unit11 final paired
+receipts and publication status belong to `experiments/native-producer`.
 
-The next implementation unit should preserve the sequence boundary before replacing any legacy route. The actual cached-RG reproduction used identical renderer requests with651prompt tokens and28completion tokens. At actor limit654, legacy retained3actions while native retained28; terminal-credit discounting therefore differed. At limit650, legacy produced no training sample. The original Episode must remain the record of what happened. A separate, optional training projection should own clipped policy/value geometry and aligned streams; its default must preserve today's full native trace. Existing token batching and length penalties use provider-usage counters, which remain unchanged even in legacy clipped traces. Preserve those counters; review empty-action cases, effective truncation status and LOO peer serialization rather than merely slicing lists.
+Unit10 preserved the sequence boundary with a pure optional training projection.
+The original discrepancy was real: the same651-token prompt and28-token response
+retained3actions on the legacy path at cap654 versus28 natively, changing terminal
+discounted credit. Projection now owns capped physical geometry before Rollout
+consumers while retaining full response text, reward, raw usage and original
+trace provenance. Native defaults remain unchanged.
 
-After that, adopt verifier `3f142cc61adb4b0168d925fb44e76370d6299a37` and renderer `0526944665ac9f00e8d56e110babe97a2c174fa4` as a coherent native-producer unit. They are the minimum reviewed pair that carries sampled-token weight versions. The ultimate upstream pins add116verifier and15renderer commits beyond this pair. Keep existing GPU dependencies initially if the actual resolver permits; these packages' metadata does not itself require newer torch for text rendering.
+Unit11 adapts verifier `3f142cc61` and renderer `05269446`, plus pydantic-config
+`65b15dff`/0.4.3 and the required compatible SDK closure. Actual resolution
+retains the previous numerical/GPU package versions. The supported profile is
+native RG and reverse-text; complete Episode assembly stays upstream-owned,
+physical tokens stay authoritative, and the existing value math stays unchanged.
+Old branch-based counters are explicit because batching and input-length reward
+penalties depend on them. Weighted rewards and private task prefixes survive the
+new schema. Shared-prefix plain branches work; new semantic/compaction shapes
+remain rejected before credit. CPU workers and fixed evaluator boundaries do not
+prove the upgraded full GPU process stack.
 
-This boundary includes streamed Episode assembly/cancellation, richer task and agent metadata, weighted reward records, and physical-versus-logical token coordinates. Keep physical token positions authoritative for critic geometry. The newer JSON record path rounds token floats, whereas the msgpack training path retains precision; numerical acceptance must exercise the latter. Compaction/trainability changes require an explicit supported-shape contract rather than implicitly changing value credit.
+The next prerequisite is sampled-token carrier alignment/admission for
+`sampling_mask` and `weight_versions`. It must land before or with the vLLM0.32
+transition: the current adapter rejects those fields, and a newer engine may emit
+version spans even before useful labels are synchronized. Validate original
+completion coordinates, preserve unknown labels and project through the one
+canonical materializer, clipping and packing. No algorithm defaults or value
+geometry should change to make metadata acceptable.
 
-A later backend unit should use upstream `f8016025` as the vLLM0.32 / torch2.13 / transformers5.19 reference. Review actual launch, serving-token and filesystem/NCCL weight-reload interfaces and old monkey patches. Preserve FP32 optimization/reduction and the existing objective. One real Qwen actor/value fresh-and-resume acceptance is appropriate; cross-version kernel equality and performance remain measurements, not assumptions.
+The later backend unit uses upstream `f8016025` as the vLLM0.32 / torch2.13 /
+transformers5.19 reference. Review launch, token-serving, sampling defaults,
+filesystem/NCCL reload and existing patches deliberately. Preserve FP32
+optimization/reduction and the objective. One actual supported Qwen actor/value
+fresh-and-resume acceptance is appropriate; kernel equality and performance are
+measurements, not assumptions.
 
-Only then add exact token-version propagation and mismatch-by-age diagnostics from `a22eeb32` and `b2df580d`. Their practical benefit is separating numerical inference mismatch from policy drift. Unknown engine labels must remain unknown with explicit coverage; dispatch age cannot masquerade as exact sampled-token age. A real generation crossing a weight update is the decisive provenance gate. Stale-token masking, replay and alternative objectives stay separate.
+After the carrier exists and the engine actually provides reliable labels, add
+verified startup/reload labeling and mismatch-by-age diagnostics from
+`a22eeb32`/`b2df580d`. A generation spanning an actual weight update must produce
+correct sampled-token spans. Unknown labels stay unknown with coverage reported;
+dispatch age never substitutes for exact token provenance. Stale-token masking,
+replay changes and alternative objectives remain separate.
 
-All legacy examples need not migrate before enabling a new backend. An explicit native-supported branch/profile can initially support RG and reverse-text while frozen source/lock retain historical legacy execution. Unsupported legacy configurations must fail clearly before resource allocation. Maintaining simultaneous legacy execution would require a separate pinned worker and a real schema/protocol adapter, including joint-group semantics; copying v0 into value code is the wrong boundary. Math migration is not a prerequisite: its current native package changes dataset and answer-scoring semantics.
+Legacy examples remain on the frozen parent stack. The experimental native
+profile fails clearly on legacy configuration before resource allocation, but
+that alone is not sufficient for a main-branch replacement: account for all
+legacy/MM compatibility in the migration backlog. A separate pinned legacy
+worker with an explicit protocol adapter is an option only if simultaneous
+execution is needed; do not embed version conditionals throughout value code.
+Math migration still requires deliberate dataset/prompt/scorer compatibility.
+
+Renderer parity is limited to the tested default single-turn RG/reverse cases.
+A supplemental disabled-thinking multi-turn fixture intentionally changes its
+physical prompt from47 to51 tokens under the new Qwen renderer, retaining the
+historical empty think wrapper; the generation suffix matches. This upstream
+prompt change can affect continuations even though private value ownership and
+credit math are unchanged. Do not claim universal prompt parity.
