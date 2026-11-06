@@ -1,0 +1,101 @@
+{
+  "status": "passed",
+  "cases": [
+    {
+      "case": "within",
+      "limit": 680,
+      "retained_actions": [
+        28
+      ],
+      "raw_usage": {
+        "prompt_tokens": 651,
+        "completion_tokens": 28,
+        "cached_input_tokens": null,
+        "reasoning_tokens": null,
+        "cost": null
+      }
+    },
+    {
+      "case": "exact",
+      "limit": 679,
+      "retained_actions": [
+        28
+      ],
+      "raw_usage": {
+        "prompt_tokens": 651,
+        "completion_tokens": 28,
+        "cached_input_tokens": null,
+        "reasoning_tokens": null,
+        "cost": null
+      }
+    },
+    {
+      "case": "completion_clipped",
+      "limit": 654,
+      "retained_actions": [
+        3
+      ],
+      "raw_usage": {
+        "prompt_tokens": 651,
+        "completion_tokens": 28,
+        "cached_input_tokens": null,
+        "reasoning_tokens": null,
+        "cost": null
+      }
+    },
+    {
+      "case": "prompt_overflow",
+      "limit": 650,
+      "retained_actions": [],
+      "raw_usage": {
+        "prompt_tokens": 651,
+        "completion_tokens": 28,
+        "cached_input_tokens": null,
+        "reasoning_tokens": null,
+        "cost": null
+      }
+    }
+  ],
+  "http_requests": 18,
+  "prompt_tokens": 651,
+  "completion_tokens": 28,
+  "provenance": {
+    "harness_sha256": "ff53c6db2539b7243bc5ba04d99e2d00d9373591d026cdf62ed693a819c1a1aa",
+    "source_sha256": {
+      "src/prime_rl/orchestrator/episodes.py": "b360e2c4c1fecd62cde87e620ac004726db60d8b440ac4a9acc7d686d07e6d94",
+      "src/prime_rl/orchestrator/trajectories.py": "24562fdf93693e4a07d6019026ee44656dfb0fc5f174478c6ba84bd71f54c7d7",
+      "src/prime_rl/value/trajectory.py": "68b1b0d0d277e0caee15cf835c29f788a058edc7fe06f82f73c281a14ccf4db6",
+      "src/prime_rl/orchestrator/train_sink.py": "7760a4dd13b730c504002ec7d45b83dce31bef312d510f9aabe1406c2dae9e42",
+      "src/prime_rl/orchestrator/algo/base.py": "0f5064e05650a317c0e941507547c8e4b94ec9fe1d685b923711215af2199349",
+      "src/prime_rl/orchestrator/algo/grpo.py": "e7aa4244a0c98521fc21bf0af45f61dbeaeb3b8f19eb4fe04453a091bb10662b",
+      "src/prime_rl/value/credit.py": "004d505dcc0d2aac35c19e251b43f459823324162266bc6ce7f5570515525b9c",
+      "src/prime_rl/orchestrator/value_context.py": "1b21dc9db6548fc6421f132b641ff90265e7ef5d723c95a9aebae07c41ab2042",
+      "packages/rg-mix-env/rg_mix_v1/taskset.py": "23d2d1e3722c72caf066202980ecd908f2078f2129ecf7cd8c96b22c717d6a5c",
+      "packages/rg-mix-env/rg_mix_v1/scoring.py": "95ff7954220570ec4beec2517941d87cb548d6df0de75b55569a2d2272d83382",
+      "packages/rg-mix-env/rg_mix_shared.py": "6f7d09529742b52851143417bc81a43a624ca270c8452dcb79cf0174b51c69eb",
+      "deps/renderers/renderers/client.py": "58c5a0752410fbe7fe691f4ef393ba99fb74d355e4c50c53aa9ead14faf4091f",
+      "deps/verifiers/verifiers/v1/clients/train.py": "df2d81b4beda61e49a8a49c9cca87ec0b1ec7e2e789c0e29b77041590dd138cb",
+      "deps/verifiers/verifiers/v1/legacy.py": "6f9dc40c33889aef2b49a651fd913b8cd6904c9e9a230e53f21c655d4e1f4e1d",
+      "deps/verifiers/verifiers/v1/serve/server.py": "1e855ff7171b983d88cc803d9206479316174fca95ad6b3d52ef5528fd119a23",
+      "src/prime_rl/orchestrator/types.py": "dc2534cb4ee3b7a93b5ce5276d1153b98ef7d886929de4dc6b1280eecf997ddd",
+      "src/prime_rl/orchestrator/envs.py": "720dd98c910b7f19a624f1b788ac68df4fde84b3acb64b54efb66bcd335b166e",
+      "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py": "4d12ca50a59250cf2bb856c87014b34ff6225f1dc99d258a92ff290f76fe20a7"
+    },
+    "verifier_python_files_exact_to_pinned_source": 309,
+    "versions": {
+      "torch": "2.11.0",
+      "transformers": "5.6.2",
+      "verifiers": "0.2.2.dev17",
+      "renderers": "0.1.9.dev1",
+      "reasoning-gym": "0.1.25",
+      "rg-mix-env": "0.1.5.dev0"
+    }
+  },
+  "harness_sha256": "bde1d2fbed96a924be9e0ce91dfbd3dd3e32aeefcf7756a67ea61b78da52fe7e",
+  "paired_raw_sha256": "b048027e35192bdb5aa7932fe0a1efacbcfb0a17b4d88210052870b0969ddbcb",
+  "raw_episode_unchanged": true,
+  "unprojected_native_sink_baseline": true,
+  "preexisting_usage_difference": "Legacy reasoning_tokens=0 versus native unknown=None; explicitly asserted and raw values retained. Projected native preserves complete original native Usage exactly.",
+  "named_filter_tail_control": "Unprojected bad tail detected; clipped tail absent from both actual canonical branch filters and emitted policy samples; critic publishes before filtering.",
+  "scope": "Actual fixed-response producer/renderer/scorer, Env.run_rollout configprojection, TrainSink task/LOO credit/publication and policyfilter; no model or GPU."
+}

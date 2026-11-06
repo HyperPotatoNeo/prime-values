@@ -15,3 +15,11 @@ For evaluation, configure the same taskset with `split = "eval"`. Evaluation tak
 The policy receives the original reasoning-gym system prompt and question. Private scoring data never becomes a policy message or value-function prefix. The task takes one model turn and scores its answer with the selected reasoning-gym scorer. Answer extraction follows the package's XML answer convention; the format metric has weight zero and does not affect reward. There is no group-dependent reward function.
 
 `rg_mix_env.load_environment` supports the existing legacy dataset-loading and generation APIs. `generate_rg_mix_dataset.py` creates dataset artifacts for either entrypoint. The native taskset requires a cached artifact so its selected private inputs survive worker reconstruction without regenerating questions.
+
+For a native training configuration that must retain the legacy actor-length
+cap, add `training_projection = { type = "single_turn" }` beside the `env`
+settings on the training entry. It resolves to the actor sequence length and
+clips only the owned training trace after full-response scoring. The generated
+text and reward stay complete; policy filters and value inputs use the same
+retained tokens. Omit this option to retain full native training geometry.
+This projection is not a generation or evaluation limit.

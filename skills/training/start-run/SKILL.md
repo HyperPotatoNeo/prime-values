@@ -52,10 +52,19 @@ uv run rl @ examples/reverse_text/rl.toml --dry-run                             
   orchestrator loads the cached data; workers reconstruct selected private
   scoring entries without reading that directory. These entries must never
   become policy messages or value prefixes. The accepted `seed` field does
-  not regenerate or verify a cached dataset. Before converting an existing
-  legacy run, verify overlength behavior: legacy token clipping precedes
-  Episode materialization, while native traces reach downstream limits.
-  Short-response parity alone does not establish equal critic token geometry.
+  not regenerate or verify a cached dataset.
+- To retain a single-turn legacy run's post-generation training-token cap when
+  moving it to a native taskset, set `training_projection = { type = "single_turn" }`
+  on its `[[orchestrator.train.env]]` entry. The cap resolves to the actor's
+  `seq_len`; `max_seq_len` can set an explicit positive cap. Full generated text,
+  reward and provider usage are retained. All token-based training consumers
+  (including filters and the critic) see the same owned prefix. The original
+  physical trace remains accessible separately; serialized training traces
+  carry a projection receipt. This option is disabled by default and is not an
+  evaluation or generation limit. It rejects multi-turn, branched, tool,
+  multimodal and token-sidecar traces rather than guessing their clipping
+  semantics. Preflight the actual environment shape before a model run.
+  See `experiments/sequence-boundary/README.md` for the legacy comparison.
 
 ### Optional async value plane
 

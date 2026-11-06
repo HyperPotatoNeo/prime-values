@@ -266,7 +266,19 @@ class EnvConfig(vf.EnvServerConfig):
         return self
 
 
+class SingleTurnTrainingProjectionConfig(BaseConfig):
+    type: Literal["single_turn"] = "single_turn"
+    max_seq_len: int | None = Field(None, gt=0, strict=True)
+    """Retained training-token prefix. None resolves to the actor sequence length."""
+
+
 class TrainEnvConfig(EnvConfig):
+    training_projection: SingleTurnTrainingProjectionConfig | None = None
+    """Optional post-generation projection of a native single-turn text trace.
+    Scoring text and provider usage remain complete; policy and value training
+    consume the retained token prefix. None preserves the producer's geometry.
+    """
+
     sampling: TrainSamplingConfig = TrainSamplingConfig()
     """Per-env sampling overrides. Unset fields inherit from the group-level train sampling config."""
 
@@ -278,6 +290,14 @@ class TrainEnvConfig(EnvConfig):
     """Training algorithm for this env. Inherits from the top-level
     ``orchestrator.algo`` when unset; set ``type`` (and its params) to give
     this env its own algorithm."""
+
+    @model_validator(mode="after")
+    def validate_training_projection(self):
+        if self.training_projection is not None and self.is_legacy:
+            raise ValueError(
+                "training_projection requires a native environment; legacy traces already apply their token cap"
+            )
+        return self
 
 
 class EvalEnvConfig(EnvConfig):
@@ -782,6 +802,8 @@ class OrchestratorConfig(BaseConfig):
     def resolve_env_config(self):
         """Set vLLM sampling defaults + legacy env kwargs on each train env from top-level fields."""
         for env in self.train.env:
+            if env.training_projection is not None and env.training_projection.max_seq_len is None:
+                env.training_projection.max_seq_len = self.seq_len
             # Policy-sourced rollouts hit our vLLM server; frozen-sourced
             # rollouts may hit external OAI endpoints that reject these knobs.
             assert env.algo is not None

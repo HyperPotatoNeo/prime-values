@@ -1,0 +1,99 @@
+{
+  "status": "reproduced_and_independently_checked",
+  "cases": [
+    {
+      "case": "within_budget",
+      "actor_seq_len": 680,
+      "legacy": {
+        "reward": 1.0,
+        "is_truncated": false,
+        "num_output_tokens": 28,
+        "sample_lengths": [
+          679
+        ],
+        "action_counts": [
+          28
+        ],
+        "first_action_targets": [
+          0.05814973700304011
+        ]
+      },
+      "native": {
+        "reward": 1.0,
+        "is_truncated": false,
+        "num_output_tokens": 28,
+        "sample_lengths": [
+          679
+        ],
+        "action_counts": [
+          28
+        ],
+        "first_action_targets": [
+          0.05814973700304011
+        ]
+      }
+    },
+    {
+      "case": "completion_crosses_limit",
+      "actor_seq_len": 654,
+      "legacy": {
+        "reward": 1.0,
+        "is_truncated": true,
+        "num_output_tokens": 28,
+        "sample_lengths": [
+          654
+        ],
+        "action_counts": [
+          3
+        ],
+        "first_action_targets": [
+          0.81
+        ]
+      },
+      "native": {
+        "reward": 1.0,
+        "is_truncated": false,
+        "num_output_tokens": 28,
+        "sample_lengths": [
+          679
+        ],
+        "action_counts": [
+          28
+        ],
+        "first_action_targets": [
+          0.05814973700304011
+        ]
+      }
+    },
+    {
+      "case": "prompt_crosses_limit",
+      "actor_seq_len": 650,
+      "legacy": {
+        "reward": 1.0,
+        "is_truncated": true,
+        "num_output_tokens": 28,
+        "sample_lengths": [],
+        "action_counts": [],
+        "first_action_targets": []
+      },
+      "native": {
+        "reward": 1.0,
+        "is_truncated": false,
+        "num_output_tokens": 28,
+        "sample_lengths": [
+          679
+        ],
+        "action_counts": [
+          28
+        ],
+        "first_action_targets": [
+          0.05814973700304011
+        ]
+      }
+    }
+  ],
+  "parent_check": "Saved action targets match independent gamma^(remaining actions) terminal-return formula, within-budget owned inputs exact. Provider output usage remains28 in clipped legacy aswell asnative.",
+  "source_harness_sha256": "0bc481c846ea56ffe55fc4236ab873f9cf9663318084e7606258e7b9653fbd0a",
+  "raw_receipt_sha256": "4529a8716bb989ca8c4bd54a280216f6a06ee8c526ab560d89c16037c9f602eb",
+  "raw_requests_sha256": "07777a0d3aee5445558a5bdf49e1c42eea8d21aec047e3b00a3cba0a8c4bc969"
+}

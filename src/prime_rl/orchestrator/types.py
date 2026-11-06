@@ -94,6 +94,11 @@ class Rollout(vf.Trace[DataT], Generic[DataT]):
     off_policy_steps: int = Field(default=0, exclude=True)
     samples: list[TrainingSample] = Field(default_factory=list, exclude=True)
     training_layout: TrainingLayout | None = Field(default=None, exclude=True)
+    source_physical_trace: vf.WireTrace | None = Field(default=None, exclude=True)
+    """Original producer trace when this rollout has an explicit training projection.
+    Its full messages and provider usage describe generation; token arrays on this
+    Rollout describe training. Never serialized as a second trace.
+    """
     # Per-token rl advantage stream, full-length-N (= len(token_ids)) per
     # sample, concatenated across the rollout's samples in order; 0.0 on
     # non-trainable positions. None = no credit assigned (advantage-based

@@ -242,6 +242,7 @@ class Env:
         return from_episode(
             await self.run_episode(client, task_idx, model_name, cache_salt, task_data=task_data),
             task_idx=task_idx,
+            training_projection=self.config.training_projection if isinstance(self.config, TrainEnvConfig) else None,
         )
 
     async def run_group(
