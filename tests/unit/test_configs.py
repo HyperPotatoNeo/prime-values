@@ -1,3 +1,5 @@
+import copy
+import json
 import subprocess
 import tomllib
 from pathlib import Path
@@ -29,30 +31,14 @@ CONFIG_CLASSES = [
 ]
 
 
-def test_flat_env_limits_keep_agent_and_legacy_meaning():
-    raw = {
-        "id": "reverse-text",
-        "timeout": {"rollout": 45, "scoring": 12},
-        "retries": {"rollout": {"max_retries": 2, "include": ["ProviderError"]}},
-        "max_output_tokens": 64,
-        "multiplex": 7,
-        "pool": {"type": "elastic", "multiplex": 11},
-    }
-    with pytest.warns(FutureWarning, match="Flat environment"):
-        config = EnvConfig.model_validate(raw)
-    assert config.env.agent.timeout.scoring == 12
-    assert config.env.agent.retries.max_retries == 2
-    assert config.env.agent.retries.include == ["ProviderError"]
-    assert config.env.interception.multiplex == 7
-    assert config.pool.multiplex == 11
-    assert config.extra_env_kwargs == {"timeout_seconds": 45, "max_total_completion_tokens": 64}
-    assert EnvConfig.model_validate_json(config.model_dump_json()) == config
-    assert "timeout" in raw and "env" not in raw
+def test_historical_legacy_env_is_rejected_before_native_alias_resolution():
+    with pytest.raises(ValidationError, match="Legacy environment configuration requires the frozen"):
+        EnvConfig.model_validate({"id": "reverse-text"})
 
 
-def test_normalized_legacy_env_keeps_legacy_dispatch():
-    with pytest.warns(FutureWarning, match="Flat environment"):
-        config = EnvConfig.model_validate(
+def test_normalized_historical_legacy_env_is_still_rejected():
+    with pytest.raises(ValidationError, match="Legacy environment configuration requires the frozen"):
+        EnvConfig.model_validate(
             {
                 "id": "reverse-text",
                 "taskset": {"id": "", "judges": []},
@@ -60,46 +46,159 @@ def test_normalized_legacy_env_keeps_legacy_dispatch():
                 "retries": {"rollout": {"max_retries": 0}},
             }
         )
-    assert config.is_legacy and config.env_id == "reverse-text"
-    assert config.env.taskset.id == ""
-    assert config.env.agent.harness.id == "bash"
+
+
+def test_flat_native_limits_keep_agent_meaning_and_input_ownership():
+    raw = {
+        "taskset": {"id": "reverse-text"},
+        "timeout": {"rollout": 45, "scoring": 12},
+        "retries": {"max_retries": 0, "rules": [{"type": "ProviderError", "max_retries": 2}]},
+        "max_output_tokens": 64,
+        "multiplex": 7,
+        "pool": {"type": "elastic", "multiplex": 11},
+    }
+    original = copy.deepcopy(raw)
+    with pytest.warns(FutureWarning, match="Flat environment"):
+        config = EnvConfig.model_validate(raw)
+    assert config.env.agent.timeout.rollout == 45
+    assert config.env.agent.timeout.scoring == 12
+    assert config.env.agent.retries.max_retries == 0
+    assert config.env.agent.retries.rules[0].type == "ProviderError"
+    assert config.env.agent.retries.rules[0].max_retries == 2
+    assert config.env.agent.max_output_tokens == 64
+    assert config.env.interception.multiplex == 7
+    assert config.pool.multiplex == 11
+    assert config.env.agent.runtime.type == "subprocess"
     assert EnvConfig.model_validate_json(config.model_dump_json()) == config
+    assert raw == original
+
+
+def test_obsolete_retry_include_is_explicitly_rejected():
+    with pytest.raises(ValidationError, match="include"):
+        EnvConfig.model_validate(
+            {
+                "env": {
+                    "taskset": {"id": "reverse-text"},
+                    "agent": {"retries": {"max_retries": 2, "include": ["ProviderError"]}},
+                }
+            }
+        )
+
+
+@pytest.mark.parametrize("num_workers", [2, "auto"])
+@pytest.mark.parametrize("explicit_pool", [False, True])
+def test_native_worker_alias_preserves_input_and_explicit_pool(num_workers, explicit_pool):
+    raw = {"env": {"taskset": {"id": "reverse-text"}}, "num_workers": num_workers}
+    if explicit_pool:
+        raw["pool"] = {"type": "static", "num_workers": 3}
+    original = copy.deepcopy(raw)
+    config = EnvConfig.model_validate(raw)
+    assert raw == original
+    if explicit_pool:
+        assert config.pool.type == "static" and config.pool.num_workers == 3
+    elif num_workers == 2:
+        assert config.pool.type == "static" and config.pool.num_workers == 2
+    else:
+        assert config.pool == EnvConfig.model_validate({"env": {"taskset": {"id": "reverse-text"}}}).pool
 
 
 def test_mixed_env_config_rejects_ambiguous_limits():
     with pytest.raises(ValidationError, match="Do not mix flat"):
-        EnvConfig.model_validate({"id": "reverse-text", "timeout": {"rollout": 1}, "env": {"agent": {}}})
+        EnvConfig.model_validate({"taskset": {"id": "reverse-text"}, "timeout": {"rollout": 1}, "env": {"agent": {}}})
 
 
-def get_config_files() -> list[Path]:
-    """Any TOML file inside `configs/` or `examples/`."""
-    config_files = list(Path("configs").rglob("*.toml"))
-    example_files = list(Path("examples").rglob("*.toml"))
-
-    return config_files + example_files
-
-
-def is_eval_config(path: Path) -> bool:
-    """vf-eval TOMLs live under configs but are not prime-rl entrypoint configs."""
-    with path.open("rb") as f:
-        data = tomllib.load(f)
-    return isinstance(data.get("eval"), list)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CONFIG_INVENTORY = json.loads((REPO_ROOT / "experiments/dependency-migration/config-compatibility.json").read_text())[
+    "entries"
+]
+CONFIG_BY_NAME = {cls.__name__: cls for cls in CONFIG_CLASSES}
 
 
-@pytest.mark.parametrize("config_file", get_config_files(), ids=lambda x: x.as_posix())
-def test_load_configs(config_file: Path):
-    """Tests that all config files can be loaded by at least one config class."""
-    if is_eval_config(config_file):
-        pytest.skip("vf-eval TOML files are not prime-rl entrypoint configs")
+def get_config_files() -> set[str]:
+    """Discovery is rooted in this checkout, including historical configurations."""
+    return {
+        p.relative_to(REPO_ROOT).as_posix()
+        for folder in ("configs", "examples")
+        for p in (REPO_ROOT / folder).rglob("*.toml")
+    }
 
-    could_parse = []
-    for config_cls in CONFIG_CLASSES:
-        try:
-            cli(config_cls, args=["@", config_file.as_posix()])
-            could_parse.append(True)
-        except (ValidationError, ConfigFileError, SystemExit):
-            could_parse.append(False)
-    assert any(could_parse), f"No config class could be parsed from {config_file}"
+
+def merge_config_dicts(base, overlay):
+    """TOML composition replaces lists and recursively merges tables."""
+    result = copy.deepcopy(base)
+    for key, value in overlay.items():
+        result[key] = (
+            merge_config_dicts(result[key], value)
+            if isinstance(result.get(key), dict) and isinstance(value, dict)
+            else copy.deepcopy(value)
+        )
+    return result
+
+
+def discover_env_specs(data, path=()):
+    specs = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == "env" and isinstance(value, list):
+                for index, env in enumerate(value):
+                    if "id" in env:
+                        kind, env_id = "legacy", env["id"]
+                    else:
+                        taskset = env.get("env", {}).get("taskset", env.get("taskset"))
+                        assert taskset is not None, f"unclassified environment at {path + (key, index)}"
+                        kind, env_id = "native", taskset["id"]
+                    specs.append({"path": list(path + (key, index)), "kind": kind, "id": env_id})
+            else:
+                specs.extend(discover_env_specs(value, path + (key,)))
+    elif isinstance(data, list):
+        for index, value in enumerate(data):
+            specs.extend(discover_env_specs(value, path + (index,)))
+    return specs
+
+
+def test_config_inventory_is_exhaustive():
+    paths = [entry["path"] for entry in CONFIG_INVENTORY]
+    assert len(paths) == len(set(paths))
+    assert set(paths) == get_config_files()
+
+
+@pytest.mark.parametrize("entry", CONFIG_INVENTORY, ids=lambda x: x["path"])
+def test_load_configs(entry):
+    """Each authored entrypoint has an explicit success or compatibility-failure contract."""
+    config_path = REPO_ROOT / entry["path"]
+    args = ["@", str(REPO_ROOT / entry["base_config"])] if "base_config" in entry else []
+    args += ["@", str(config_path)]
+    data = {}
+    if "base_config" in entry:
+        data = tomllib.loads((REPO_ROOT / entry["base_config"]).read_text())
+    data = merge_config_dicts(data, tomllib.loads(config_path.read_text()))
+    assert discover_env_specs(data) == [
+        {key: spec[key] for key in ("path", "kind", "id")} for spec in entry["environments"]
+    ]
+    cls = CONFIG_BY_NAME[entry["entrypoint"]]
+    if entry["expect"] == "rejected_legacy":
+        with pytest.raises(ConfigFileError, match="Legacy environment configuration requires the frozen"):
+            cli(cls, args=args)
+    elif entry["expect"] == "unavailable_native":
+        with pytest.raises(ModuleNotFoundError, match=f"taskset '{entry['missing_taskset']}' not found"):
+            cli(cls, args=args)
+    else:
+        assert type(cli(cls, args=args)) is cls
+
+    # Check every environment separately: an unavailable evaluation plugin must not
+    # hide a legacy training environment in the same file (or vice versa).
+    for spec in entry["environments"]:
+        env = data
+        for part in spec["path"]:
+            env = env[part]
+        if spec["expect"] == "rejected_legacy":
+            with pytest.raises(ValidationError, match="Legacy environment configuration requires the frozen"):
+                EnvConfig.model_validate(copy.deepcopy(env))
+        elif spec["expect"] == "unavailable_native":
+            with pytest.raises(ModuleNotFoundError, match=f"taskset '{spec['id']}' not found"):
+                EnvConfig.model_validate(copy.deepcopy(env))
+        else:
+            assert EnvConfig.model_validate(copy.deepcopy(env)).env_id == spec["id"]
 
 
 class NestedConfig(BaseConfig):
@@ -218,7 +317,12 @@ def test_env_algo_overrides_top_level():
         {
             "renderer": {"name": "qwen3"},  # echo needs the renderer's role attribution
             "algo": {"type": "echo"},
-            "train": {"env": [{"id": "a", "algo": {"type": "grpo"}}, {"id": "b"}]},
+            "train": {
+                "env": [
+                    {"name": "a", "env": {"taskset": {"id": "reverse-text"}}, "algo": {"type": "grpo"}},
+                    {"name": "b", "env": {"taskset": {"id": "reverse-text"}}},
+                ]
+            },
         }
     )
     env_a, env_b = config.train.env
@@ -276,10 +380,11 @@ def test_value_function_defaults_omitted_grpo_baselines_to_value():
                 "algo": {"type": "grpo"},
                 "train": {
                     "env": [
-                        {"id": "inherited"},
-                        {"id": "implicit", "algo": {"type": "grpo"}},
+                        {"name": "inherited", "env": {"taskset": {"id": "reverse-text"}}},
+                        {"name": "implicit", "env": {"taskset": {"id": "reverse-text"}}, "algo": {"type": "grpo"}},
                         {
-                            "id": "explicit",
+                            "name": "explicit",
+                            "env": {"taskset": {"id": "reverse-text"}},
                             "algo": {"type": "grpo", "baseline": {"type": "mean"}},
                         },
                     ]
@@ -397,9 +502,24 @@ def test_group_value_context_defaults_from_largest_affected_group():
             "orchestrator": {
                 "train": {
                     "env": [
-                        {"id": "grpo-env", "group_size": 2, "algo": {"type": "grpo"}},
-                        {"id": "echo-env", "group_size": 5, "algo": {"type": "echo"}},
-                        {"id": "max-env", "group_size": 8, "algo": {"type": "max_rl"}},
+                        {
+                            "name": "grpo-env",
+                            "env": {"taskset": {"id": "reverse-text"}},
+                            "group_size": 2,
+                            "algo": {"type": "grpo"},
+                        },
+                        {
+                            "name": "echo-env",
+                            "env": {"taskset": {"id": "reverse-text"}},
+                            "group_size": 5,
+                            "algo": {"type": "echo"},
+                        },
+                        {
+                            "name": "max-env",
+                            "env": {"taskset": {"id": "reverse-text"}},
+                            "group_size": 8,
+                            "algo": {"type": "max_rl"},
+                        },
                     ]
                 }
             },

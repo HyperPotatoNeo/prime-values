@@ -19,6 +19,7 @@ This index tracks the staged PrimeRL synchronization work while keeping Prime Va
 | Inference/training backend | Adopt vLLM 0.32/Torch 2.13 with exact compiled critic controls and real weight adoption/restart | [Backend acceptance](backend-sync/README.md) |
 | Sampled policy coverage and age | Report known, unknown and future labels without changing losses or token eligibility | [Diagnostics acceptance](provenance-diagnostics/README.md) |
 | Mismatch by sampled weight age | Identify mismatch concentration in older sampled tokens without changing token selection | [Detached aggregation and distributed checks](mismatch-by-age/README.md) |
+| Native launch and compatibility contracts | Provide usable RG/reverse policy/value configs and explicit historical compatibility boundaries | [Native launch guide](../configs/native/README.md), [Complete config inventory](dependency-migration/config-compatibility.json) |
 
 The [initial upstream audit and staged plan](upstream-plan.txt) preserves the original feature assessment and value-contract analysis as a historical record.
 

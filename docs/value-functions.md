@@ -16,7 +16,7 @@ policy/target lambdas of `1.0`. The critic batch size inherits
 
 ```toml
 [orchestrator]
-group_size = 2
+group_size = 8
 
 [orchestrator.algo]
 type = "grpo"
@@ -25,10 +25,10 @@ type = "grpo"
 ```
 
 Run it through the normal entrypoint; the value roles are launched
-automatically:
+automatically. The [native launch examples](../configs/native/README.md) provide reverse-text and cached RG variants and describe their resource/data requirements:
 
 ```bash
-uv run rl @ examples/value_function/rl.toml
+WANDB_MODE=offline uv run rl @ configs/native/reverse_text_value.toml
 ```
 
 Use `uv run rl @ <config> --dry-run` to inspect the fully resolved value,
@@ -164,13 +164,15 @@ Branched traces need no extra setting at the default
 separately gives every unique trainable token the same Monte Carlo result as
 one stitched sequence.
 
-If branches are successive segments of one episode (for example, after
-context compaction) and temporal credit is enabled, declare that contract on
-the environment's algorithm:
+For supported plain branches that are successive segments of one episode,
+temporal credit requires an explicit contract on the environment algorithm.
+The current native producer rejects semantic-parent/compaction traces before
+credit assignment; this setting does not enable those unsupported traces:
 
 ```toml
 [[orchestrator.train.env]]
-id = "..."
+# Use a reviewed native taskset that actually emits sequential plain branches.
+env.taskset = { id = "your-native-taskset" }
 
 [orchestrator.train.env.algo]
 type = "grpo"

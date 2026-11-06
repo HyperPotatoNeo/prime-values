@@ -199,6 +199,7 @@ class EnvConfig(vf.ServeConfig):
         fixed ``static`` pool, ``"auto"`` falls through to the default ``elastic`` pool. An
         explicit ``pool`` always wins."""
         if isinstance(data, dict) and "num_workers" in data:
+            data = dict(data)
             num_workers = data.pop("num_workers")
             if "pool" not in data and num_workers != "auto":
                 data["pool"] = {"type": "static", "num_workers": num_workers}

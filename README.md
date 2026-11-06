@@ -28,6 +28,8 @@ adopt those weights without coupling critic progress to policy versions. Value
 evaluation can run on dedicated GPUs for independent throughput or queue on the
 value trainer's GPUs when a smaller deployment matters more.
 
+Start with the [supported native training profile](configs/native/README.md) for current reverse-text and cached RG launch configs, with or without a value function. This branch does not yet replace the full historical environment catalog; its explicit compatibility inventory and frozen references are linked there.
+
 See [Value Functions](docs/value-functions.md) for topology, replay semantics,
 configuration, and monitoring.
 
@@ -245,7 +247,7 @@ uv run hf auth login
 ```
 
 ## Training Examples
-We provide end-to-end training examples in the [`examples`](examples) directory to highlight features of the framework and guide you through the process of training your own models.
+The [`examples`](examples) directory preserves the upstream/historical catalog. Its RL configurations are not all executable on this native profile. Use [configs/native](configs/native/README.md) for current launch examples and the [compatibility inventory](experiments/dependency-migration/config-compatibility.json) for explicit entrypoint and rejection contracts. The descriptions below document the historical examples, not validation of every model or environment on this branch.
 
 ### Basic Training: 1 to 8 GPUs
 

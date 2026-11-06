@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
-from verifiers.v1.clients.config import EvalClientConfig
+from verifiers.v1.configs.client import EvalClientConfig
 
 from prime_rl.configs.shared import ClientConfig
 from prime_rl.utils.client import _is_retryable_lora_error, load_lora_adapter, setup_clients

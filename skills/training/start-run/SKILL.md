@@ -25,14 +25,14 @@ All entrypoints run via `uv run <command>` and accept TOML configs via `@ path/t
 
 Launches inference server, orchestrator, and trainer as subprocesses. This branch
 currently supports the native RG/reverse-text producer profile; historical legacy
-examples require revision `1801d112` and its lock. Start from an explicitly
-validated native config, not an automatic alias of an old `id`/`args` config.
-Replace the path below with that config.
+examples require revision `1801d112` and its lock. Start from `configs/native/README.md` and its authored policy/value examples,
+not an automatic alias of an old `id`/`args` config. Group-eight examples have
+CPU config/child-CLI acceptance; the earlier GPU lifecycle fixture used group two.
 
 ```bash
-uv run rl @ /path/to/native-rl.toml
-uv run rl @ /path/to/native-rl.toml @ /path/to/native-slurm.toml   # SLURM
-uv run rl @ /path/to/native-rl.toml --dry-run                                # write scripts, don't run
+uv run rl @ configs/native/reverse_text_value.toml
+uv run rl @ configs/native/reverse_text_value.toml @ /path/to/native-slurm.toml   # SLURM
+uv run rl @ configs/native/reverse_text_value.toml --dry-run                                # write scripts, don't run
 ```
 
 - Config: `RLConfig` (`packages/prime-rl-configs/src/prime_rl/configs/rl.py`)
@@ -98,7 +98,7 @@ not JSON. Use `ValueEvaluatorClient` or decode the response bytes with
   requires it to resolve to zero.
 - Multi-node runs similarly reserve value-trainer nodes and reserve evaluator
   nodes only in dedicated placement. Start from
-  the deployment/value sections of `examples/value_function/rl.toml`, explicitly
+  the deployment/value sections of `configs/native/reverse_text_value.toml`, explicitly
   replacing its legacy environment entry with a validated native configuration;
   set scheduler fields for the target environment.
 - Privileged value context defaults to an optional static native-v1 task

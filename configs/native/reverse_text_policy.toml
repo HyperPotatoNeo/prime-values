@@ -1,0 +1,73 @@
+# Authored native-profile smoke example; see configs/native/README.md.
+max_steps = 3
+seq_len = 512
+output_dir = "outputs/reverse_text_policy"
+
+[model]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+
+[trainer.wandb]
+project = "prime-values-native"
+name = "reverse_text_policy"
+offline = true
+
+[ckpt]
+interval = 1
+keep_last = 1
+
+[orchestrator.wandb]
+project = "prime-values-native"
+name = "reverse_text_policy"
+offline = true
+
+[trainer.model]
+impl = "custom"
+attn = "flash_attention_2"
+optim_cpu_offload = false
+
+[trainer.optim]
+lr = 1e-6
+
+[inference]
+gpu_memory_utilization = 0.4
+enable_prefix_caching = false
+
+[inference.model]
+max_model_len = 512
+enforce_eager = true
+
+[orchestrator]
+batch_size = 8
+group_size = 8
+max_inflight_rollouts = 8
+
+[orchestrator.renderer]
+name = "qwen3"
+
+[orchestrator.algo]
+type = "grpo"
+baseline = {type = "mean"}
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 64
+extra_body = {top_k = -1, min_p = 0.0, repetition_penalty = 1.0, presence_penalty = 0.0, frequency_penalty = 0.0}
+
+[[orchestrator.train.env]]
+name = "reverse_text"
+pool = {type = "static", num_workers = 1}
+
+[orchestrator.train.env.env.taskset]
+id = "reverse-text"
+
+[orchestrator.train.env.env.agent]
+harness = {id = "null"}
+runtime = {type = "subprocess"}
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+num_train_gpus = 1
+num_infer_gpus = 1
+num_value_train_gpus = 0
+num_value_eval_gpus = 0
