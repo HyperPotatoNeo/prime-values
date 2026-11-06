@@ -50,6 +50,7 @@ uv run rl @ configs/native/reverse_text_value.toml --dry-run                    
 - Keep `VLLM_SERVER_DEV_MODE=0`: the native dev update protocol conflicts with PrimeRL's admin endpoints and startup rejects it. Read-only `/weight_info` and `/is_paused` are available without dev mode; do not enable mutation-oriented dev routes merely to inspect version or paused state.
 - Renderer clients now use the native elastic multiplexed pool. Explicit `pool_size` rejects because fixed pool size has no equivalent multiplex setting; the former internal pool_size=1 is no longer emitted. This changes resource scheduling, not sampling settings, and carries no throughput claim.
 - Monitor nested `logs/envs/train/<env>.log` and eval counterparts, not only the top-level orchestrator log. Use `experiments/native-producer/README.md` for exact current scope and evidence.
+- Match generation budgets to the model's prompt mode. Qwen3-0.6B in thinking mode can exhaust a 64-token budget before producing answer content, leaving reverse-text rewards and mean-baseline advantages all zero. The bounded lifecycle test explicitly selects its non-thinking renderer mode. Inspect actual content, reasoning, finish reasons and reward variation before changing a run; do not bypass zero-advantage filtering to make an unsuitable fixture pass.
 - Native RG uses `rg-mix-v1` with the same null/subprocess harness. It requires
   a saved dataset directory containing `metadata.json` and `dataset/`; see
   `packages/rg-mix-env/README.md`. Pin the dataset artifact and scorer version.

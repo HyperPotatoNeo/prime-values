@@ -47,6 +47,8 @@ The GPU workflow requires configured self-hosted runners labeled `vm` and `4xa60
 
 ### Markers
 
+The native lifecycle test uses Qwen3-0.6B with its explicit non-thinking prompt mode and a 64-token answer budget. This keeps the small fixture focused on training and resume; it retains the normal reward, filtering, group size and ancestral sampling settings.
+
 Two pytest markers are declared in `pyproject.toml` (`addopts = "--strict-markers"`):
 
 - `gpu` — gate a test that needs CUDA. CPU CI uses `-m "not gpu"`; the GPU unit job uses `-m gpu`.

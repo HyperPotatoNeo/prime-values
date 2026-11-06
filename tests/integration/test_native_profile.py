@@ -1,7 +1,8 @@
 """Bounded native lifecycle CI, not a reward-learning or model-parity benchmark.
 
-The 0.6B model is chosen to fit four single-GPU roles on the existing A6000
-runner; capacity and lifecycle acceptance remain pending execution. Actual GPU acceptance is determined by this test, not inferred
+The 0.6B model uses its explicit non-thinking prompt mode for the 64-token
+answer budget. Four single-GPU roles target A6000 runners; hardware capacity
+and lifecycle acceptance require actual execution, not inference
 from earlier H200/4B receipts. Historical convergence tests remain unchanged.
 """
 
@@ -32,6 +33,7 @@ def native_config(root: Path, *, value: bool, resume_value: int | None = None) -
         str(ROOT / f"configs/native/reverse_text_{'value' if value else 'policy'}.toml"),
         "--model.name",
         "Qwen/Qwen3-0.6B",
+        "--no-orchestrator.renderer.enable-thinking",
         "--output-dir",
         str(root / "run"),
         "--weight-broadcast.type",
@@ -54,10 +56,12 @@ def native_config(root: Path, *, value: bool, resume_value: int | None = None) -
             max_steps=4, output_dir=str(root / "run"), weight_broadcast={"type": "nccl"}, log={"level": "debug"}
         )
         data["model"]["name"] = "Qwen/Qwen3-0.6B"
+        data["orchestrator"]["renderer"]["enable_thinking"] = False
         data["ckpt"].update(resume_step=3, keep_last=3)
         if value:
             data["value_function"]["ckpt"].update(resume_step=resume_value, keep_last=3)
         config = RLConfig.model_validate(deepcopy(data))
+    assert config.orchestrator.renderer.enable_thinking is False
     return config
 
 
@@ -106,6 +110,7 @@ def prepare_stage(config: RLConfig, directory: Path) -> Path:
         log={"level": "debug"},
     )
     raw["model"]["name"] = config.model.name
+    raw["orchestrator"]["renderer"]["enable_thinking"] = False
     raw["ckpt"].update(keep_last=3)
     if config.ckpt.resume_step is not None:
         raw["ckpt"]["resume_step"] = config.ckpt.resume_step
