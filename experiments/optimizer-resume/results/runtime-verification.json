@@ -1,0 +1,13 @@
+{
+  "driver_exit": 0,
+  "stage_exits": {
+    "frozen-resume": 0,
+    "candidate-resume": 0
+  },
+  "frozen_control": "Harness must positively reproduce Muon groupstep reset and actual update divergence, while Adam control remains exact; no waived nonzero exits.",
+  "frozen_entries_verified": 2355,
+  "candidate_files_verified": 2357,
+  "observed_at": "2026-11-06T02:57:23.138407+00:00",
+  "scope": "Actual DCP CPU-offload optimizer resume metadata and continuation checks; no full-model throughput/reward claim.",
+  "archive_exclusions": "Candidate source and duplicate uploaded payload files excluded; all numerical tensor/checkpoint artifacts included."
+}

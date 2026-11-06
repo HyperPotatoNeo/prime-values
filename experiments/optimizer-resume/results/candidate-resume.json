@@ -1,0 +1,66 @@
+{
+  "rejection_controls": {
+    "count": "rejected before wrapper initialization or metadata mutation",
+    "order": "rejected before wrapper initialization or metadata mutation",
+    "membership": "rejected before wrapper initialization or metadata mutation"
+  },
+  "expectation": "fixed",
+  "cases": {
+    "muon": {
+      "outcome": "exact full-state resume and two continued updates",
+      "expected_muon_group_steps": [
+        3,
+        3
+      ],
+      "loaded_group_steps": [
+        3,
+        3
+      ],
+      "parameter_identities_preserved": true,
+      "cpu_state_buffers_loaded_in_place": true,
+      "optimizer_count": 1
+    },
+    "adam": {
+      "outcome": "exact full-state resume and two continued updates",
+      "expected_muon_group_steps": [
+        null,
+        null
+      ],
+      "loaded_group_steps": [
+        null,
+        null
+      ],
+      "parameter_identities_preserved": true,
+      "cpu_state_buffers_loaded_in_place": true,
+      "optimizer_count": 1
+    },
+    "mixed": {
+      "outcome": "exact full-state resume and two continued updates",
+      "expected_muon_group_steps": [
+        3,
+        3
+      ],
+      "loaded_group_steps": [
+        3,
+        3
+      ],
+      "parameter_identities_preserved": true,
+      "cpu_state_buffers_loaded_in_place": true,
+      "optimizer_count": 2
+    }
+  },
+  "source_files": {
+    "checkpoint": {
+      "path": "/data/optimizer-resume-001/candidate/src/prime_rl/trainer/ckpt.py",
+      "sha256": "417e8cb7d9cd178aa130e8ec722189573e4a8eb275d64435a6539cd4d4b466c3"
+    },
+    "offload_optimizer": {
+      "path": "/data/optimizer-resume-001/candidate/src/prime_rl/trainer/optim.py",
+      "sha256": "c10f1b3bf01125997d12f564b682f1d9a7559cf8f7a0da2cb0d6bb324f9252a1"
+    }
+  },
+  "dion_source": "/app/.venv/lib/python3.12/site-packages/dion/muon.py",
+  "dion_sha256": "7989ed3daf073c2ec02ab2f834218920b95098a93cb02077691a2bc76134ba4f",
+  "harness_sha256": "f5b1c018cd0b7454afb0f521a1e5c363989ce74b02a465c821abbbae24698389",
+  "scope": "Real single-rank DCP with FP32 MLP and actual CPUOffloadOptimizer/Dion Muon; separate Adam control and mixed wrapped/unwrapped optimizers. No full-model/FSDP repartition or throughput claim."
+}

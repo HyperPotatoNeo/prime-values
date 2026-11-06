@@ -13,6 +13,7 @@ The comparison target is Prime RL `3c96816de9a2a906649a04026a46517840a0f4a6`; th
 | Critic ownership | Critic-owned trajectory snapshots and pure credit module, independent of later policy mutation | `4b8ca528` |
 | Canonical Episodes | Actual native and maintained legacy producers through a deliberately single-trace boundary | `4835142d` |
 | Explicit packing boundaries | Host-owned boundaries with exact covered model, CP and compiled critic comparisons | `1708eb0c` |
+| CPU-offloaded optimizer resume | Restore group metadata with exact actual DCP continuation controls | [Evidence](optimizer-resume/README.md) |
 | Parameter-safe activation offload | Live parameter storage exclusion with exact compiled expert and critic comparisons | [Evidence](activation-offload/README.md) |
 | Streaming trainer metrics | Bounded standard entropy/mismatch collection; preserved scalar/custom metrics | [Evidence](trainer-metrics/README.md) |
 | Native task ownership | One selected/serialized task per group; stateless native workers; preserved legacy addressing and group scoring | `5f80407b` |
@@ -27,7 +28,9 @@ Standard entropy and mismatch now use masked GPU summaries instead of retaining 
 
 Activation offload now excludes views of live parameter storage and still offloads real activations. Actual compiled expert/FSDP and compiled critic controls passed exact gradient/state/update comparisons with matched activation checkpointing. See [offload evidence](activation-offload/README.md).
 
-The next correctness unit restores non-tensor optimizer-group metadata when loading CPU-offloaded optimizer checkpoints. It must reproduce the existing metadata gap and compare actual resumed updates against uninterrupted Muon and Adam controls before integration.
+CPU-offloaded optimizer checkpoints now restore non-tensor group metadata while retaining parameter identities and state buffers. Actual Muon/mixed controls reproduced the frozen step-reset bug; the corrected implementation matched full state, gradients and two continued updates, with Adam also exact. See [checkpoint evidence](optimizer-resume/README.md).
+
+The next bounded CPU optimization vectorizes batch-balancing swaps while preserving exact ordered assignments and Python integer range through a guarded scalar fallback. No GPU training rerun is required for a source-isolated packing helper whose complete materialized batches remain identical.
 
 ## Next dependency boundary
 
