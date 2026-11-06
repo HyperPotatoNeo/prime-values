@@ -12,6 +12,8 @@ The comparison target is Prime RL `3c96816de9a2a906649a04026a46517840a0f4a6`; th
 | Safety and reliability | Excluded-token arithmetic safety, bounded tail diagnostics, checkpoint counters, atomic publication and visible component failures | `f6b9a40c` |
 | Critic ownership | Critic-owned trajectory snapshots and pure credit module, independent of later policy mutation | `4b8ca528` |
 | Canonical Episodes | Actual native and maintained legacy producers through a deliberately single-trace boundary | `4835142d` |
+| Explicit packing boundaries | Host-owned boundaries with exact covered model, CP and compiled critic comparisons | `1708eb0c` |
+| Streaming trainer metrics | Bounded standard entropy/mismatch collection; preserved scalar/custom metrics | [Evidence](trainer-metrics/README.md) |
 | Native task ownership | One selected/serialized task per group; stateless native workers; preserved legacy addressing and group scoring | `5f80407b` |
 
 Each unit has its own evidence and limitations. In particular, the earlier safety unit's historical fresh-exit uncertainty remains in its record; later normal-exit observations do not rewrite it. Passing these checks does not establish improved reward, all model families or exact stochastic replay after restart.
@@ -20,7 +22,9 @@ Each unit has its own evidence and limitations. In particular, the earlier safet
 
 Explicit packed-sequence boundaries have passed their separate acceptance checks and are included in this unit. Existing host sequence lengths supply attention boundaries for supported custom FlashAttention models in policy training, critic training and the shared value-serving helper. Padding, token alignment, independent GAE/TD lambdas, targets, loss normalization and optimizer/reduction dtypes remain unchanged. Acceptance compared actual outputs, full gradients and updates to frozen source, including context parallelism and the normal compiled distributed critic runtime; all covered paired tensors matched exactly. See [packing evidence](packed-boundary/README.md).
 
-A subsequent bounded metrics unit targets token-level entropy and mismatch collection. The aim is to avoid per-token CPU transfers and global token gathers. Scalar/sample/custom metrics retain their existing path and medians. Stable variance, excluded nonfinite values, empty ranks and environment membership must be checked independently; the loss and objective remain outside that change.
+Standard entropy and mismatch now use masked GPU summaries instead of retaining per-token CPU arrays and gathering all tokens. Scalar/sample/custom metrics retain their existing path and medians. Stable variance, nonfinite values, empty ranks and environment membership passed independent CPU and NCCL oracles. An actual trainer update preserved exported weights and filtered telemetry; the accumulation profiler confirmed reduced host transfers without establishing end-to-end speed. See [metric evidence](trainer-metrics/README.md).
+
+The next bounded unit fixes activation-offload ownership: saved views of live parameter storage must remain on device while real activations still offload. Compiled/FSDP storage lifecycle and full critic gradients/updates require acceptance before integration.
 
 ## Next dependency boundary
 

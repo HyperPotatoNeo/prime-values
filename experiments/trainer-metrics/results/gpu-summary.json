@@ -1,0 +1,2361 @@
+{
+  "archive": {
+    "sha256": "fef60174cb50fad7dd2c33e357c4009fdfa4ff4a23861a8136b02ce33084f5a6",
+    "bytes": 106353428,
+    "files_verified": 59,
+    "verification": {
+      "driver_exit": 0,
+      "frozen_entries_verified": 2348,
+      "candidate_files_verified": 2353,
+      "observed_at": "2026-11-06T02:34:41.244488+00:00",
+      "scope": "One actual synthetic-data RL trainer update, preserved BF16 exported weights and filtered telemetry, separate 2-rank NCCL metric semantics, accumulation-only profiler; no throughput/reward claim.",
+      "archive_exclusions": "Candidate source and uploaded duplicate files excluded. Duplicate candidate seed weights and derived seed conversion caches excluded; full hashes recorded in output-files.json; retained on PVC. Paired final checkpoint weights and frozen original seed weights included."
+    }
+  },
+  "trainer": {
+    "comparison_scope": "One actual trainer update; exact exported BF16 weights, preserved filtered tensor telemetry. Optimizer masters/reductions remain FP32; this export is not a full FP32 optimizer-state comparison.",
+    "checkpoint": "/data/trainer-metrics-001/output/candidate-trainer/runtime/weights/step_1",
+    "metrics": {
+      "is_masked/mean": 0.4991071536205709,
+      "is_masked/max": 1.0,
+      "is_masked_high/mean": 0.0,
+      "is_masked_high/max": 0.0,
+      "is_masked_low/mean": 0.4991071536205709,
+      "is_masked_low/max": 1.0,
+      "loss/mean": 0.06908849254250526,
+      "loss/median": 0.06797989457845688,
+      "loss/std": 0.0015677942759764279,
+      "loss/min": 0.06797989457845688,
+      "loss/max": 0.07019709050655365,
+      "masked_advantage_negative/mean": 0.84375,
+      "masked_advantage_negative/max": 1.0,
+      "masked_advantage_positive/mean": 0.0,
+      "masked_advantage_positive/max": 0.0,
+      "masked_mismatch_kl/mean": 8.991628646850586,
+      "masked_mismatch_kl/max": 12.18622875213623,
+      "unmasked_mismatch_kl/mean": 9.049407094717026,
+      "unmasked_mismatch_kl/max": 11.838024139404297,
+      "entropy/all/mean": 11.682659640908241,
+      "entropy/all/max": 11.695246696472168,
+      "entropy/all/std": 0.0015928024182152807,
+      "entropy/fake/mean": 11.682659640908241,
+      "entropy/fake/max": 11.695246696472168,
+      "entropy/fake/std": 0.0015928024182152807,
+      "mismatch_kl/all/mean": 10.716630846261978,
+      "mismatch_kl/all/max": 13.434179306030273,
+      "mismatch_kl/all/std": 0.952378761341861,
+      "mismatch_kl/fake/mean": 10.716630846261978,
+      "mismatch_kl/fake/max": 13.434179306030273,
+      "mismatch_kl/fake/std": 0.952378761341861,
+      "importance_ratio/accepted/count": 63,
+      "importance_ratio/accepted/mean": 1.4432073562999456e-05,
+      "importance_ratio/accepted/min": 5.38661595328449e-07,
+      "importance_ratio/accepted/max": 0.00012496589624788612,
+      "importance_ratio/accepted/above_10/count": 63,
+      "importance_ratio/accepted/above_10/mean": 0.0,
+      "importance_ratio/accepted/above_10/min": 0.0,
+      "importance_ratio/accepted/above_10/max": 0.0,
+      "importance_ratio/accepted/above_100/count": 63,
+      "importance_ratio/accepted/above_100/mean": 0.0,
+      "importance_ratio/accepted/above_100/min": 0.0,
+      "importance_ratio/accepted/above_100/max": 0.0,
+      "importance_ratio/accepted/above_10000/count": 63,
+      "importance_ratio/accepted/above_10000/mean": 0.0,
+      "importance_ratio/accepted/above_10000/min": 0.0,
+      "importance_ratio/accepted/above_10000/max": 0.0,
+      "importance_ratio/accepted/above_5/count": 63,
+      "importance_ratio/accepted/above_5/mean": 0.0,
+      "importance_ratio/accepted/above_5/min": 0.0,
+      "importance_ratio/accepted/above_5/max": 0.0,
+      "importance_ratio/accepted/nonfinite/count": 63,
+      "importance_ratio/accepted/nonfinite/mean": 0.0,
+      "importance_ratio/accepted/nonfinite/min": 0.0,
+      "importance_ratio/accepted/nonfinite/max": 0.0,
+      "importance_ratio/accepted/saturated/count": 63,
+      "importance_ratio/accepted/saturated/mean": 0.0,
+      "importance_ratio/accepted/saturated/min": 0.0,
+      "importance_ratio/accepted/saturated/max": 0.0,
+      "importance_ratio/all/count": 128,
+      "importance_ratio/all/mean": 1.298091768342502e-05,
+      "importance_ratio/all/min": 5.38661595328449e-07,
+      "importance_ratio/all/max": 0.00012496589624788612,
+      "importance_ratio/all/above_10/count": 128,
+      "importance_ratio/all/above_10/mean": 0.0,
+      "importance_ratio/all/above_10/min": 0.0,
+      "importance_ratio/all/above_10/max": 0.0,
+      "importance_ratio/all/above_100/count": 128,
+      "importance_ratio/all/above_100/mean": 0.0,
+      "importance_ratio/all/above_100/min": 0.0,
+      "importance_ratio/all/above_100/max": 0.0,
+      "importance_ratio/all/above_10000/count": 128,
+      "importance_ratio/all/above_10000/mean": 0.0,
+      "importance_ratio/all/above_10000/min": 0.0,
+      "importance_ratio/all/above_10000/max": 0.0,
+      "importance_ratio/all/above_5/count": 128,
+      "importance_ratio/all/above_5/mean": 0.0,
+      "importance_ratio/all/above_5/min": 0.0,
+      "importance_ratio/all/above_5/max": 0.0,
+      "importance_ratio/all/nonfinite/count": 128,
+      "importance_ratio/all/nonfinite/mean": 0.0,
+      "importance_ratio/all/nonfinite/min": 0.0,
+      "importance_ratio/all/nonfinite/max": 0.0,
+      "importance_ratio/all/saturated/count": 128,
+      "importance_ratio/all/saturated/mean": 0.0,
+      "importance_ratio/all/saturated/min": 0.0,
+      "importance_ratio/all/saturated/max": 0.0,
+      "log_importance_ratio/accepted/count": 63,
+      "log_importance_ratio/accepted/mean": -11.728615503462533,
+      "log_importance_ratio/accepted/min": -14.434178352355957,
+      "log_importance_ratio/accepted/max": -8.987469673156738,
+      "log_importance_ratio/all/count": 128,
+      "log_importance_ratio/all/mean": -11.716617822647095,
+      "log_importance_ratio/all/min": -14.434178352355957,
+      "log_importance_ratio/all/max": -8.987469673156738,
+      "loss_mismatch_kl/accepted/saturated/count": 63,
+      "loss_mismatch_kl/accepted/saturated/mean": 0.0,
+      "loss_mismatch_kl/accepted/saturated/min": 0.0,
+      "loss_mismatch_kl/accepted/saturated/max": 0.0,
+      "loss_mismatch_kl/all/saturated/count": 128,
+      "loss_mismatch_kl/all/saturated/mean": 0.0,
+      "loss_mismatch_kl/all/saturated/min": 0.0,
+      "loss_mismatch_kl/all/saturated/max": 0.0,
+      "mismatch_kl/all/saturated/mean": 0.0,
+      "mismatch_kl/all/saturated/max": 0.0,
+      "kl_ent_ratio/mean": 0.9173108843072345,
+      "step": 1
+    },
+    "changed_parameters": [
+      "lm_head.weight",
+      "model.embed_tokens.weight",
+      "model.layers.0.mlp.down_proj.weight",
+      "model.layers.0.mlp.gate_proj.weight",
+      "model.layers.0.mlp.up_proj.weight",
+      "model.layers.0.self_attn.k_proj.weight",
+      "model.layers.0.self_attn.o_proj.weight",
+      "model.layers.0.self_attn.q_proj.weight",
+      "model.layers.0.self_attn.v_proj.weight"
+    ],
+    "source_files": {
+      "trainer": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/rl/train.py",
+        "sha256": "7c1635277c12f37fcaf2275220a4461432dafe295fee1fa4e538ddf52c880434"
+      },
+      "summaries": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/utils.py",
+        "sha256": "a76db1a4aa903006ae553bd3ba20e2e95da0653984367c1338d3f9d01ba341c1"
+      },
+      "config": {
+        "path": "/data/trainer-metrics-001/candidate/packages/prime-rl-configs/src/prime_rl/configs/trainer.py",
+        "sha256": "826a6b173cddfed079e260f6e736ecfb85fa2220775eccc4e2ff1c4797287b87"
+      },
+      "token_metrics": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/rl/metrics.py",
+        "sha256": "e6a2c960adbadd9c62f1946c3442252982ce88a8c2ee7475b0331c06374f3f36"
+      }
+    },
+    "harness_sha256": "41bbdbfdc6fab46f4a37d8ccf5972f3c3cad28cc8b5738938f04de9616175f96",
+    "comparison": {
+      "exact_weights": true,
+      "metrics_match": true
+    }
+  },
+  "nccl": {
+    "device": "cuda:0",
+    "world_size": 2,
+    "cases": {
+      "unequal": {
+        "entropy/all/mean": 1000000000001.25,
+        "entropy/all/min": 999999999998.0,
+        "entropy/all/max": 1000000000004.0,
+        "entropy/all/std": 2.5,
+        "entropy/code/mean": 1000000000001.0,
+        "entropy/code/min": 1000000000001.0,
+        "entropy/code/max": 1000000000001.0,
+        "entropy/code/std": NaN,
+        "entropy/math/mean": 1000000000001.3334,
+        "entropy/math/min": 999999999998.0,
+        "entropy/math/max": 1000000000004.0,
+        "entropy/math/std": 3.055050463710356,
+        "mismatch_kl/all/mean": 0.0,
+        "mismatch_kl/all/min": 0.0,
+        "mismatch_kl/all/max": 0.0,
+        "mismatch_kl/all/std": 0.0,
+        "mismatch_kl/math/mean": 0.0,
+        "mismatch_kl/math/min": 0.0,
+        "mismatch_kl/math/max": 0.0,
+        "mismatch_kl/math/std": 0.0,
+        "explicit_empty/count": 0,
+        "explicit_empty/mean": NaN,
+        "explicit_empty/min": NaN,
+        "explicit_empty/max": NaN,
+        "mismatch_kl/all/saturated/count": 2,
+        "mismatch_kl/all/saturated/mean": 0.0,
+        "mismatch_kl/all/saturated/min": 0.0,
+        "mismatch_kl/all/saturated/max": 0.0
+      },
+      "empty_rank": {
+        "entropy/all/mean": 1000000000001.0,
+        "entropy/all/min": 999999999998.0,
+        "entropy/all/max": 1000000000004.0,
+        "entropy/all/std": 3.0,
+        "entropy/code/mean": 1000000000001.0,
+        "entropy/code/min": 1000000000001.0,
+        "entropy/code/max": 1000000000001.0,
+        "entropy/code/std": NaN,
+        "entropy/math/mean": 1000000000001.0,
+        "entropy/math/min": 999999999998.0,
+        "entropy/math/max": 1000000000004.0,
+        "entropy/math/std": 4.242640687119285,
+        "mismatch_kl/all/mean": 0.0,
+        "mismatch_kl/all/min": 0.0,
+        "mismatch_kl/all/max": 0.0,
+        "mismatch_kl/all/std": 0.0,
+        "mismatch_kl/math/mean": 0.0,
+        "mismatch_kl/math/min": 0.0,
+        "mismatch_kl/math/max": 0.0,
+        "mismatch_kl/math/std": 0.0,
+        "explicit_empty/count": 0,
+        "explicit_empty/mean": NaN,
+        "explicit_empty/min": NaN,
+        "explicit_empty/max": NaN,
+        "mismatch_kl/all/saturated/count": 2,
+        "mismatch_kl/all/saturated/mean": 0.0,
+        "mismatch_kl/all/saturated/min": 0.0,
+        "mismatch_kl/all/saturated/max": 0.0
+      },
+      "duplicate_cp": {
+        "entropy/a/mean": 2.0,
+        "entropy/a/min": 1.0,
+        "entropy/a/max": 3.0,
+        "entropy/a/std": 1.1547005383792515,
+        "entropy/all/mean": 2.0,
+        "entropy/all/min": 1.0,
+        "entropy/all/max": 3.0,
+        "entropy/all/std": 1.1547005383792515,
+        "mismatch_kl/a/mean": 0.0,
+        "mismatch_kl/a/min": 0.0,
+        "mismatch_kl/a/max": 0.0,
+        "mismatch_kl/a/std": 0.0,
+        "mismatch_kl/all/mean": 0.0,
+        "mismatch_kl/all/min": 0.0,
+        "mismatch_kl/all/max": 0.0,
+        "mismatch_kl/all/std": 0.0,
+        "explicit_empty/count": 0,
+        "explicit_empty/mean": NaN,
+        "explicit_empty/min": NaN,
+        "explicit_empty/max": NaN,
+        "mismatch_kl/all/saturated/count": 4,
+        "mismatch_kl/all/saturated/mean": 0.0,
+        "mismatch_kl/all/saturated/min": 0.0,
+        "mismatch_kl/all/saturated/max": 0.0
+      },
+      "all_empty": {
+        "entropy/all/mean": NaN,
+        "entropy/all/min": NaN,
+        "entropy/all/max": NaN,
+        "entropy/all/std": NaN,
+        "explicit_empty/count": 0,
+        "explicit_empty/mean": NaN,
+        "explicit_empty/min": NaN,
+        "explicit_empty/max": NaN
+      },
+      "visible_nonfinite": {
+        "entropy/a/mean": NaN,
+        "entropy/a/min": NaN,
+        "entropy/a/max": NaN,
+        "entropy/a/std": NaN,
+        "entropy/all/mean": NaN,
+        "entropy/all/min": NaN,
+        "entropy/all/max": NaN,
+        "entropy/all/std": NaN,
+        "explicit_empty/count": 0,
+        "explicit_empty/mean": NaN,
+        "explicit_empty/min": NaN,
+        "explicit_empty/max": NaN
+      },
+      "nan_other_rank": {
+        "entropy/a/mean": NaN,
+        "entropy/a/min": NaN,
+        "entropy/a/max": NaN,
+        "entropy/a/std": NaN,
+        "entropy/all/mean": NaN,
+        "entropy/all/min": NaN,
+        "entropy/all/max": NaN,
+        "entropy/all/std": NaN,
+        "explicit_empty/count": 0,
+        "explicit_empty/mean": NaN,
+        "explicit_empty/min": NaN,
+        "explicit_empty/max": NaN
+      },
+      "opposite_infinities": {
+        "entropy/a/mean": NaN,
+        "entropy/a/min": -Infinity,
+        "entropy/a/max": Infinity,
+        "entropy/a/std": NaN,
+        "entropy/all/mean": NaN,
+        "entropy/all/min": -Infinity,
+        "entropy/all/max": Infinity,
+        "entropy/all/std": NaN,
+        "explicit_empty/count": 0,
+        "explicit_empty/mean": NaN,
+        "explicit_empty/min": NaN,
+        "explicit_empty/max": NaN
+      },
+      "single_key": {
+        "one/count": 2,
+        "one/mean": 1000000000000.0,
+        "one/min": 999999999999.0,
+        "one/max": 1000000000001.0,
+        "one/std": 1.4142135623730951
+      }
+    },
+    "source_files": {
+      "metrics": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/rl/metrics.py",
+        "sha256": "e6a2c960adbadd9c62f1946c3442252982ce88a8c2ee7475b0331c06374f3f36"
+      },
+      "summaries": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/utils.py",
+        "sha256": "a76db1a4aa903006ae553bd3ba20e2e95da0653984367c1338d3f9d01ba341c1"
+      }
+    },
+    "harness_sha256": "0174dbff1b57e1940749de9d385b7b5e9faae5cb573d036ae6f062dd667d8db1"
+  },
+  "profile": {
+    "scope": "Accumulation only, including new environment-ID upload and unchanged scalar-loss CPU copy; no end-step reductions, model, debug formatting, or throughput claim.",
+    "limitations": "Input masks are ordinary finite observations here; independent two-rank tests cover numeric semantics. Scalar loss CPU copies and other unchanged trainer paths still synchronize. Profiler reports actual copy/sync events; no all-sync-free claim.",
+    "tokens": 65536,
+    "repetitions": 3,
+    "profiles": {
+      "frozen": {
+        "event_counts": {
+          "token_metric_accumulation": 3,
+          "aten::index": 33,
+          "aten::nonzero": 9,
+          "Activity Buffer Request": 1,
+          "cudaDeviceGetAttribute": 27,
+          "cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags": 18,
+          "cudaLaunchKernel": 105,
+          "void at_cuda_detail::cub::DeviceReduceKernel<at_cuda_detail::cub::DeviceReducePolicy<int, unsigned long long, cuda::std::__4::plus<void> >::Policy600, at_cuda_detail::cub::TransformInputIterator<bool, at::native::(anonymous namespace)::NonZeroOp<bool>, bool const*, long>, unsigned long long, cuda::std::__4::plus<void>, int, cuda::std::__4::__identity>(at_cuda_detail::cub::TransformInputIterator<bool, at::native::(anonymous namespace)::NonZeroOp<bool>, bool const*, long>, int*, unsigned long long, at_cuda_detail::cub::GridEvenShare<unsigned long long>, cuda::std::__4::plus<void>, cuda::std::__4::__identity)": 9,
+          "cudaPeekAtLastError": 72,
+          "void at_cuda_detail::cub::DeviceReduceSingleTileKernel<at_cuda_detail::cub::DeviceReducePolicy<int, unsigned long long, cuda::std::__4::plus<void> >::Policy600, int*, int*, int, cuda::std::__4::plus<void>, int, int, cuda::std::__4::__identity>(int*, int*, int, cuda::std::__4::plus<void>, int, cuda::std::__4::__identity)": 9,
+          "cudaMemcpyAsync": 37,
+          "cudaStreamSynchronize": 33,
+          "Memcpy DtoH (Device -> Pinned)": 12,
+          "aten::resize_": 12,
+          "void at_cuda_detail::cub::DeviceCompactInitKernel<at_cuda_detail::cub::ScanTileState<int, true>, int*>(at_cuda_detail::cub::ScanTileState<int, true>, int, int*)": 9,
+          "void at_cuda_detail::cub::DeviceSelectSweepKernel<at_cuda_detail::cub::detail::device_select_policy_hub<long, bool, int, false, false>::Policy900, at_cuda_detail::cub::CountingInputIterator<long, long>, at_cuda_detail::cub::TransformInputIterator<bool, at::native::(anonymous namespace)::NonZeroOp<bool>, bool const*, long>, long*, int*, at_cuda_detail::cub::ScanTileState<int, true>, at_cuda_detail::cub::NullType, at_cuda_detail::cub::NullType, int, false, false>(at_cuda_detail::cub::CountingInputIterator<long, long>, at_cuda_detail::cub::TransformInputIterator<bool, at::native::(anonymous namespace)::NonZeroOp<bool>, bool const*, long>, long*, int*, at_cuda_detail::cub::ScanTileState<int, true>, at_cuda_detail::cub::NullType, at_cuda_detail::cub::NullType, int, int, at_cuda_detail::cub::detail::vsmem_t)": 9,
+          "void at::native::(anonymous namespace)::write_indices<long>(long*, at::native::(anonymous namespace)::TensorDims<long>, int, long, long*, long)": 9,
+          "aten::t": 9,
+          "aten::transpose": 9,
+          "aten::as_strided": 105,
+          "aten::set_": 9,
+          "aten::select": 30,
+          "aten::reshape": 45,
+          "aten::view": 51,
+          "void at::native::index_elementwise_kernel<128, 4, at::native::gpu_index_kernel<at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1}>(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>, at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1} const&, bool)::{lambda(int)#1}>(long, at::native::gpu_index_kernel<at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1}>(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>, at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1} const&, bool)::{lambda(int)#1})": 9,
+          "aten::detach": 12,
+          "detach": 12,
+          "aten::to": 48,
+          "aten::_to_copy": 24,
+          "aten::empty_strided": 24,
+          "aten::copy_": 30,
+          "cudaStreamIsCapturing": 22,
+          "Memcpy DtoH (Device -> Pageable)": 15,
+          "aten::unsqueeze": 15,
+          "aten::flatten": 6,
+          "aten::resolve_conj": 6,
+          "aten::resolve_neg": 6,
+          "aten::empty": 39,
+          "aten::lift_fresh": 30,
+          "aten::any": 3,
+          "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<bool, at::native::func_wrapper_t<bool, at::native::or_kernel_cuda(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#12}::operator()() const::{lambda(bool, bool)#1}>, unsigned int, bool, 4, 4> >(at::native::ReduceOp<bool, at::native::func_wrapper_t<bool, at::native::or_kernel_cuda(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#12}::operator()() const::{lambda(bool, bool)#1}>, unsigned int, bool, 4, 4>)": 3,
+          "aten::is_nonzero": 3,
+          "aten::item": 3,
+          "aten::_local_scalar_dense": 3,
+          "cudaMalloc": 1,
+          "aten::sub": 6,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctor_add<float>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<float>, std::array<char*, 3ul>)": 6,
+          "Memcpy HtoD (Pageable -> Device)": 6,
+          "aten::detach_": 6,
+          "detach_": 6,
+          "aten::log": 3,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::log_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul> >(int, at::native::log_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>)": 3,
+          "aten::clamp": 6,
+          "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> >(at::TensorIteratorBase&, at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> >(at::TensorIteratorBase&, at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> const&)::{lambda(int)#1})": 6,
+          "aten::expm1": 3,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::expm1_kernel_cuda(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul> >(int, at::native::expm1_kernel_cuda(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>)": 3,
+          "aten::gt": 3,
+          "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::CompareFunctor<float> >(at::TensorIteratorBase&, at::native::(anonymous namespace)::CompareFunctor<float> const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::CompareFunctor<float> >(at::TensorIteratorBase&, at::native::(anonymous namespace)::CompareFunctor<float> const&)::{lambda(int)#1})": 3,
+          "aten::where": 3,
+          "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1}>(at::TensorIteratorBase&, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1} const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1}>(at::TensorIteratorBase&, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1} const&)::{lambda(int)#1})": 3,
+          "aten::ge": 3,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::compare_scalar_kernel<float>(at::TensorIteratorBase&, at::native::(anonymous namespace)::OpType, float)::{lambda(float)#1}, std::array<char*, 2ul> >(int, at::native::compare_scalar_kernel<float>(at::TensorIteratorBase&, at::native::(anonymous namespace)::OpType, float)::{lambda(float)#1}, std::array<char*, 2ul>)": 3,
+          "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)": 3,
+          "aten::sum": 3,
+          "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::sum_functor<double, double, double>::operator()(at::TensorIterator&)::{lambda(double, double)#1}>, unsigned int, double, 4, 4> >(at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::sum_functor<double, double, double>::operator()(at::TensorIterator&)::{lambda(double, double)#1}>, unsigned int, double, 4, 4>)": 3,
+          "aten::min": 3,
+          "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MinNanFunctor<double> >, unsigned int, double, 4, 4> >(at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MinNanFunctor<double> >, unsigned int, double, 4, 4>)": 3,
+          "aten::max": 3,
+          "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MaxNanFunctor<double> >, unsigned int, double, 4, 4> >(at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MaxNanFunctor<double> >, unsigned int, double, 4, 4>)": 3,
+          "aten::stack": 3,
+          "aten::cat": 3,
+          "void at::native::(anonymous namespace)::CatArrayBatchedCopy_alignedK_contig<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 1, 128, 1, 16>(at::native::(anonymous namespace)::OpaqueType<8u>*, at::native::(anonymous namespace)::CatArrInputTensorMetadata<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 128, 1>, at::native::(anonymous namespace)::TensorSizeStride<unsigned int, 4u>, int, unsigned int)": 3,
+          "aten::slice": 6,
+          "aten::add_": 2,
+          "Lazy Function Loading": 3,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::CUDAFunctor_add<double>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<double>, std::array<char*, 3ul>)": 2,
+          "aten::minimum": 2,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::BinaryFunctor<double, double, double, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul> >(int, at::native::BinaryFunctor<double, double, double, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul>)": 2,
+          "Memcpy DtoD (Device -> Device)": 4,
+          "aten::maximum": 2,
+          "void at::native::unrolled_elementwise_kernel<at::native::BinaryFunctor<double, double, double, at::native::maximum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul>, 4, TrivialOffsetCalculator<2, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, at::native::BinaryFunctor<double, double, double, at::native::maximum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul>, TrivialOffsetCalculator<2, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast)": 2,
+          "cudaDeviceSynchronize": 1
+        },
+        "copy_and_sync_events": {
+          "cudaMemcpyAsync": 37,
+          "cudaStreamSynchronize": 33,
+          "Memcpy DtoH (Device -> Pinned)": 12,
+          "aten::_to_copy": 24,
+          "aten::copy_": 30,
+          "Memcpy DtoH (Device -> Pageable)": 15,
+          "Memcpy HtoD (Pageable -> Device)": 6,
+          "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)": 3,
+          "void at::native::(anonymous namespace)::CatArrayBatchedCopy_alignedK_contig<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 1, 128, 1, 16>(at::native::(anonymous namespace)::OpaqueType<8u>*, at::native::(anonymous namespace)::CatArrInputTensorMetadata<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 128, 1>, at::native::(anonymous namespace)::TensorSizeStride<unsigned int, 4u>, int, unsigned int)": 3,
+          "Memcpy DtoD (Device -> Device)": 4,
+          "cudaDeviceSynchronize": 1
+        },
+        "cuda_copy_events": [
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 3,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 46,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.001488095238095238
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3,
+              "cbid": 41,
+              "correlation": 46
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 24,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 106,
+              "bytes": 174760,
+              "memory bandwidth (GB/s)": 30.849073256840246
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 24,
+              "cbid": 41,
+              "correlation": 106
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 30,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 116,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0016666666666666668
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 30,
+              "cbid": 41,
+              "correlation": 116
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 40,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 126,
+              "bytes": 65536,
+              "memory bandwidth (GB/s)": 18.45045045045045
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 40,
+              "cbid": 41,
+              "correlation": 126
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 73,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 145,
+              "bytes": 1,
+              "memory bandwidth (GB/s)": 0.00044014084507042255
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 73,
+              "cbid": 41,
+              "correlation": 145
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 75,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 194,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017857142857142857
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 75,
+              "cbid": 41,
+              "correlation": 194
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 92,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 293,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017857142857142857
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 92,
+              "cbid": 41,
+              "correlation": 293
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 113,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 376,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.004807692307692308
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 113,
+              "cbid": 41,
+              "correlation": 376
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 139,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 499,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 139,
+              "cbid": 41,
+              "correlation": 499
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 167,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 567,
+              "bytes": 174760,
+              "memory bandwidth (GB/s)": 32.125
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 167,
+              "cbid": 41,
+              "correlation": 567
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 175,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 577,
+              "bytes": 65536,
+              "memory bandwidth (GB/s)": 19.14018691588785
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 175,
+              "cbid": 41,
+              "correlation": 577
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 206,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 626,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.001736111111111111
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 206,
+              "cbid": 41,
+              "correlation": 626
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 227,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 686,
+              "bytes": 174760,
+              "memory bandwidth (GB/s)": 32.507440476190474
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 227,
+              "cbid": 41,
+              "correlation": 686
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 233,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 696,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017857142857142857
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 233,
+              "cbid": 41,
+              "correlation": 696
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 243,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 706,
+              "bytes": 65536,
+              "memory bandwidth (GB/s)": 18.962962962962962
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 243,
+              "cbid": 41,
+              "correlation": 706
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 276,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 725,
+              "bytes": 1,
+              "memory bandwidth (GB/s)": 0.0004464285714285714
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 276,
+              "cbid": 41,
+              "correlation": 725
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 278,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 774,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017613386173491853
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 278,
+              "cbid": 41,
+              "correlation": 774
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 295,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 873,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017605633802816902
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 295,
+              "cbid": 41,
+              "correlation": 873
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 316,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 952,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.004807692307692308
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 316,
+              "cbid": 41,
+              "correlation": 952
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 342,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1075,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 342,
+              "cbid": 41,
+              "correlation": 1075
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 380,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1170,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 380,
+              "cbid": 41,
+              "correlation": 1170
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 388,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1194,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 388,
+              "cbid": 41,
+              "correlation": 1194
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 394,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1206,
+              "bytes": 174760,
+              "memory bandwidth (GB/s)": 31.751453488372093
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 394,
+              "cbid": 41,
+              "correlation": 1206
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 402,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1216,
+              "bytes": 65536,
+              "memory bandwidth (GB/s)": 18.618181818181817
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 402,
+              "cbid": 41,
+              "correlation": 1216
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 433,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1265,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017857142857142857
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 433,
+              "cbid": 41,
+              "correlation": 1265
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 454,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1325,
+              "bytes": 174760,
+              "memory bandwidth (GB/s)": 32.507440476190474
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 454,
+              "cbid": 41,
+              "correlation": 1325
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 460,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1335,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017613386173491853
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 460,
+              "cbid": 41,
+              "correlation": 1335
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 470,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1345,
+              "bytes": 65536,
+              "memory bandwidth (GB/s)": 18.78360561765549
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 470,
+              "cbid": 41,
+              "correlation": 1345
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 503,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1364,
+              "bytes": 1,
+              "memory bandwidth (GB/s)": 0.0004464285714285714
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 503,
+              "cbid": 41,
+              "correlation": 1364
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 505,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1413,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017605633802816902
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 505,
+              "cbid": 41,
+              "correlation": 1413
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pinned)",
+            "args": {
+              "External id": 522,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1512,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017857142857142857
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 522,
+              "cbid": 41,
+              "correlation": 1512
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 543,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1591,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.005
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 543,
+              "cbid": 41,
+              "correlation": 1591
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 569,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1714,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.009615384615384616
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 569,
+              "cbid": 41,
+              "correlation": 1714
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 607,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1809,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011904761904761904
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 607,
+              "cbid": 41,
+              "correlation": 1809
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 615,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1833,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011904761904761904
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 615,
+              "cbid": 41,
+              "correlation": 1833
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 621,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1845,
+              "bytes": 174760,
+              "memory bandwidth (GB/s)": 32.31508875739645
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 621,
+              "cbid": 41,
+              "correlation": 1845
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 629,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 1855,
+              "bytes": 65536,
+              "memory bandwidth (GB/s)": 18.95747758171825
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 629,
+              "cbid": 41,
+              "correlation": 1855
+            }
+          }
+        ],
+        "retained_host_tensor_elements": 524283,
+        "retained_device_summary_elements": 4
+      },
+      "streaming": {
+        "event_counts": {
+          "token_metric_accumulation": 3,
+          "aten::empty": 425,
+          "aten::to": 336,
+          "aten::lift_fresh": 6,
+          "aten::detach_": 6,
+          "detach_": 6,
+          "aten::_to_copy": 75,
+          "aten::empty_strided": 75,
+          "aten::copy_": 161,
+          "Activity Buffer Request": 1,
+          "cudaStreamIsCapturing": 9,
+          "cudaMemcpyAsync": 53,
+          "Memcpy HtoD (Pageable -> Device)": 6,
+          "aten::where": 353,
+          "aten::scalar_tensor": 175,
+          "aten::fill_": 175,
+          "cudaLaunchKernel": 1180,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::array<char*, 1ul> >(int, at::native::FillFunctor<float>, std::array<char*, 1ul>)": 6,
+          "aten::resize_": 178,
+          "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1}>(at::TensorIteratorBase&, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1} const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1}>(at::TensorIteratorBase&, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#11}::operator()() const::{lambda(bool, float, float)#1} const&)::{lambda(int)#1})": 9,
+          "aten::sub": 56,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctor_add<float>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<float>, std::array<char*, 3ul>)": 6,
+          "cudaStreamSynchronize": 6,
+          "aten::log": 3,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::log_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul> >(int, at::native::log_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>)": 3,
+          "aten::clamp": 6,
+          "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> >(at::TensorIteratorBase&, at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> >(at::TensorIteratorBase&, at::native::BinaryFunctor<float, float, float, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#2}::operator()() const::{lambda(float, float)#1}> const&)::{lambda(int)#1})": 6,
+          "aten::expm1": 3,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::expm1_kernel_cuda(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul> >(int, at::native::expm1_kernel_cuda(at::TensorIteratorBase&)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>)": 3,
+          "aten::gt": 43,
+          "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::CompareFunctor<float> >(at::TensorIteratorBase&, at::native::(anonymous namespace)::CompareFunctor<float> const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::CompareFunctor<float> >(at::TensorIteratorBase&, at::native::(anonymous namespace)::CompareFunctor<float> const&)::{lambda(int)#1})": 3,
+          "aten::detach": 69,
+          "detach": 69,
+          "aten::reshape": 90,
+          "aten::view": 90,
+          "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)": 66,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::FillFunctor<double>, std::array<char*, 1ul> >(int, at::native::FillFunctor<double>, std::array<char*, 1ul>)": 169,
+          "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#10}::operator()() const::{lambda(bool, double, double)#1}>(at::TensorIteratorBase&, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#10}::operator()() const::{lambda(bool, double, double)#1} const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#10}::operator()() const::{lambda(bool, double, double)#1}>(at::TensorIteratorBase&, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#10}::operator()() const::{lambda(bool, double, double)#1} const&)::{lambda(int)#1})": 129,
+          "aten::sum": 96,
+          "aten::as_strided": 685,
+          "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::sum_functor<double, double, double>::operator()(at::TensorIterator&)::{lambda(double, double)#1}>, unsigned int, double, 4, 4> >(at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::sum_functor<double, double, double>::operator()(at::TensorIterator&)::{lambda(double, double)#1}>, unsigned int, double, 4, 4>)": 96,
+          "aten::min": 33,
+          "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MinNanFunctor<double> >, unsigned int, double, 4, 4> >(at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MinNanFunctor<double> >, unsigned int, double, 4, 4>)": 33,
+          "aten::max": 33,
+          "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MaxNanFunctor<double> >, unsigned int, double, 4, 4> >(at::native::ReduceOp<double, at::native::func_wrapper_t<double, at::native::MaxNanFunctor<double> >, unsigned int, double, 4, 4>)": 33,
+          "aten::clamp_min": 90,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::(anonymous namespace)::launch_clamp_scalar(at::TensorIteratorBase&, c10::Scalar, c10::Scalar, at::native::detail::ClampLimits)::{lambda()#1}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul> >(int, at::native::(anonymous namespace)::launch_clamp_scalar(at::TensorIteratorBase&, c10::Scalar, c10::Scalar, at::native::detail::ClampLimits)::{lambda()#1}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>)": 90,
+          "aten::div": 90,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::BinaryFunctor<double, double, double, at::native::binary_internal::DivFunctor<double> >, std::array<char*, 3ul> >(int, at::native::BinaryFunctor<double, double, double, at::native::binary_internal::DivFunctor<double> >, std::array<char*, 3ul>)": 70,
+          "void at::native::elementwise_kernel<128, 2, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<double> >(at::TensorIteratorBase&, at::native::CUDAFunctor_add<double> const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add<double> >(at::TensorIteratorBase&, at::native::CUDAFunctor_add<double> const&)::{lambda(int)#1})": 30,
+          "aten::square": 50,
+          "aten::pow": 50,
+          "aten::result_type": 50,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::(anonymous namespace)::pow_tensor_scalar_kernel_impl<double, double>(at::TensorIteratorBase&, double)::{lambda(double)#1}, std::array<char*, 2ul> >(int, at::native::(anonymous namespace)::pow_tensor_scalar_kernel_impl<double, double>(at::TensorIteratorBase&, double)::{lambda(double)#1}, std::array<char*, 2ul>)": 50,
+          "aten::stack": 33,
+          "aten::unsqueeze": 165,
+          "aten::cat": 33,
+          "void at::native::(anonymous namespace)::CatArrayBatchedCopy_alignedK_contig<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 1, 128, 1, 16>(at::native::(anonymous namespace)::OpaqueType<8u>*, at::native::(anonymous namespace)::CatArrInputTensorMetadata<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 128, 1>, at::native::(anonymous namespace)::TensorSizeStride<unsigned int, 4u>, int, unsigned int)": 33,
+          "aten::ge": 3,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::compare_scalar_kernel<float>(at::TensorIteratorBase&, at::native::(anonymous namespace)::OpType, float)::{lambda(float)#1}, std::array<char*, 2ul> >(int, at::native::compare_scalar_kernel<float>(at::TensorIteratorBase&, at::native::(anonymous namespace)::OpType, float)::{lambda(float)#1}, std::array<char*, 2ul>)": 3,
+          "aten::eq": 12,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::AUnaryFunctor<int, int, bool, at::native::(anonymous namespace)::CompareEqFunctor<int> >, std::array<char*, 2ul> >(int, at::native::AUnaryFunctor<int, int, bool, at::native::(anonymous namespace)::CompareEqFunctor<int> >, std::array<char*, 2ul>)": 12,
+          "aten::__and__": 44,
+          "aten::bitwise_and": 44,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::BinaryFunctor<bool, bool, bool, at::native::BitwiseAndFunctor<bool> >, std::array<char*, 3ul> >(int, at::native::BinaryFunctor<bool, bool, bool, at::native::BitwiseAndFunctor<bool> >, std::array<char*, 3ul>)": 44,
+          "Memcpy DtoH (Device -> Pageable)": 3,
+          "aten::select": 292,
+          "Lazy Function Loading": 4,
+          "void at::native::vectorized_elementwise_kernel<4, at::native::compare_scalar_kernel<double>(at::TensorIteratorBase&, at::native::(anonymous namespace)::OpType, double)::{lambda(double)#1}, std::array<char*, 2ul> >(int, at::native::compare_scalar_kernel<double>(at::TensorIteratorBase&, at::native::(anonymous namespace)::OpType, double)::{lambda(double)#1}, std::array<char*, 2ul>)": 40,
+          "void at::native::unrolled_elementwise_kernel<at::native::BinaryFunctor<double, double, double, at::native::binary_internal::DivFunctor<double> >, std::array<char*, 3ul>, 4, TrivialOffsetCalculator<2, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, at::native::BinaryFunctor<double, double, double, at::native::binary_internal::DivFunctor<double> >, std::array<char*, 3ul>, TrivialOffsetCalculator<2, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast)": 20,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#10}::operator()() const::{lambda(bool, double, double)#1}, std::array<char*, 4ul> >(int, at::native::(anonymous namespace)::where_kernel_impl(at::TensorIterator&)::{lambda()#1}::operator()() const::{lambda()#10}::operator()() const::{lambda(bool, double, double)#1}, std::array<char*, 4ul>)": 40,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::CUDAFunctor_add<double>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<double>, std::array<char*, 3ul>)": 102,
+          "aten::mul": 40,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::BinaryFunctor<double, double, double, at::native::binary_internal::MulFunctor<double> >, std::array<char*, 3ul> >(int, at::native::BinaryFunctor<double, double, double, at::native::binary_internal::MulFunctor<double> >, std::array<char*, 3ul>)": 40,
+          "aten::add": 40,
+          "aten::add_": 42,
+          "aten::slice": 66,
+          "aten::minimum": 22,
+          "void at::native::vectorized_elementwise_kernel<2, at::native::BinaryFunctor<double, double, double, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul> >(int, at::native::BinaryFunctor<double, double, double, at::native::minimum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul>)": 22,
+          "Memcpy DtoD (Device -> Device)": 44,
+          "aten::maximum": 22,
+          "void at::native::unrolled_elementwise_kernel<at::native::BinaryFunctor<double, double, double, at::native::maximum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul>, 4, TrivialOffsetCalculator<2, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, at::native::BinaryFunctor<double, double, double, at::native::maximum_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::operator()() const::{lambda()#1}::operator()() const::{lambda(double, double)#1}>, std::array<char*, 3ul>, TrivialOffsetCalculator<2, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast)": 22,
+          "cudaDeviceSynchronize": 1
+        },
+        "copy_and_sync_events": {
+          "aten::_to_copy": 75,
+          "aten::copy_": 161,
+          "cudaMemcpyAsync": 53,
+          "Memcpy HtoD (Pageable -> Device)": 6,
+          "cudaStreamSynchronize": 6,
+          "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#6}::operator()() const::{lambda(double)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)": 66,
+          "void at::native::(anonymous namespace)::CatArrayBatchedCopy_alignedK_contig<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 1, 128, 1, 16>(at::native::(anonymous namespace)::OpaqueType<8u>*, at::native::(anonymous namespace)::CatArrInputTensorMetadata<at::native::(anonymous namespace)::OpaqueType<8u>, unsigned int, 128, 1>, at::native::(anonymous namespace)::TensorSizeStride<unsigned int, 4u>, int, unsigned int)": 33,
+          "Memcpy DtoH (Device -> Pageable)": 3,
+          "Memcpy DtoD (Device -> Device)": 44,
+          "cudaDeviceSynchronize": 1
+        },
+        "cuda_copy_events": [
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 1034,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 4455,
+              "bytes": 262144,
+              "memory bandwidth (GB/s)": 35.00387234610763
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 1034,
+              "cbid": 41,
+              "correlation": 4455
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 1056,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 4543,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.005
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 1056,
+              "cbid": 41,
+              "correlation": 4543
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 2004,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 7671,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017605633802816902
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2004,
+              "cbid": 41,
+              "correlation": 7671
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 2016,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 7688,
+              "bytes": 262144,
+              "memory bandwidth (GB/s)": 34.85957446808511
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2016,
+              "cbid": 41,
+              "correlation": 7688
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 2038,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 7776,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.005
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2038,
+              "cbid": 41,
+              "correlation": 7776
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2202,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 8404,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2202,
+              "cbid": 41,
+              "correlation": 8404
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2210,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 8428,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2210,
+              "cbid": 41,
+              "correlation": 8428
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2362,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 8979,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2362,
+              "cbid": 41,
+              "correlation": 8979
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2370,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 9003,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2370,
+              "cbid": 41,
+              "correlation": 9003
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2450,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 9241,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2450,
+              "cbid": 41,
+              "correlation": 9241
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2458,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 9265,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2458,
+              "cbid": 41,
+              "correlation": 9265
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2615,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 9836,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2615,
+              "cbid": 41,
+              "correlation": 9836
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2623,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 9860,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2623,
+              "cbid": 41,
+              "correlation": 9860
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2779,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 10421,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2779,
+              "cbid": 41,
+              "correlation": 10421
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2787,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 10445,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2787,
+              "cbid": 41,
+              "correlation": 10445
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2944,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 11016,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011363636363636364
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2944,
+              "cbid": 41,
+              "correlation": 11016
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 2952,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 11040,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011363636363636364
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 2952,
+              "cbid": 41,
+              "correlation": 11040
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3108,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 11601,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011363636363636364
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3108,
+              "cbid": 41,
+              "correlation": 11601
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3116,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 11625,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011904761904761904
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3116,
+              "cbid": 41,
+              "correlation": 11625
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3273,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 12196,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011904761904761904
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3273,
+              "cbid": 41,
+              "correlation": 12196
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3281,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 12220,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011363636363636364
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3281,
+              "cbid": 41,
+              "correlation": 12220
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3437,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 12781,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3437,
+              "cbid": 41,
+              "correlation": 12781
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3445,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 12805,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3445,
+              "cbid": 41,
+              "correlation": 12805
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3602,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 13376,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3602,
+              "cbid": 41,
+              "correlation": 13376
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3610,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 13400,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3610,
+              "cbid": 41,
+              "correlation": 13400
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3766,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 13961,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3766,
+              "cbid": 41,
+              "correlation": 13961
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3774,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 13985,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010869565217391304
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3774,
+              "cbid": 41,
+              "correlation": 13985
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 3780,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 13997,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0015822784810126582
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3780,
+              "cbid": 41,
+              "correlation": 13997
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 3792,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 14014,
+              "bytes": 262144,
+              "memory bandwidth (GB/s)": 34.27615062761506
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3792,
+              "cbid": 41,
+              "correlation": 14014
+            }
+          },
+          {
+            "name": "Memcpy HtoD (Pageable -> Device)",
+            "args": {
+              "External id": 3814,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 14102,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.005
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3814,
+              "cbid": 41,
+              "correlation": 14102
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3978,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 14730,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3978,
+              "cbid": 41,
+              "correlation": 14730
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 3986,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 14754,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 3986,
+              "cbid": 41,
+              "correlation": 14754
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4138,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 15305,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4138,
+              "cbid": 41,
+              "correlation": 15305
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4146,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 15329,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4146,
+              "cbid": 41,
+              "correlation": 15329
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4226,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 15567,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4226,
+              "cbid": 41,
+              "correlation": 15567
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4234,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 15591,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4234,
+              "cbid": 41,
+              "correlation": 15591
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4391,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 16162,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4391,
+              "cbid": 41,
+              "correlation": 16162
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4399,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 16186,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010854816824966078
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4399,
+              "cbid": 41,
+              "correlation": 16186
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4555,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 16747,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4555,
+              "cbid": 41,
+              "correlation": 16747
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4563,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 16771,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010854816824966078
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4563,
+              "cbid": 41,
+              "correlation": 16771
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4720,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 17342,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4720,
+              "cbid": 41,
+              "correlation": 17342
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4728,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 17366,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4728,
+              "cbid": 41,
+              "correlation": 17366
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4884,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 17927,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.009626955475330927
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4884,
+              "cbid": 41,
+              "correlation": 17927
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 4892,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 17951,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 4892,
+              "cbid": 41,
+              "correlation": 17951
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5049,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 18522,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5049,
+              "cbid": 41,
+              "correlation": 18522
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5057,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 18546,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.010416666666666666
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5057,
+              "cbid": 41,
+              "correlation": 18546
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5213,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 19107,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5213,
+              "cbid": 41,
+              "correlation": 19107
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5221,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 19131,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5221,
+              "cbid": 41,
+              "correlation": 19131
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5378,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 19702,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011379800853485065
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5378,
+              "cbid": 41,
+              "correlation": 19702
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5386,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 19726,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011363636363636364
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5386,
+              "cbid": 41,
+              "correlation": 19726
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5542,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 20287,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.011379800853485065
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5542,
+              "cbid": 41,
+              "correlation": 20287
+            }
+          },
+          {
+            "name": "Memcpy DtoD (Device -> Device)",
+            "args": {
+              "External id": 5550,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 20311,
+              "bytes": 8,
+              "memory bandwidth (GB/s)": 0.01188707280832095
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5550,
+              "cbid": 41,
+              "correlation": 20311
+            }
+          },
+          {
+            "name": "Memcpy DtoH (Device -> Pageable)",
+            "args": {
+              "External id": 5556,
+              "device": 0,
+              "context": 1,
+              "stream": 7,
+              "correlation": 20323,
+              "bytes": 4,
+              "memory bandwidth (GB/s)": 0.0017605633802816902
+            }
+          },
+          {
+            "name": "cudaMemcpyAsync",
+            "args": {
+              "External id": 5556,
+              "cbid": 41,
+              "correlation": 20323
+            }
+          }
+        ],
+        "retained_host_tensor_elements": 3,
+        "retained_device_summary_elements": 54
+      }
+    },
+    "source_files": {
+      "frozen_trainer": {
+        "path": "/data/packed-boundary-001/candidate/src/prime_rl/trainer/rl/train.py",
+        "sha256": "112bb5ae9171d3119e796c051901463f6dc0dc272f0f209636a44696368e0b14"
+      },
+      "metrics": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/rl/metrics.py",
+        "sha256": "e6a2c960adbadd9c62f1946c3442252982ce88a8c2ee7475b0331c06374f3f36"
+      },
+      "summaries": {
+        "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/utils.py",
+        "sha256": "a76db1a4aa903006ae553bd3ba20e2e95da0653984367c1338d3f9d01ba341c1"
+      }
+    },
+    "harness_sha256": "61921a92198f1217c3a904a4dda495dc5727379d1efdeaa8e3fdf87d5db14f75"
+  },
+  "gpu_accounting": {
+    "retained_job": "pv-episode-sync-001",
+    "allocation_reused": true,
+    "unit5_phase_begin": "2026-11-06T02:33:38Z",
+    "unit5_phase_end": "2026-11-06T02:34:33Z",
+    "idle_hold_after": "2026-11-06T02:34:41.244488+00:00",
+    "reason": "Parent explicitly requested retained node for concrete unit6 activation-offload investigation; no new allocation."
+  }
+}

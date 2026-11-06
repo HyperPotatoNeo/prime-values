@@ -1,0 +1,8 @@
+{
+  "driver_exit": 0,
+  "frozen_entries_verified": 2348,
+  "candidate_files_verified": 2353,
+  "observed_at": "2026-11-06T02:34:41.244488+00:00",
+  "scope": "One actual synthetic-data RL trainer update, preserved BF16 exported weights and filtered telemetry, separate 2-rank NCCL metric semantics, accumulation-only profiler; no throughput/reward claim.",
+  "archive_exclusions": "Candidate source and uploaded duplicate files excluded. Duplicate candidate seed weights and derived seed conversion caches excluded; full hashes recorded in output-files.json; retained on PVC. Paired final checkpoint weights and frozen original seed weights included."
+}

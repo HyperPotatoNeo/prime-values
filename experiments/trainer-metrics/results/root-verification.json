@@ -1,0 +1,24 @@
+{
+  "status": "pass",
+  "archive_bytes": 106353428,
+  "archive_sha256": "fef60174cb50fad7dd2c33e357c4009fdfa4ff4a23861a8136b02ce33084f5a6",
+  "archive_files_verified": 59,
+  "active_source_config_test_hashes_verified": 334,
+  "exact_exported_weight_tensors": 12,
+  "nonzero_updated_parameters": 9,
+  "filtered_metric_keys_compared": 107,
+  "filtered_metric_tolerance": {
+    "rtol": 1e-12,
+    "atol": 1e-12
+  },
+  "retained_host_elements": {
+    "frozen": 524283,
+    "streaming": 3
+  },
+  "streaming_retained_device_summary_elements": 54,
+  "limitations": [
+    "One real synthetic-data trainer update; exact BF16 exports do not establish full FP32 optimizer-state identity.",
+    "Separate CPU helper checks cover complete gradients/Adam; separate NCCL8cases cover metric populations.",
+    "Profiler scope is metric accumulation, not end-to-end throughput."
+  ]
+}

@@ -546,23 +546,45 @@ def flexible_all_gather(tensor: Tensor) -> Tensor:
 class TensorSummaries:
     """Streaming token statistics with storage and communication independent of token count."""
 
-    def __init__(self, device: torch.device | str = "cuda"):
+    def __init__(self, device: torch.device | str = "cuda", *, include_std: bool = False):
         self.device = torch.device(device)
+        self.include_std = include_std
         self.summaries: dict[str, Tensor] = {}
 
     @torch.no_grad()
-    def add(self, key: str, values: Tensor) -> None:
-        values = values.detach().to(device=self.device, dtype=torch.float64)
-        summary = torch.stack(
-            (
-                values.new_tensor(values.numel()),
-                values.sum(),
-                values.min() if values.numel() else values.new_tensor(float("inf")),
-                values.max() if values.numel() else values.new_tensor(-float("inf")),
-            )
-        )
+    def add(self, key: str, values: Tensor, mask: Tensor | None = None) -> None:
+        values = values.detach().reshape(-1).to(device=self.device, dtype=torch.float64)
+        if mask is not None:
+            if mask.dtype != torch.bool or mask.numel() != values.numel():
+                raise ValueError("Metric masks must be boolean and match the number of values")
+            mask = mask.detach().reshape(-1).to(device=self.device)
+        selected = values if mask is None else torch.where(mask, values, 0.0)
+        count = values.new_tensor(values.numel()) if mask is None else mask.sum(dtype=torch.float64)
+        total = selected.sum()
+        minimum = values if mask is None else torch.where(mask, values, float("inf"))
+        maximum = values if mask is None else torch.where(mask, values, -float("inf"))
+        parts = [
+            count,
+            total,
+            minimum.min() if values.numel() else values.new_tensor(float("inf")),
+            maximum.max() if values.numel() else values.new_tensor(-float("inf")),
+        ]
+        if self.include_std:
+            centered = selected - total / count.clamp_min(1)
+            if mask is not None:
+                centered = torch.where(mask, centered, 0.0)
+            parts.append(centered.square().sum())
+        summary = torch.stack(parts)
         if key in self.summaries:
             previous = self.summaries[key]
+            if self.include_std:
+                both_nonempty = (previous[0] > 0) & (count > 0)
+                previous_mean = torch.where(both_nonempty, previous[1] / previous[0].clamp_min(1), 0.0)
+                current_mean = torch.where(both_nonempty, total / count.clamp_min(1), 0.0)
+                between = (
+                    (current_mean - previous_mean).square() * previous[0] * count / (previous[0] + count).clamp_min(1)
+                )
+                summary[4] += previous[4] + between
             summary[:2] += previous[:2]
             summary[2] = torch.minimum(summary[2], previous[2])
             summary[3] = torch.maximum(summary[3], previous[3])
@@ -574,20 +596,45 @@ class TensorSummaries:
         keys = sorted({key for rank_keys in gathered_keys if rank_keys is not None for key in rank_keys})
         if not keys:
             return {}
-        empty = torch.tensor([0.0, 0.0, float("inf"), -float("inf")], device=self.device, dtype=torch.float64)
+        empty_values = [0.0, 0.0, float("inf"), -float("inf")]
+        if self.include_std:
+            empty_values.append(0.0)
+        empty = torch.tensor(empty_values, device=self.device, dtype=torch.float64)
         rows = torch.stack([self.summaries.get(key, empty) for key in keys])
-        totals, minima, maxima = rows[:, :2].contiguous(), rows[:, 2].contiguous(), rows[:, 3].contiguous()
+        totals = (
+            torch.cat((rows[:, :2], torch.isnan(rows[:, 2:3]).to(torch.float64)), dim=1)
+            if self.include_std
+            else rows[:, :2].contiguous().clone()
+        )
+        minima, maxima = rows[:, 2].contiguous(), rows[:, 3].contiguous()
         dist.all_reduce(totals, op=dist.ReduceOp.SUM)
         dist.all_reduce(minima, op=dist.ReduceOp.MIN)
         dist.all_reduce(maxima, op=dist.ReduceOp.MAX)
-        rows = torch.cat((totals, minima[:, None], maxima[:, None]), dim=1).cpu().tolist()
+        if self.include_std:
+            minima = torch.where(totals[:, 2] > 0, float("nan"), minima)
+            maxima = torch.where(totals[:, 2] > 0, float("nan"), maxima)
+        parts = [totals[:, :2], minima[:, None], maxima[:, None]]
+        if self.include_std:
+            local_count = rows[:, 0]
+            nonempty = local_count > 0
+            local_mean = torch.where(nonempty, rows[:, 1] / local_count.clamp_min(1), 0.0)
+            global_mean = torch.where(nonempty, totals[:, 1] / totals[:, 0].clamp_min(1), 0.0)
+            # Merge centered moments rather than subtracting two large raw
+            # second moments when observations have a large common offset.
+            squared_deviation = rows[:, 4] + local_count * (local_mean - global_mean).square()
+            dist.all_reduce(squared_deviation, op=dist.ReduceOp.SUM)
+            parts.append(squared_deviation[:, None])
+        rows = torch.cat(parts, dim=1).cpu().tolist()
         self.summaries.clear()
         metrics = {}
-        for key, (count, total, minimum, maximum) in zip(keys, rows):
+        for key, row in zip(keys, rows):
+            count, total, minimum, maximum = row[:4]
             metrics[f"{key}/count"] = int(count)
             metrics[f"{key}/mean"] = total / count if count else float("nan")
             metrics[f"{key}/min"] = minimum if count else float("nan")
             metrics[f"{key}/max"] = maximum if count else float("nan")
+            if self.include_std:
+                metrics[f"{key}/std"] = (row[4] / (count - 1)) ** 0.5 if count > 1 else float("nan")
         return metrics
 
 

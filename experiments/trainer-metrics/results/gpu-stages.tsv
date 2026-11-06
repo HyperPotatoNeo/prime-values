@@ -1,0 +1,8 @@
+2026-11-06T02:33:38Z	frozen-trainer	start	0	/data/packed-boundary-001/candidate
+2026-11-06T02:33:56Z	frozen-trainer	end	0
+2026-11-06T02:33:56Z	candidate-trainer	start	0	/data/trainer-metrics-001/candidate
+2026-11-06T02:34:15Z	candidate-trainer	end	0
+2026-11-06T02:34:15Z	nccl-stats	start	0,1	/data/trainer-metrics-001/candidate
+2026-11-06T02:34:26Z	nccl-stats	end	0
+2026-11-06T02:34:26Z	profile	start	0	/data/trainer-metrics-001/candidate
+2026-11-06T02:34:33Z	profile	end	0

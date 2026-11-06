@@ -139,6 +139,15 @@ objective. Inspect ratio `/saturated/mean`, `/nonfinite/mean`, raw log ratios,
 have count zero and undefined statistics. New importance diagnostics use
 streaming summaries, without per-token gathering or median/std estimates.
 
+Entropy and mismatch statistics use globally token-weighted means, sample
+standard deviations (Bessel correction), and extrema. They are accumulated as
+GPU summaries; entropy/mismatch medians are not collected. Scalar, per-sample
+and custom metric streams retain their existing median statistics. Frozen CE and padding observations excluded by the mismatch mask cannot
+introduce nonfinite mismatch values; included
+NaNs remain visible. A step without policy-sampled mismatch observations omits
+those keys. Scalar metric copies and other trainer paths can still synchronize;
+this collection method does not imply a full-step throughput improvement.
+
 **Performance** (trainer + orchestrator step independently):
 
 | Source | Metric | Reading |

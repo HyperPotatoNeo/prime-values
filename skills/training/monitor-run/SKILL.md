@@ -105,10 +105,12 @@ All metrics print to the console log (and W&B when configured).
 
 | Metric | Description |
 |--------|-------------|
-| `mismatch_kl/{all,env}/{mean,std,max}` | KL between trainer and (old) inference policy over trainable tokens |
+| `mismatch_kl/{all,env}/{mean,std,max}` | KL between trainer and inference over policy-sampled RL/reference-KL tokens; omitted when that population is empty |
 | `entropy/{all,env}/{mean,std,max}` | policy entropy over trainable tokens |
 | `masked_advantage_{positive,negative}/mean` | fraction of DPPO-masked tokens with +/- advantage |
 | `optim/grad_norm` | spikes may precede divergence |
+
+Entropy and mismatch statistics pool token observations across ranks; `std` uses Bessel correction. Their medians are not collected. Scalar/per-sample/custom metric medians remain available. Included NaNs remain visible, while excluded padding or frozen CE logprobs do not enter mismatch statistics. Do not interpret missing mismatch keys on a pure-CE step as zero mismatch.
 
 **Performance** — trainer and orchestrator step independently, so comparing step times shows who's waiting on whom.
 

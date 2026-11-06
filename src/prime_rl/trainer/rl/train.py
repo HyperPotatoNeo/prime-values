@@ -29,12 +29,16 @@ from prime_rl.utils.logger import format_time, setup_logger
 from prime_rl.trainer.rl.loss import (
     compute_entropy,
     compute_loss,
-    compute_mismatch_kl,
-    DIAGNOSTIC_RATIO_LIMIT,
     selective_log_softmax,
     setup_rl_loss_fn,
     shift_tensor_left,
     shift_tensor_right,
+)
+from prime_rl.trainer.rl.metrics import (
+    accumulate_token_metrics,
+    compute_token_metrics,
+    micro_step_message,
+    prepare_token_env_ids,
 )
 from prime_rl.trainer.rl.normalization import global_loss_scales
 from prime_rl.trainer.rl.token_export import setup_token_exporter
@@ -305,6 +309,7 @@ def train(config: TrainerConfig):
         logger.debug(f"Starting forward and backward pass ({batch_size=})")
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
         diagnostic_summaries = TensorSummaries()
+        token_summaries = TensorSummaries(include_std=True)
         cp_enabled = parallel_dims.cp_enabled
         cp_rank = parallel_dims.world_mesh["cp"].get_local_rank() if cp_enabled else 0
         cp_group = parallel_dims.world_mesh["cp"].get_group() if cp_enabled else None
@@ -312,6 +317,7 @@ def train(config: TrainerConfig):
 
         for micro_step, micro_batch in enumerate(micro_batches):
             input_ids = micro_batch["input_ids"].to("cuda")
+            metric_env_names, metric_env_ids = prepare_token_env_ids(micro_batch["env_names"], input_ids.device)
             position_ids = micro_batch["position_ids"].to("cuda")
             packing_metadata = (
                 prepare_packed_sequence_metadata(
@@ -456,47 +462,19 @@ def train(config: TrainerConfig):
             with maybe_record_function("backward"):
                 loss.backward()
 
-            # Add relevant tensors to tensor dict for logging purposes
-            entropy = out["entropy"][loss_mask].detach().to("cpu")
-            tensors["entropy/all"].append(entropy)
             tensors["loss"].append(loss.detach().to("cpu").unsqueeze(0))
-
-            env_names = micro_batch["env_names"]
-            masked_env_names = [env_name for env_name, keep in zip(env_names, loss_mask.flatten().tolist()) if keep]
-            env_to_indices: dict[str, list[int]] = {}
-            for idx, env_name in enumerate(masked_env_names):
-                env_to_indices.setdefault(env_name, []).append(idx)
-
-            for env_name, indices in env_to_indices.items():
-                tensors[f"entropy/{env_name}"].append(entropy[indices])
-
-            # Mismatch KL is only meaningful where sampling logprobs exist —
-            # keep rl/ref_kl member tokens (policy-sampled), exclude tokens
-            # whose action component is ce (frozen-model tokens).
-            if rl_weights is None and ref_kl_weights is None:
-                mismatch_mask = loss_mask
-                has_mismatch_tokens = bool(mismatch_mask.any())
-            else:
-                sampled_mask = (rl_weights != 0) if rl_weights is not None else loss_mask
-                if ref_kl_weights is not None:
-                    sampled_mask = sampled_mask | (ref_kl_weights != 0)
-                mismatch_mask = loss_mask & sampled_mask
-                has_mismatch_tokens = bool(mismatch_mask.any())
-            if has_mismatch_tokens:
-                with torch.no_grad():
-                    log_ratio = out["logprobs"][mismatch_mask] - inference_logprobs[mismatch_mask]
-                    mismatch_kl = compute_mismatch_kl(log_ratio)
-                    diagnostic_summaries.add("mismatch_kl/all/saturated", mismatch_kl >= DIAGNOSTIC_RATIO_LIMIT)
-                mismatch_kl = mismatch_kl.detach().to("cpu")
-                tensors["mismatch_kl/all"].append(mismatch_kl)
-                mismatch_env_names = [
-                    env_name for env_name, keep in zip(env_names, mismatch_mask.flatten().tolist()) if keep
-                ]
-                mismatch_env_to_indices: dict[str, list[int]] = {}
-                for idx, env_name in enumerate(mismatch_env_names):
-                    mismatch_env_to_indices.setdefault(env_name, []).append(idx)
-                for env_name, indices in mismatch_env_to_indices.items():
-                    tensors[f"mismatch_kl/{env_name}"].append(mismatch_kl[indices])
+            mismatch_kl, mismatch_mask = accumulate_token_metrics(
+                token_summaries,
+                diagnostic_summaries,
+                entropy=out["entropy"],
+                trainer_logprobs=out["logprobs"],
+                inference_logprobs=inference_logprobs,
+                loss_mask=loss_mask,
+                rl_weights=rl_weights,
+                ref_kl_weights=ref_kl_weights,
+                env_names=metric_env_names,
+                env_ids=metric_env_ids,
+            )
 
             token_exporter.export(
                 progress.step,
@@ -507,6 +485,7 @@ def train(config: TrainerConfig):
                 config.loss,
             )
 
+            load_balance_stats = {}
             if is_tt_moe_model(model):
                 load_balance_stats = get_load_balance_stats(model)
                 for k, v in load_balance_stats.items():
@@ -529,15 +508,19 @@ def train(config: TrainerConfig):
                 else:
                     tensors[key].append(loss_tensor.detach().to("cpu"))
 
-            # Debug log with *local, micro step* stats
-            micro_step_message = f"Micro Step {micro_step}/{len(micro_batches)} | Loss {tensors['loss'][-1].mean().item():.4f} | Entropy {tensors['entropy/all'][-1].mean().item():.4f}"
-            if has_mismatch_tokens:
-                micro_step_message += f" | Mismatch KL {tensors['mismatch_kl/all'][-1].mean().item():.4f}"
-            if "max_vio" in tensors:
-                micro_step_message += f" | Max Vio {tensors['max_vio'][-1].mean().item():.4f}"
-            if "routing_confidence" in tensors:
-                micro_step_message += f" | Routing Conf. {tensors['routing_confidence'][-1].mean().item():.4f}"
-            logger.debug(micro_step_message)
+            logger.opt(lazy=True).debug(
+                "{}",
+                lambda: micro_step_message(
+                    micro_step,
+                    len(micro_batches),
+                    loss,
+                    out["entropy"],
+                    loss_mask,
+                    mismatch_kl,
+                    mismatch_mask,
+                    load_balance_stats,
+                ),
+            )
 
         if config.enable_token_export:
             dist.barrier()
@@ -653,7 +636,7 @@ def train(config: TrainerConfig):
 
         # Synchronize the tensor metrics across all steps and ranks
         tensor_stats = tensors.compute_stats()
-        tensor_stats.update(diagnostic_summaries.compute_stats())
+        tensor_stats.update(compute_token_metrics(token_summaries, diagnostic_summaries))
 
         # Compute step metrics
         perf_counter = get_perf_counter(model, seq_len)
