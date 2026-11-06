@@ -19,7 +19,7 @@ seq_len = 8192
 num_train_workers = 16
 max_steps = 2000
 max_async_batches = 8
-max_off_policy_steps = 16
+max_off_policy_steps = 20
 bench = false
 
 [algo]

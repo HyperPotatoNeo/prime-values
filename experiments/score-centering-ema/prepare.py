@@ -17,6 +17,7 @@ from prime_rl.configs.trainer import TrainerConfig
 MODEL_REVISION = "cdbee75f17c01a7cc42f958dc650907174af0554"
 MODEL = f"/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/{MODEL_REVISION}"
 SOURCE = "/data/siddarth-sc-ema"
+CAMPAIGN = "siddarth-sc-ema-20261106"
 IMAGE = "primeintellect/prime-rl@sha256:e175fb968a270de9450cde72817ebac0a97087fbfc3b7765f1c10cc5b5886209"
 
 
@@ -102,7 +103,7 @@ def configuration(arm, seed, *, beta=0.01, top_k=128, steps=2000, lag=8):
             "group_size": 8,
             "max_inflight_rollouts": 512,
             "max_async_batches": lag,
-            "max_off_policy_steps": 16,
+            "max_off_policy_steps": 20,
             "model": {"client": {"base_url": endpoints, "admin_base_url": endpoints}},
             "algo": {"type": "grpo", "baseline": {"type": "mean"}},
             "train": {
@@ -266,12 +267,43 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=Path(__file__).parent / "prepared")
     a = parser.parse_args()
-    runs = [write(arm, seed, a.output) for arm in ("base", "sc", "ema") for seed in (11, 22, 33)]
+    settings = [("base", 0.0), ("sc", 0.0), ("ema", .003), ("ema", .01), ("ema", .03)]
+    runs = [write(arm, seed, a.output, beta=beta) for arm, beta in settings for seed in (11, 22)]
+    # Put one of each method in the first wave; every later run starts from the original model.
+    lanes = [[runs[i] for i in indices] for indices in ([0, 4, 9, 1], [2, 8, 3], [6, 5, 7])]
+    campaign_dir = a.output / CAMPAIGN
+    campaign_dir.mkdir(exist_ok=True)
+    jobs = []
+    for lane, lane_runs in enumerate(lanes):
+        lane_name = f"{CAMPAIGN}-lane{lane}"
+        services = []
+        for name in lane_runs:
+            docs = list(yaml.safe_load_all((a.output / name / "run.yaml").read_text()))
+            for service in docs[:-1]:
+                service["spec"]["selector"]["batch.kubernetes.io/job-name"] = lane_name
+                services.append(service)
+        job = docs[-1]
+        job["metadata"]["name"] = lane_name
+        job["metadata"]["labels"]["research-campaign"] = CAMPAIGN
+        job["spec"]["template"]["metadata"] = {"labels": {"research-campaign": CAMPAIGN}}
+        job["spec"]["activeDeadlineSeconds"] = 14 * 86400
+        container = job["spec"]["template"]["spec"]["containers"][0]
+        container["args"] = ["set -eu; uv sync --all-extras --frozen; exec uv run --no-sync python experiments/score-centering-ema/lane.py"]
+        container["env"] = [e for e in container["env"] if not e["name"].startswith("RESEARCH_")]
+        container["env"] += [
+            {"name": "RESEARCH_CAMPAIGN", "value": CAMPAIGN},
+            {"name": "RESEARCH_LANE", "value": str(lane)},
+        ]
+        jobs.append(lane_name)
+        (campaign_dir / f"lane{lane}.yaml").write_text(yaml.safe_dump_all([*services, job], sort_keys=False))
     (a.output / "manifest.json").write_text(
         json.dumps(
             {
                 "status": "PREPARED_NOT_LAUNCHED",
                 "runs": runs,
+                "campaign": CAMPAIGN,
+                "lanes": lanes,
+                "jobs": jobs,
                 "model_revision": MODEL_REVISION,
                 "simultaneous_run_limit": 3,
                 "gpus_per_run": 32,

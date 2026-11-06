@@ -209,3 +209,5 @@ trajectories, loss/gradient finiteness, mismatch tails, actual policy age, error
 truncation. The legacy in-loop evaluation is not held-out; explicitly select
 `get_eval_dataset()` for the frozen validation/test split. Never run pytest beside
 an active smoke: the test cleanup fixture terminates matching training processes.
+
+For the authorized score-centering/EMA sweep, use the generated campaign `lane*.yaml` manifests: each four-node lane runs a fixed sequential list with filesystem barriers and failure propagation. Applying all individual manifests would exceed the intended concurrency. Regenerate and run `preflight.py` after parameter changes. A lane refuses an existing run output directory; recovery needs an explicitly planned fresh attempt/resume, not an automatic restart. Local scalar JSONL logging is enabled by `PRIME_RL_METRICS_FILE`.

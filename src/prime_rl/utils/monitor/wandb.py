@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import time
+from numbers import Real
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -187,6 +188,10 @@ class WandbMonitor(Monitor):
             return
         if not self.enabled:
             return
+        if path := os.environ.get("PRIME_RL_METRICS_FILE"):
+            scalars = {key: float(value) for key, value in metrics.items() if isinstance(value, Real)}
+            with Path(path).open("a") as f:
+                f.write(json.dumps({"step": step, "time": time.time(), **scalars}) + "\n")
         wandb.log({**metrics, "step": step})
 
     def log_samples(self, rollouts: list[Rollout], step: int) -> None:

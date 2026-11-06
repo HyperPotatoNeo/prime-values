@@ -23,6 +23,7 @@ handles = []
 def spawn(name, args, extra=None):
     env = dict(os.environ)
     env.update(extra or {})
+    env["PRIME_RL_METRICS_FILE"] = str(logs / f"{name}-node{role}-metrics.jsonl")
     f = (logs / f"{name}-node{role}.log").open("w", buffering=1)
     handles.append(f)
     children[name] = subprocess.Popen(
@@ -42,6 +43,12 @@ def terminate():
         if p.poll() is None:
             os.killpg(p.pid, signal.SIGKILL)
 
+
+def interrupted(signum, frame):
+    raise SystemExit(f"Received signal {signum}")
+
+
+signal.signal(signal.SIGTERM, interrupted)
 
 try:
     if role < 2:

@@ -512,7 +512,7 @@
     "src/prime_rl/utils/monitor/base.py": "40e9338a7a69d246bb54f54714bf917b5b9755e4f3ac8028fe97cd0804f7066e",
     "src/prime_rl/utils/monitor/multi.py": "d64e8039d2f57153e7b5dc4a94b3d1a105a65a48713d992ccc11226e5342f3e0",
     "src/prime_rl/utils/monitor/prime.py": "e48fd73f71e263244e1d739ab85a956f61cfeabc0fd32faf9dc6724d765e8825",
-    "src/prime_rl/utils/monitor/wandb.py": "8a902a33db69cceeb417862a7d33dfc92f78fb5e70e1c953da855174c378a028",
+    "src/prime_rl/utils/monitor/wandb.py": "85a7d9733f1251fd9086d2bd50e399d79459280a0930b94cd23c947a78c3197b",
     "src/prime_rl/utils/nccl.py": "eda2799d50df42c638e46fc7bdbac6c30c0cf47c4c7048524301829c509499f5",
     "src/prime_rl/utils/pathing.py": "a36d77159318ce95013ab264f7ca12ad97faffa220fb079b739834204a657048",
     "src/prime_rl/utils/process.py": "6b3a2f03c21584799d20c3fd4e1327925b1caca0af0de3d1eb6f947f56e524ff",
