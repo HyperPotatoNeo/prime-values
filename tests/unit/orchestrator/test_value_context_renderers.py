@@ -34,7 +34,7 @@ def test_real_renderer_prefix_preserves_complete_multiturn_policy_sequence(
     sample = SimpleNamespace(token_ids=list(original))
     rollout = SimpleNamespace(
         env_name="test-environment",
-        task=SimpleNamespace(idx=0, value_function_prompt=privileged_message["content"]),
+        task=SimpleNamespace(data=SimpleNamespace(idx=0, value_function_prompt=privileged_message["content"])),
     )
     sink = TrainSink.__new__(TrainSink)
     sink.renderer = renderer
@@ -44,7 +44,7 @@ def test_real_renderer_prefix_preserves_complete_multiturn_policy_sequence(
     prefix = sink._build_value_prefix(
         rollout,
         [sample],
-        prompt=rollout.task.value_function_prompt,
+        prompt=rollout.task.data.value_function_prompt,
         enabled=True,
     )
 

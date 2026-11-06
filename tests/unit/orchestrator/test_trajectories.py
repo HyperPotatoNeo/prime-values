@@ -27,7 +27,7 @@ def _node(
 
 
 def _trace(nodes: list[vf.MessageNode]) -> vf.Trace:
-    return vf.Trace(task=vf.Task(idx=0, prompt="test"), nodes=nodes)
+    return vf.Trace(ok=True, task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt="test")), nodes=nodes)
 
 
 def test_linear_materialization_preserves_samples_without_layout():

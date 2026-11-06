@@ -35,6 +35,7 @@ import verifiers.v1 as vf
 from aiolimiter import AsyncLimiter
 
 from prime_rl.orchestrator.envs import EvalEnvs, TrainEnvs
+from prime_rl.orchestrator.episodes import UnsupportedEpisodeError
 from prime_rl.orchestrator.eval_source import EvalSource
 from prime_rl.orchestrator.train_source import TrainSource
 from prime_rl.orchestrator.types import (
@@ -503,10 +504,15 @@ class RolloutDispatcher:
             rollouts: list[Rollout] = result if isinstance(result, list) else [result]
         except asyncio.CancelledError:
             return
+        except UnsupportedEpisodeError:
+            raise
         except Exception as exc:
             get_logger().warning(f"Rollout task failed in group {meta.group_id} ({meta.env_name}): {exc!r}")
             task_idx = group.task_idx if group is not None else -1
-            rollouts = [Rollout(task=vf.Task(idx=task_idx, prompt=None)) for _ in range(meta.rollout_count)]
+            rollouts = [
+                Rollout(task=vf.TraceTask(type="DispatchTask", data=vf.WireTaskData(idx=task_idx, prompt=None)))
+                for _ in range(meta.rollout_count)
+            ]
             for r in rollouts:
                 r.capture_error(exc)
             is_synth_exception = True
@@ -516,6 +522,7 @@ class RolloutDispatcher:
                 # Empty trajectory: promote to an explicit error so the sink
                 # treats it like any other failure
                 r.errors.append(vf.Error(type="EmptyTrajectory", message="Rollout returned with no trajectory steps"))
+                r.ok = False
                 get_logger().warning(f"Empty trajectory in group {meta.group_id} ({meta.env_name})")
             if r.has_error:
                 self.metrics.record_error(kind=meta.kind, env_name=meta.env_name)
@@ -574,7 +581,7 @@ class RolloutDispatcher:
         for _, meta in claimed:
             for _ in range(meta.rollout_count):
                 trace = Rollout(
-                    task=vf.Task(idx=task_idx, prompt=None),
+                    task=vf.TraceTask(type="DispatchTask", data=vf.WireTaskData(idx=task_idx, prompt=None)),
                     errors=[vf.Error(type="Cancelled", message="Off-policy cancel")],
                     stop_condition="error",
                 )
@@ -600,7 +607,7 @@ class RolloutDispatcher:
             unscheduled_cancelled = group.rollouts_to_schedule
             for _ in range(unscheduled_cancelled):
                 trace = Rollout(
-                    task=vf.Task(idx=task_idx, prompt=None),
+                    task=vf.TraceTask(type="DispatchTask", data=vf.WireTaskData(idx=task_idx, prompt=None)),
                     errors=[vf.Error(type="Cancelled", message="Off-policy cancel")],
                     stop_condition="error",
                 )

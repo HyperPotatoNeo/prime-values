@@ -69,8 +69,10 @@ def configuration(root, placement, model, steps, resume_step=None, value_resume_
                 "sampling": {"temperature": 1.0, "max_completion_tokens": 64},
                 "env": [
                     {
-                        "taskset": {"id": "reverse-text-v1"},
-                        "harness": {"id": "null", "runtime": {"type": "subprocess"}},
+                        "env": {
+                            "taskset": {"id": "reverse-text-v1"},
+                            "agent": {"harness": {"id": "null", "runtime": {"type": "subprocess"}}},
+                        },
                         "pool": {"type": "static", "num_workers": 1},
                     }
                 ],
@@ -158,17 +160,19 @@ def verify_environment(config, evidence):
 
     env_config = config.orchestrator.train.env[0]
     assert not env_config.is_legacy
-    assert env_config.harness.id == "null"
-    assert env_config.harness.runtime.type == "subprocess"
-    server = EnvServer(env_config, address="tcp://127.0.0.1:0")
+    native = env_config.env
+    assert native.agent.harness.id == "null"
+    assert native.agent.harness.runtime.type == "subprocess"
+    server = EnvServer(native, address="tcp://127.0.0.1:0")
     try:
-        assert len(server.tasks) >= config.orchestrator.batch_size
-        assert server.tasks[0].answer == server.tasks[0].prompt[::-1]
+        assert server.num_tasks is not None and server.num_tasks >= config.orchestrator.batch_size
+        task = server._task(0)
+        assert task.data.answer == task.data.prompt[::-1]
         result = {
-            "taskset": env_config.taskset.id,
+            "taskset": native.taskset.id,
             "taskset_class": type(server.env.taskset).__name__,
-            "harness_class": type(server.env.harness).__name__,
-            "num_tasks": len(server.tasks),
+            "harness_config_class": type(native.agent.harness).__name__,
+            "num_tasks": server.num_tasks,
             "native_server_initialized": True,
         }
         (evidence / "environment-preflight.json").write_text(json.dumps(result, indent=2) + "\n")

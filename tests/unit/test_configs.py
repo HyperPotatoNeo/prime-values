@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from pydantic_config import ConfigFileError
 
 from prime_rl.configs.inference import InferenceConfig
-from prime_rl.configs.orchestrator import OrchestratorConfig
+from prime_rl.configs.orchestrator import EnvConfig, OrchestratorConfig
 from prime_rl.configs.rl import RLConfig
 from prime_rl.configs.sft import SFTConfig
 from prime_rl.configs.shared import SlurmConfig
@@ -27,6 +27,48 @@ CONFIG_CLASSES = [
     OrchestratorConfig,
     InferenceConfig,
 ]
+
+
+def test_flat_env_limits_keep_agent_and_legacy_meaning():
+    raw = {
+        "id": "reverse-text",
+        "timeout": {"rollout": 45, "scoring": 12},
+        "retries": {"rollout": {"max_retries": 2, "include": ["ProviderError"]}},
+        "max_output_tokens": 64,
+        "multiplex": 7,
+        "pool": {"type": "elastic", "multiplex": 11},
+    }
+    with pytest.warns(FutureWarning, match="Flat environment"):
+        config = EnvConfig.model_validate(raw)
+    assert config.env.agent.timeout.scoring == 12
+    assert config.env.agent.retries.max_retries == 2
+    assert config.env.agent.retries.include == ["ProviderError"]
+    assert config.env.interception.multiplex == 7
+    assert config.pool.multiplex == 11
+    assert config.extra_env_kwargs == {"timeout_seconds": 45, "max_total_completion_tokens": 64}
+    assert EnvConfig.model_validate_json(config.model_dump_json()) == config
+    assert "timeout" in raw and "env" not in raw
+
+
+def test_normalized_legacy_env_keeps_legacy_dispatch():
+    with pytest.warns(FutureWarning, match="Flat environment"):
+        config = EnvConfig.model_validate(
+            {
+                "id": "reverse-text",
+                "taskset": {"id": "", "judges": []},
+                "harness": {"id": "default", "runtime": {"type": "subprocess"}},
+                "retries": {"rollout": {"max_retries": 0}},
+            }
+        )
+    assert config.is_legacy and config.env_id == "reverse-text"
+    assert config.env.taskset is None
+    assert config.env.agent.harness.id == "bash"
+    assert EnvConfig.model_validate_json(config.model_dump_json()) == config
+
+
+def test_mixed_env_config_rejects_ambiguous_limits():
+    with pytest.raises(ValidationError, match="Do not mix flat"):
+        EnvConfig.model_validate({"id": "reverse-text", "timeout": {"rollout": 1}, "env": {"agent": {}}})
 
 
 def get_config_files() -> list[Path]:

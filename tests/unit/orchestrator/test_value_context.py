@@ -50,7 +50,6 @@ def _peer_rollout(label: str, reward: float, *, system: str = "shared system") -
             sampled=True,
             token_ids=[10],
             mask=[True],
-            finish_reason="tool_calls",
         ),
         vf.MessageNode(
             parent=2,
@@ -73,7 +72,6 @@ def _peer_rollout(label: str, reward: float, *, system: str = "shared system") -
             sampled=True,
             token_ids=[20],
             mask=[True],
-            finish_reason="stop",
         ),
         vf.MessageNode(
             parent=1,
@@ -81,12 +79,17 @@ def _peer_rollout(label: str, reward: float, *, system: str = "shared system") -
             sampled=True,
             token_ids=[30],
             mask=[True],
-            finish_reason="length",
         ),
     ]
     return Rollout(
-        task=vf.Task(idx=0, prompt="shared task"),
+        ok=True,
+        task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt="shared task")),
         nodes=nodes,
+        calls=[
+            vf.ModelCall(node=2, finish_reason="tool_calls"),
+            vf.ModelCall(node=5, finish_reason="stop"),
+            vf.ModelCall(node=6, finish_reason="length"),
+        ],
         rewards={"score": reward},
         env_name="test-env",
     )
@@ -167,7 +170,7 @@ def test_shared_prompt_omission_ignores_private_message_fields():
         rollout.nodes[2].sampled = False
         rollout.nodes[2].token_ids = []
         rollout.nodes[2].mask = []
-        rollout.nodes[2].finish_reason = None
+        rollout.calls = [call for call in rollout.calls if call.node != 2]
         rollout.nodes[3].message = vf.ToolMessage(
             tool_call_id=call_id,
             name="check",

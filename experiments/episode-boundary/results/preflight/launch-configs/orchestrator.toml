@@ -1,0 +1,278 @@
+pre_batch_filters = [
+    { type = "gibberish", enforce = false, token_id_threshold = 100000, logprob_offset = 2.0 },
+    { type = "repetition", enforce = false, window = 3000, prob_threshold = 0.99 },
+    { type = "zero_advantage", enforce = false },
+]
+post_batch_filters = [
+    { type = "gibberish", enforce = false, token_id_threshold = 100000, logprob_offset = 2.0 },
+    { type = "repetition", enforce = false, window = 3000, prob_threshold = 0.99 },
+    { type = "zero_advantage", enforce = true },
+]
+collect_inference_metrics = true
+output_dir = "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/episode-producer/native-preflight/run/run_default"
+batch_size = 8
+max_inflight_rollouts = 8
+group_size = 2
+seq_len = 512
+num_train_workers = 1
+max_steps = 3
+max_off_policy_steps = 8
+bench = false
+
+[algo]
+type = "grpo"
+
+[algo.sampling]
+source = "policy"
+
+[algo.baseline]
+type = "value"
+
+[model]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+trust_remote_code = false
+
+[model.client]
+wait_for_ready_timeout = 1800
+base_url = [
+    "http://localhost:8000/v1",
+]
+api_key_var = "VLLM_API_KEY"
+skip_model_check = false
+dp_rank_count = 1
+
+[model.client.headers]
+
+[model.client.headers_from_env]
+
+[model.client.extra_headers_from_state]
+X-Session-ID = "trajectory_id"
+
+[value_function]
+privileged_context = "task"
+gamma = 1.0
+gae_lambda = 1.0
+value_target_lambda = 1.0
+batch_size = 8
+warmup_updates = 2
+output_dir = "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/episode-producer/native-preflight/run/value"
+matmul_precision = "high"
+dist_timeout_seconds = 3600
+
+[value_function.model]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+trust_remote_code = false
+seq_len = 512
+attn = "flash_attention_2"
+fsdp_cpu_offload = false
+optim_cpu_offload = false
+reshard_after_forward = true
+dp_replicate = 1
+ep = "auto"
+ep_comm_backend = "torch"
+deepep_num_sms = 20
+cp = 1
+cp_style = "ring"
+impl = "custom"
+optimization_dtype = "float32"
+reduce_dtype = "float32"
+moe_router_dtype = "float32"
+moe_use_grouped_mm = true
+fp8 = false
+freeze_moe_router = false
+fused_lm_head_token_chunk_size = 1024
+
+[value_function.model.compile]
+fullgraph = false
+
+[value_function.model.ac]
+mode = "full"
+freq = 1
+targets = [
+    "norm",
+]
+
+[value_function.model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[value_function.model.debug]
+random_init = false
+force_balanced_routing = false
+
+[value_function.loss]
+type = "classification"
+reward_range = [
+    0.0,
+    1.0,
+]
+num_bins = 2
+
+[value_function.optim]
+lr = 1e-05
+weight_decay = 0.01
+max_norm = 1.0
+type = "adamw"
+betas1 = 0.9
+betas2 = 0.999
+
+[value_function.scheduler]
+type = "constant"
+
+[value_function.replay]
+max_updates_per_rollout = 1
+capacity = 8
+refill_size = 8
+seed = 0
+
+[value_function.transport]
+type = "zmq"
+host = "127.0.0.1"
+bind_host = "0.0.0.0"
+port = 29610
+poll_timeout_ms = 1000
+max_pending_rollouts = 2048
+
+[value_function.weight_broadcast]
+type = "nccl"
+host = "127.0.0.1"
+port = 29611
+control_port = 29613
+timeout = 1200
+evaluator_world_size = 1
+
+[value_function.evaluator]
+placement = "dedicated"
+base_url = [
+    "http://127.0.0.1:29612",
+]
+host = "0.0.0.0"
+port = 29612
+max_batch_tokens = 4096
+batch_wait_ms = 2.0
+max_concurrency = 64
+max_pending_requests = 64
+max_pending_tokens = 1048576
+request_timeout = 600.0
+dtype = "bfloat16"
+double_buffer_weights = true
+
+[value_function.ckpt]
+interval = 1
+keep_last = 1
+
+[value_function.log]
+level = "debug"
+vf_level = "info"
+json_logging = false
+log_data = false
+interval = 10.0
+ranks_filter = [
+    0,
+]
+
+[value_function.env_vars]
+
+[[train.env]]
+ratio = 1.0
+group_size = 2
+
+[train.env.env]
+id = ""
+
+[train.env.env.taskset]
+id = "reverse-text-v1"
+dataset_name = "PrimeIntellect/Reverse-Text-RL"
+dataset_split = "train"
+
+[train.env.env.taskset.task]
+judges = []
+
+[train.env.env.timeout]
+
+[train.env.env.retries]
+max_retries = 0
+include = []
+exclude = []
+
+[train.env.env.interception]
+type = "elastic"
+multiplex = 32
+
+[train.env.env.agent.harness]
+id = "null"
+forward_env = []
+
+[train.env.env.agent.harness.runtime]
+type = "subprocess"
+
+[train.env.env.agent.harness.env]
+
+[train.env.env.agent.timeout]
+
+[train.env.env.agent.retries]
+max_retries = 0
+include = []
+exclude = []
+
+[train.env.pool]
+type = "static"
+num_workers = 1
+
+[train.env.args]
+
+[train.env.extra_env_kwargs]
+
+[train.env.sampling]
+temperature = 1.0
+max_completion_tokens = 64
+
+[train.env.sampling.extra_body]
+top_k = -1
+min_p = 0.0
+return_token_ids = true
+
+[train.env.algo]
+type = "grpo"
+
+[train.env.algo.sampling]
+source = "policy"
+
+[train.env.algo.baseline]
+type = "value"
+
+[train.sampling]
+temperature = 1.0
+max_completion_tokens = 64
+
+[train.sampling.extra_body]
+
+[tokenizer]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+trust_remote_code = false
+
+[renderer]
+name = "auto"
+
+[optim]
+lr = 0.0001
+
+[log]
+level = "debug"
+vf_level = "info"
+json_logging = false
+log_data = false
+interval = 10.0
+
+[env_vars]
+
+[ckpt]
+interval = 1
+keep_last = 1
+skip_progress = false
+
+[weight_broadcast]
+type = "filesystem"
+
+[rollout_transport]
+type = "filesystem"

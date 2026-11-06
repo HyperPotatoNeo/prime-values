@@ -1,0 +1,58 @@
+{
+  "deps": {
+    "verifiers": "192fd8ef0d2fdcefc8566b0ec793d73631e7b51a",
+    "renderers": "bdb96b0c84a307e2b71c6a366c9d718c3ac7fe78",
+    "pydantic-config": "4f5ae373582ceffdbf7e6bd1998c9ad568fcc1ad",
+    "research-environments": "304046932a7c1f9900f82f2007514ef6f357f5b4"
+  },
+  "files": {
+    "src/prime_rl/orchestrator/envs.py": "c8fba541fbc5a3608306a6d0b6cad7246b8c157b35dccaae1da3da85422dc229",
+    "src/prime_rl/orchestrator/env_server/env_server.py": "fd5f3224aefa27a7dfae56dab544eb859e4594f04c365d54e68f784fe60658f9",
+    "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py": "21a628c5febbfcbd2a9fa5b10eece16bb655cb5fe20b213a4bea835966b9de17",
+    "experiments/episode-boundary/producer_smoke.py": "bc083ff445f702585b4bfa9cba485c2b6d6fd22108f6017c760d5253249d8180",
+    "experiments/episode-boundary/producer_fixture.py": "4aff1c68fad4087c9eacb7d46f1f89121e9b2f620f5b96c23fb871db8e7dc3eb",
+    "experiments/rl-safety/pipeline.py": "3d691aecee54ff3dfd421c85e543faf6e406c9f239582d38bc60e47866228227",
+    "uv.lock": "a1caefe4206412ac649e55328eafd8c4671ae3b816d3a90f6482354c30159b5f"
+  },
+  "config_transform_tests": {
+    "passed": 3,
+    "command": "PYTHONPATH=src uv run --project ../cpu-tests --no-sync --with nvidia-ml-py pytest -q tests/unit/test_configs.py -k \"flat_env_limits or normalized_legacy_env or mixed_env_config\"",
+    "selection": [
+      "flat_env_limits",
+      "normalized_legacy_env",
+      "mixed_env_config"
+    ]
+  },
+  "full_sync": "Attempted uv sync --all-extras --locked; refused Mac because project lock supports Linux only. CPU checks used isolated uv-managed environment; GPU validation separate.",
+  "environment_source_pins": {
+    "legacy_packages": {
+      "packages": [
+        "alphabet-sort",
+        "math-python",
+        "reverse-text",
+        "wiki-search",
+        "wordle"
+      ],
+      "repository": "PrimeIntellect-ai/verifiers",
+      "rev": "9c6b155e10e58981a2495840b8a9026becbcfb9e"
+    },
+    "color-codeword-v1": {
+      "repository": "PrimeIntellect-ai/verifiers",
+      "rev": "6c64ce6a3a01e8edde7c3c0e8e5315fb236e9faa",
+      "reason": "Preserve finite1000example task-centric configuration"
+    }
+  },
+  "renderer_metadata": {
+    "version": "0.1.9.dev1",
+    "receipt": "renderer-build.json",
+    "method": "Clean uv wheel build from full pinned Git checkout, no SCM override; remote installer uses the wheel"
+  },
+  "full_config_suite": {
+    "passed": 180,
+    "failed": 0,
+    "skipped": 0,
+    "junit": "configs-complete.xml",
+    "environment": "uv-managed temporary overlay supplies Pillow and exact git-sourced finite color-codeword. Explicit PYTHONPATH asserts pinned verifier/renderers/pydantic-config module sources; all declared local env package paths available. No plugin mocks."
+  },
+  "receipt_refresh": "Refreshed after final color-codeword source and lock updates; numeric package/source comparison rechecked unchanged."
+}

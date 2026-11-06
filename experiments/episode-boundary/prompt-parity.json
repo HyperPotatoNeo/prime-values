@@ -1,0 +1,65 @@
+{
+  "frozen_commit": "4b8ca52854db6207fcd2cfeb24eec7021310fc42",
+  "frozen_source_sha256": "74d6297358c69f86db09534a1a64b0de5128d55aa457d7ecd3539d5f472b2d45",
+  "current_source_sha256": "1b21dc9db6548fc6421f132b641ff90265e7ef5d723c95a9aebae07c41ab2042",
+  "checker_sha256": "3d94c939d0d1016c3776a31f467b04967c09093197d03ceffa4aa04108a0fbc9",
+  "cases": [
+    {
+      "group_order": [
+        0,
+        1,
+        2
+      ],
+      "reverse_call_order": false,
+      "exact_prompt_bytes": true,
+      "prompt_sha256": [
+        "667b337951f5cc88b64d0d8e1d5e26db8132b441e98f14073566957b983e29e4",
+        "8c32e4ca90bf23bd84e0fb50114f0ca3959a9144c981ef959bb9987a79898954",
+        "deb646d9ffb16fe97e1adc85c974028b8e7d96ac8fc5e3d6a524cd6e9f496428"
+      ]
+    },
+    {
+      "group_order": [
+        2,
+        0,
+        1
+      ],
+      "reverse_call_order": false,
+      "exact_prompt_bytes": true,
+      "prompt_sha256": [
+        "deb646d9ffb16fe97e1adc85c974028b8e7d96ac8fc5e3d6a524cd6e9f496428",
+        "667b337951f5cc88b64d0d8e1d5e26db8132b441e98f14073566957b983e29e4",
+        "8c32e4ca90bf23bd84e0fb50114f0ca3959a9144c981ef959bb9987a79898954"
+      ]
+    },
+    {
+      "group_order": [
+        0,
+        1,
+        2
+      ],
+      "reverse_call_order": true,
+      "exact_prompt_bytes": true,
+      "prompt_sha256": [
+        "667b337951f5cc88b64d0d8e1d5e26db8132b441e98f14073566957b983e29e4",
+        "8c32e4ca90bf23bd84e0fb50114f0ca3959a9144c981ef959bb9987a79898954",
+        "deb646d9ffb16fe97e1adc85c974028b8e7d96ac8fc5e3d6a524cd6e9f496428"
+      ]
+    },
+    {
+      "group_order": [
+        2,
+        0,
+        1
+      ],
+      "reverse_call_order": true,
+      "exact_prompt_bytes": true,
+      "prompt_sha256": [
+        "deb646d9ffb16fe97e1adc85c974028b8e7d96ac8fc5e3d6a524cd6e9f496428",
+        "667b337951f5cc88b64d0d8e1d5e26db8132b441e98f14073566957b983e29e4",
+        "8c32e4ca90bf23bd84e0fb50114f0ca3959a9144c981ef959bb9987a79898954"
+      ]
+    }
+  ],
+  "limitations": "Deterministic fixture source comparison, not renderer-token or remote environment equivalence."
+}

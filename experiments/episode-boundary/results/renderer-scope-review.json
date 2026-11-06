@@ -1,0 +1,29 @@
+{
+  "before": "5904fa24aa73f83c1694fd85a78d0e746d468284",
+  "after": "bdb96b0c84a307e2b71c6a366c9d718c3ac7fe78",
+  "files": {
+    "renderers/qwen3.py": {
+      "before_sha256": "dac2891e9eb7ea4a1abca18ed44e5e029f5e110d90f66729287f115a0da7b984",
+      "after_sha256": "dac2891e9eb7ea4a1abca18ed44e5e029f5e110d90f66729287f115a0da7b984",
+      "byte_identical": true
+    },
+    "renderers/llama_3.py": {
+      "before_sha256": "6a575cf370d2c4652c8c11251f690483bcee80d6bba135b9f7c21271cd5fd7e6",
+      "after_sha256": "6a575cf370d2c4652c8c11251f690483bcee80d6bba135b9f7c21271cd5fd7e6",
+      "byte_identical": true
+    },
+    "renderers/parsing.py": {
+      "before_sha256": "55aa6e1d56ef33ea5f3644ff6658ece8f2de0df4961c69a4bc97bd156463282b",
+      "after_sha256": "3b0607847f135cb3f2e8c57d4720b2fb4c6edc5955d9d2998e64e0a7ebbd6f84",
+      "byte_identical": false,
+      "changed_existing_functions": [
+        "_parse_laguna_xs2_tool_calls",
+        "parse_laguna_xs2"
+      ],
+      "removed_functions": [],
+      "qwen3_parser_identical": true
+    }
+  },
+  "shared_base_review": "Qwen3/Llama auto mappings and existing render_ids path preserved; attribute_text_segments adds optional overlap_is_content default false, and existing callers retain false. ensure_final_stop is opt-in and remains false. New generate response kept_tokens field does not change existing token IDs or log probabilities.",
+  "limits": "Source review, not a new real-tokenizer equivalence test. Laguna-XS-2.1 rendering/configuration intentionally changes upstream; new Hy3 and PrimeQwen renderers added. Broad model parity is not claimed."
+}

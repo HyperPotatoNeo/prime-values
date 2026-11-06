@@ -19,9 +19,13 @@ def run_server(config: EnvServerConfig):
     # so the orchestrator is agnostic. serve_env applies the logging setup in this process
     # and in every spawned worker.
     server_kwargs = (
-        {"env_id": env.env_id, "env_args": env.args, "extra_env_kwargs": env.extra_env_kwargs}
+        {
+            "env_id": env.env_id,
+            "env_args": env.args,
+            "extra_env_kwargs": env.extra_env_kwargs,
+        }
         if env.is_legacy
-        else {"config": env}
+        else {"config_data": env.env.model_dump(mode="json")}
     )
     serve_env(
         **pool_serve_kwargs(env.pool),

@@ -173,15 +173,64 @@ class EnvConfig(vf.EnvServerConfig):
                 data["pool"] = {"type": "static", "num_workers": num_workers}
         return data
 
-    @property
-    def is_legacy(self) -> bool:
-        """A v0/legacy env (run via the bridge): an ``id`` is set and no v1 ``taskset`` is."""
-        return not self.taskset.id
-
-    @property
-    def env_id(self) -> str:
-        """The env identifier — the v1 taskset id (v1) or the legacy env id (v0)."""
-        return self.taskset.id or self.id or ""
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_agent_config(cls, data):
+        """Translate flat single-agent inputs into the canonical verifier env schema."""
+        agent_fields = (
+            "harness",
+            "timeout",
+            "retries",
+            "max_turns",
+            "max_input_tokens",
+            "max_output_tokens",
+            "max_total_tokens",
+        )
+        if not isinstance(data, dict) or not any(key in data for key in ("taskset", "multiplex", *agent_fields)):
+            return data
+        data = dict(data)
+        if "env" in data:
+            raise ValueError("Do not mix flat taskset/agent options with env; put all options under env and env.agent")
+        warnings.warn(
+            "Flat environment options are deprecated; use env.taskset, env.agent and env.interception instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        env: dict = {}
+        if "taskset" in data:
+            taskset = data.pop("taskset")
+            if isinstance(taskset, dict):
+                taskset = dict(taskset)
+                judges = taskset.pop("judges", None)
+                if judges:
+                    task = dict(taskset.get("task", {}))
+                    if "judges" in task:
+                        raise ValueError("Do not set both taskset.judges and taskset.task.judges")
+                    task["judges"] = judges
+                    taskset["task"] = task
+                if not taskset.get("id") and set(taskset) <= {"id"}:
+                    taskset = None
+            env["taskset"] = taskset
+        agent = {key: data.pop(key) for key in agent_fields if key in data}
+        retries = agent.get("retries")
+        if isinstance(retries, dict) and "rollout" in retries:
+            if set(retries) != {"rollout"}:
+                raise ValueError("Do not mix retries.rollout with agent retry fields")
+            agent["retries"] = retries["rollout"]
+        harness = agent.get("harness")
+        if isinstance(harness, dict) and harness.get("id", "default") == "default":
+            agent["harness"] = {**harness, "id": "bash"}
+        elif harness is None and "taskset" in env:
+            agent["harness"] = {"id": "bash"}
+        if agent:
+            env["agent"] = agent
+        if "multiplex" in data:
+            env["interception"] = {
+                "type": "elastic",
+                "multiplex": data.pop("multiplex"),
+            }
+        data["env"] = env
+        return data
 
     @property
     def resolved_name(self) -> str:
@@ -189,8 +238,8 @@ class EnvConfig(vf.EnvServerConfig):
 
     @model_validator(mode="after")
     def validate_env(self):
-        if not self.taskset.id and not self.id:
-            raise ValueError('no env configured — set taskset = { id = "<id>" } (v1) or id = "<id>" (v0/legacy)')
+        if not self.env_id:
+            raise ValueError('no env configured — set env.taskset = { id = "<id>" } (v1) or id = "<id>" (v0/legacy)')
         if self.resolved_name == "agg":
             raise ValueError(
                 'Environment name "agg" is reserved for cross-env metric aggregation. Use a different name or id.'
@@ -203,11 +252,12 @@ class EnvConfig(vf.EnvServerConfig):
         ``extra_env_kwargs`` (``env.set_kwargs(...)``): the per-rollout wall-clock timeout and
         the multi-turn completion-token budget. (``max_seq_len`` is added per train run in
         ``OrchestratorConfig.resolve_env_config``, which knows ``seq_len``.)"""
-        if self.is_legacy:
-            if self.timeout.rollout is not None:
-                self.extra_env_kwargs["timeout_seconds"] = self.timeout.rollout
-            if self.max_output_tokens is not None:
-                self.extra_env_kwargs["max_total_completion_tokens"] = self.max_output_tokens
+        agent = getattr(self.env, "agent", None)
+        if self.is_legacy and agent is not None:
+            if agent.timeout.rollout is not None:
+                self.extra_env_kwargs["timeout_seconds"] = agent.timeout.rollout
+            if agent.max_output_tokens is not None:
+                self.extra_env_kwargs["max_total_completion_tokens"] = agent.max_output_tokens
         return self
 
 
@@ -418,7 +468,8 @@ class NCCLWeightBroadcastConfig(BaseConfig):
 
 
 WeightBroadcastConfig: TypeAlias = Annotated[
-    FileSystemWeightBroadcastConfig | NCCLWeightBroadcastConfig, Field(discriminator="type")
+    FileSystemWeightBroadcastConfig | NCCLWeightBroadcastConfig,
+    Field(discriminator="type"),
 ]
 
 

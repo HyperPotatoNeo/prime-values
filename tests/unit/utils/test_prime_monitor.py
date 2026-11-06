@@ -35,8 +35,9 @@ def _build_rollout(*, example_id: int, reward: float, task: str) -> Rollout:
             sampled=True,
         ),
     ]
-    rollout = Rollout[vf.Task](
-        task=vf.Task(idx=example_id, prompt=f"prompt-{example_id}"),
+    rollout = Rollout[vf.TaskData](
+        ok=True,
+        task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=example_id, prompt=f"prompt-{example_id}")),
         nodes=nodes,
         rewards={"reward": reward},
     )
@@ -80,7 +81,9 @@ def test_rollouts_to_parquet_bytes_skips_rollouts_without_trajectory():
     monitor.run_id = "run-456"
 
     rollout_with_branches = _build_rollout(example_id=1, reward=1.0, task="task-a")
-    rollout_without_branches = Rollout[vf.Task](task=vf.Task(idx=2, prompt="missing-trajectory"))
+    rollout_without_branches = Rollout[vf.TaskData](
+        ok=True, task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=2, prompt="missing-trajectory"))
+    )
     assert rollout_without_branches.branches == []
 
     parquet_bytes = monitor._rollouts_to_parquet_bytes(

@@ -1,0 +1,9 @@
+{
+  "source_commit": "bdb96b0c84a307e2b71c6a366c9d718c3ac7fe78",
+  "git_describe": "renderers-v0.1.8-1-gbdb96b0",
+  "wheel": "renderers-0.1.9.dev1-py3-none-any.whl",
+  "wheel_sha256": "0530292f094fcb7c7f095b0b7b1320bc9f6b4d3ad218a7f140a39f347ee8b0f9",
+  "metadata_version": "0.1.9.dev1",
+  "build_command": "uv build --wheel --out-dir <evidence-dir>",
+  "SCM_version_override": false
+}

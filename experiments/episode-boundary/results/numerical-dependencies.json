@@ -1,0 +1,69 @@
+{
+  "equal": true,
+  "baseline_commit": "4b8ca52854db6207fcd2cfeb24eec7021310fc42",
+  "packages": [
+    {
+      "name": "flash-attn",
+      "version": "2.8.3+cu128torch2.11",
+      "source": {
+        "url": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu128torch2.11-cp312-cp312-linux_x86_64.whl"
+      }
+    },
+    {
+      "name": "flash-attn-3",
+      "version": "3.0.0",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/test/cu128"
+      }
+    },
+    {
+      "name": "numpy",
+      "version": "2.3.5",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      }
+    },
+    {
+      "name": "torch",
+      "version": "2.11.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      }
+    },
+    {
+      "name": "torchaudio",
+      "version": "2.11.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      }
+    },
+    {
+      "name": "torchvision",
+      "version": "0.26.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      }
+    },
+    {
+      "name": "transformers",
+      "version": "5.6.2",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      }
+    },
+    {
+      "name": "vllm",
+      "version": "0.24.0+cu129",
+      "source": {
+        "url": "https://github.com/vllm-project/vllm/releases/download/v0.24.0/vllm-0.24.0+cu129-cp38-abi3-manylinux_2_28_aarch64.whl"
+      }
+    },
+    {
+      "name": "vllm",
+      "version": "0.24.0+cu129",
+      "source": {
+        "url": "https://github.com/vllm-project/vllm/releases/download/v0.24.0/vllm-0.24.0+cu129-cp38-abi3-manylinux_2_28_x86_64.whl"
+      }
+    }
+  ]
+}

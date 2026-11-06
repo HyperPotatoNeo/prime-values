@@ -1,0 +1,56 @@
+{
+  "alphabet_sort.toml": [
+    {
+      "split": "train",
+      "env": "alphabet-sort-v1"
+    }
+  ],
+  "general_agent.toml": [
+    {
+      "split": "train",
+      "env": "general-agent-v1"
+    }
+  ],
+  "gsm8k.toml": [
+    {
+      "split": "train",
+      "env": "gsm8k-v1"
+    },
+    {
+      "split": "eval",
+      "env": "gsm8k-v1"
+    }
+  ],
+  "hendrycks_sanity.toml": [
+    {
+      "split": "train",
+      "env": "math-env-v1"
+    },
+    {
+      "split": "eval",
+      "env": "aime24-v1"
+    }
+  ],
+  "r2e_gym.toml": [
+    {
+      "split": "train",
+      "env": "r2e-gym-v1"
+    }
+  ],
+  "reverse_text.toml": [
+    {
+      "split": "train",
+      "env": "reverse-text-v1"
+    }
+  ],
+  "scaleswe.toml": [
+    {
+      "split": "train",
+      "env": "scaleswe-v1"
+    },
+    {
+      "split": "eval",
+      "env": "swebench-verified-v1"
+    }
+  ]
+}

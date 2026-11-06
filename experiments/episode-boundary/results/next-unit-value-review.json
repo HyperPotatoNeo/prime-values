@@ -1,0 +1,54 @@
+{
+  "scope": "Read-only adversarial design review of client-owned tasksets; no changes to the frozen Episode production source. Candidate implementation and tests are separate scratch work.",
+  "prime_rl_commit": "f5946b098e7d085732897292c150e959138bb703",
+  "verifier_commit": "b13ba60da63cea91389e7575766b7270d0d11fc5",
+  "recommendation": "Proceed as one bounded task-ownership unit: native client selection and exact payload transport, preserving the current Episode adapter and value ownership boundary. No sampler checkpoint redesign.",
+  "findings": [
+    {
+      "priority": "must preserve",
+      "issue": "Upstream serializes group.task.data independently for each sibling. Frozen Pydantic TaskData is shallow; nested messages/lists remain mutable.",
+      "recommendation": "Create one owned JSON-compatible task payload when a group opens and reuse it for every sibling. Do not introduce a universal deep-freeze framework. Mutating the selected task after group creation must not change later requests."
+    },
+    {
+      "priority": "must fail explicitly",
+      "issue": "The stateless server reconstructs only taskset.task_type() with the global taskset.task configuration. A loader returning another Task subclass or per-row configuration can silently lose behavior or scoring settings.",
+      "recommendation": "Validate the selected row's type and configuration against the reconstruction contract; reject unsupported variation before dispatch. Check actual Harbor-derived subclass resolution, especially SWEBenchVerifiedTask.finalize. Keep native task data rather than inventing a parallel task protocol."
+    },
+    {
+      "priority": "compatibility qualification",
+      "issue": "HarborData.task_dir becomes serialized, but HarborTask.setup still reads local test artifacts from that path. A remote worker without the client's filesystem no longer receives artifacts through its own dataset load.",
+      "recommendation": "Prove local spawned-worker/shared-filesystem operation and document or explicitly reject unsupported remote artifact placement. Current SWEbenchVerified configs use local spawned environment workers; there is no authored remote address override. Do not claim universal remote taskset compatibility."
+    },
+    {
+      "priority": "dependency qualification",
+      "issue": "b13ba60d follows fe11f3fca Docker network isolation. Harbor parse_task now derives network_allow from dataset metadata; default TaskData wildcard alone does not prove unchanged Harbor behavior.",
+      "recommendation": "Use the coherent published dependency only with explicit scope and source checks. Existing math/reverse/RG pathways are the preservation target. No earlier published ownership commit appeared in the available all-ref history; do not fabricate one or silently rewrite the dependency."
+    },
+    {
+      "priority": "identity clarification",
+      "issue": "TaskData.idx is optional in the new verifier. Our training and pass@k metrics group by UUID group_id, not idx, so missing/duplicate idx does not itself merge groups.",
+      "recommendation": "Preserve group UUIDs independently from semantic task IDs. Define a narrow missing-ID policy for the existing diagnostic/cancellation contract; do not add an unbounded global identity history for infinite generators. Finite seed parity must compare selected dataset positions/payloads, not assume idx equals list position."
+    }
+  ],
+  "minimal_oracles": [
+    "Real two-worker native fixture: instrument load() with process IDs, force simultaneous work onto two distinct workers, and assert one client dataset load and zero worker dataset loads. Compare the complete selected payload through worker reconstruction, including nested opaque fields, image content, and private value_function_prompt. Use a deterministic task/agent boundary without remote model dependence.",
+    "Group ownership: open a group, dispatch one sibling, mutate the source task's nested prompt/private metadata, then dispatch the second sibling. Both workers must receive the original same payload. Feed results through real TrainSink/GRPO with deterministic value evaluation; private prefix must affect only critic inputs, remain absent from policy tokens and public records, and preserve analytical targets.",
+    "Finite selection: compare at least two epochs against the frozen seeded index sampler using an irregular semantic idx table and multiple environment weights. Translate frozen positional indices to actual payloads. Include permit-starved calls and legacy group-scoring costs to detect changed RNG advancement or selection order.",
+    "Cancellation: one completed sibling plus one in-flight and one unscheduled sibling; cancel the group while work is held. Exactly the configured group count must reach the sink once, permits must return, no replacement task may be generated, and privileged LOO must publish neither context nor critic samples from the partial group.",
+    "Infinite boundedness: count generator pulls; one pull per newly opened group, never per sibling or while permits/gate prevent opening a group. Hold completions and verify no unbounded prefetch/history. Evaluation requires explicit finite num_examples, pulls that many tasks once, and reuses the same fixed set across evaluation epochs.",
+    "Wire contract failures: missing required fields, excluded task fields, unsupported row subclass/configuration, and invalid native/legacy addressing must fail clearly before a successful training sample can be emitted. Valid custom TaskData fields must survive rather than be silently discarded."
+  ],
+  "resume": {
+    "current_contract": "Checkpoint restores progress and algorithm/TETHER state; TrainSource RNG, finite cursors, infinite generator state and outstanding task groups are not checkpointed. Value replay remains intentionally cold.",
+    "decision": "Document the existing cold source restart. Exact task-order continuation is a separate feature and is not necessary to preserve the current value-function behavior or complete client-owned task transport.",
+    "required_check": "Fresh-process resume must still restore the already-promised model/optimizer/progress/TETHER state, adopt value versions correctly, and create valid new groups without claiming uninterrupted task-order equivalence."
+  },
+  "non_goals": [
+    "Multi-agent value credit or relaxed original-trace eligibility",
+    "New return formulas, lambdas, masks, loss normalization, or dtype changes",
+    "Universal task serialization or remote artifact distribution framework",
+    "Sampler state checkpointing or global duplicate identity tracking",
+    "NIXL/ModelExpress transport or latest GPU dependency migration"
+  ],
+  "evidence_limit": "Design/source review only. The proposed next-unit acceptance checks have not yet run; current Episode boundary results remain separate."
+}

@@ -129,21 +129,23 @@ def _message_record(message, *, nodes, node_index: int) -> dict[str, Any]:
     return record
 
 
-def _node_record(nodes, node_index: int) -> dict[str, Any]:
+def _node_record(nodes, node_index: int, *, finish_reason: str | None) -> dict[str, Any]:
     node = nodes[node_index]
     return {
         "parent": node.parent,
         "sampled": node.sampled,
         "message": _message_record(node.message, nodes=nodes, node_index=node_index),
-        "finish_reason": node.finish_reason,
+        "finish_reason": finish_reason,
     }
 
 
-def _peer_record(rollout: Rollout, *, omitted_prefix_nodes: int) -> dict[str, Any]:
+def _peer_record(
+    rollout: Rollout, *, omitted_prefix_nodes: int, finish_reasons: dict[int, str | None]
+) -> dict[str, Any]:
     reward = float(rollout.reward)
     if not math.isfinite(reward):
         raise ValueError(
-            f"group_leave_one_out peer rewards must be finite (env={rollout.env_name!r}, task={rollout.task.idx})"
+            f"group_leave_one_out peer rewards must be finite (env={rollout.env_name!r}, task={rollout.task.data.idx})"
         )
     if reward == 0.0:
         reward = 0.0
@@ -151,12 +153,12 @@ def _peer_record(rollout: Rollout, *, omitted_prefix_nodes: int) -> dict[str, An
         if node.parent is not None and not 0 <= node.parent < index:
             raise ValueError(
                 "group_leave_one_out trace parents must point to an earlier node "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx}, node={index}, parent={node.parent})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx}, node={index}, parent={node.parent})"
             )
     if not any(node.sampled for node in rollout.nodes):
         raise ValueError(
             "group_leave_one_out peers must contain a sampled response "
-            f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+            f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
         )
 
     nodes: list[dict[str, Any]] = []
@@ -164,7 +166,7 @@ def _peer_record(rollout: Rollout, *, omitted_prefix_nodes: int) -> dict[str, An
         if index < omitted_prefix_nodes:
             nodes.append({"parent": node.parent, "sampled": False, "shared_prompt": True})
             continue
-        nodes.append(_node_record(rollout.nodes, index))
+        nodes.append(_node_record(rollout.nodes, index, finish_reason=finish_reasons.get(index)))
     return {"reward": reward, "nodes": nodes}
 
 
@@ -179,18 +181,27 @@ def group_leave_one_out_prompts(
     if len({rollout.id for rollout in rollouts}) != len(rollouts):
         raise ValueError("group_leave_one_out value context requires unique rollout ids")
 
+    finish_reasons = [
+        {call.node: call.finish_reason for call in rollout.calls if call.node is not None} for rollout in rollouts
+    ]
     omitted_prefix_nodes = 0
     for index in range(min(len(rollout.nodes) for rollout in rollouts)):
         nodes = [rollout.nodes[index] for rollout in rollouts]
         expected_parent = index - 1 if index else None
         if any(node.sampled or node.parent != expected_parent for node in nodes):
             break
-        records = [_node_record(rollout.nodes, index) for rollout in rollouts]
+        records = [
+            _node_record(rollout.nodes, index, finish_reason=reasons.get(index))
+            for rollout, reasons in zip(rollouts, finish_reasons, strict=True)
+        ]
         if any(record != records[0] for record in records[1:]):
             break
         omitted_prefix_nodes += 1
 
-    peer_records = [_peer_record(rollout, omitted_prefix_nodes=omitted_prefix_nodes) for rollout in rollouts]
+    peer_records = [
+        _peer_record(rollout, omitted_prefix_nodes=omitted_prefix_nodes, finish_reasons=reasons)
+        for rollout, reasons in zip(rollouts, finish_reasons, strict=True)
+    ]
     prompts: list[str] = []
     for current_index in range(len(rollouts)):
         records = [record for index, record in enumerate(peer_records) if index != current_index]

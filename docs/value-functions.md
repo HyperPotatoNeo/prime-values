@@ -527,17 +527,17 @@ own `max_steps` in serve-only mode until the policy run finishes.
 ## Optional privileged value context
 
 With the default `value_function.privileged_context = "task"`, a native
-Verifiers v1 task may expose the following optional typed field:
+Verifiers v1 task-data object may expose the following optional typed field:
 
 ```python
 import verifiers.v1 as vf
 
 
-class MyTask(vf.Task):
+class MyTaskData(vf.TaskData):
     value_function_prompt: str | None = None
 ```
 
-The taskset decides during task construction whether to populate the field and
+The taskset decides during task construction whether to populate `task.data.value_function_prompt` and
 owns the context and prompt wording. A missing or `None` field leaves policy
 and value token streams and credit computation unchanged; algorithms without a
 value evaluator ignore the field. A non-empty string activates conditioning

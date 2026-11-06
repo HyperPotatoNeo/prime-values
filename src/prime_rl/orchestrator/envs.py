@@ -4,10 +4,10 @@ Each ``Env`` owns a v1 ``EnvServer`` (spawned as a child process, or an
 external one given by ``config.address``) and an ``EnvClient`` to drive it. The
 orchestrator never *runs* an environment: it asks the server for ``info``
 (``num_tasks`` + whether group scoring is needed), then runs rollouts purely by
-**task index**. The server returns a ``Trace`` (a plain ``model_dump`` — derived values are
-properties, not serialized) which we validate into a ``Trace[WireTask]`` — a real ``vf.Trace``
-(never a loose dict) whose task keeps the env's
-task-specific fields as extras (``WireTask`` allows them). The orchestrator never imports the
+**task index**. The server returns the canonical verifier ``WireEpisode``. Its
+single trace enters the existing rollout pipeline through the explicit
+``from_episode`` boundary; multi-trace episodes are not flattened into siblings.
+The trace's ``task.data`` preserves task-specific fields as extras. The orchestrator never imports the
 env package: the env's *type* and *runtime* both live only in the server, and the orchestrator
 drives it purely by task index. This wrapper treats env-specific extras as opaque; downstream
 rollout consumers may read an explicit wire contract such as the optional
@@ -32,16 +32,13 @@ from verifiers.v1.serve import EnvClient
 
 from prime_rl.configs.orchestrator import EnvConfig, EvalEnvConfig, TrainEnvConfig
 from prime_rl.orchestrator.algo import Algorithm, build_algorithm
+from prime_rl.orchestrator.episodes import from_episode
 from prime_rl.orchestrator.sampler import Sampler
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.utils.logger import get_logger
 
 if TYPE_CHECKING:
     from prime_rl.configs.value import ValueFunctionConfig
-
-# Every wire trace validates into this type. WireTask (extra="allow") preserves task fields
-# without importing the env package; consumers access only explicit wire-level contracts.
-ROLLOUT_TYPE = Rollout[vf.WireTask]
 
 # Max wait for a spawned env server to bind and report its address. The child
 # loads the taskset (possibly downloading a dataset) before reporting, so this
@@ -113,6 +110,10 @@ class Env:
         if external:
             await self.env_client.wait_for_server_startup()
         info = await self.env_client.info()
+        if info.num_tasks is None:
+            raise ValueError(
+                f"Env {self.name} has an infinite taskset; this indexed training pipeline requires finite tasks"
+            )
         self.num_tasks = info.num_tasks
         self.requires_group_scoring = info.requires_group_scoring
         get_logger().info(
@@ -138,7 +139,7 @@ class Env:
                 extra_env_kwargs=self.config.extra_env_kwargs,
             )
             if self.config.is_legacy
-            else dict(legacy=False, config=self.config)
+            else dict(legacy=False, config_data=self.config.env.model_dump(mode="json"))
         )
         process = ctx.Process(
             target=_run_env_server,
@@ -168,25 +169,51 @@ class Env:
     def _sampling(self, cache_salt: str | None) -> vf.SamplingConfig:
         sampling = {**self.sampling_args}
         if cache_salt is not None:
-            sampling["extra_body"] = {**sampling.get("extra_body", {}), "cache_salt": cache_salt}
+            sampling["extra_body"] = {
+                **sampling.get("extra_body", {}),
+                "cache_salt": cache_salt,
+            }
         return vf.SamplingConfig(**sampling)
 
-    async def run_rollout(
-        self, client: vf.ClientConfig, task_idx: int, model_name: str, cache_salt: str | None
-    ) -> Rollout:
-        """Run a single rollout for ``task_idx``; return a typed Trace."""
-        wire = await self.env_client.run_rollout(
+    async def run_episode(
+        self,
+        client: vf.ClientConfig,
+        task_idx: int,
+        model_name: str,
+        cache_salt: str | None,
+    ) -> vf.WireEpisode:
+        """Run one indexed task through the native or upstream legacy episode producer."""
+        return await self.env_client.run(
             task_idx=task_idx,
             client=client,
             model=model_name,
             sampling=self._sampling(cache_salt),
         )
-        return ROLLOUT_TYPE.model_construct(**dict(wire))
+
+    async def run_rollout(
+        self,
+        client: vf.ClientConfig,
+        task_idx: int,
+        model_name: str,
+        cache_salt: str | None,
+    ) -> Rollout:
+        """Project a canonical single-trace episode onto the rollout consumer boundary."""
+        return from_episode(
+            await self.run_episode(client, task_idx, model_name, cache_salt),
+            task_idx=task_idx,
+        )
 
     async def run_group(
-        self, client: vf.ClientConfig, task_idx: int, model_name: str, group_size: int, cache_salt: str | None
+        self,
+        client: vf.ClientConfig,
+        task_idx: int,
+        model_name: str,
+        group_size: int,
+        cache_salt: str | None,
     ) -> list[Rollout]:
-        """Run a group of rollouts for ``task_idx`` (group-scoring envs); return typed Traces."""
+        """Preserve upstream legacy joint scoring; each returned trace is one group member."""
+        if not self.config.is_legacy:
+            raise ValueError("Joint run_group scoring is supported only by the upstream legacy producer")
         wires = await self.env_client.run_group(
             task_idx=task_idx,
             n=group_size,
@@ -194,7 +221,9 @@ class Env:
             model=model_name,
             sampling=self._sampling(cache_salt),
         )
-        return [ROLLOUT_TYPE.model_construct(**dict(wire)) for wire in wires]
+        if len(wires) != group_size:
+            raise RuntimeError(f"Legacy group producer returned {len(wires)} traces for {group_size} requested members")
+        return [from_episode(vf.Episode.of(wire, env=self.config.env_id), task_idx=task_idx) for wire in wires]
 
     def shutdown(self) -> None:
         if self._env_server_process is None:

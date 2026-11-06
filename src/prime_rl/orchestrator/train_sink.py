@@ -32,8 +32,8 @@ from prime_rl.orchestrator.value_context import TokenPrefix, group_leave_one_out
 from prime_rl.transport import TrainingSample
 from prime_rl.utils.async_utils import safe_cancel_all
 from prime_rl.utils.logger import get_logger
-from prime_rl.value.transport import ValueRolloutPublisher
 from prime_rl.value.trajectory import snapshot_value_trajectory
+from prime_rl.value.transport import ValueRolloutPublisher
 from prime_rl.value.types import ValueTrainingRollout, ValueTrainingSample
 
 if TYPE_CHECKING:
@@ -193,16 +193,16 @@ class TrainSink:
         message graph. Training is renderer-only across all modes (RL/OPD student, SFT teacher),
         so every node already carries its tokens. Errored rollouts are dropped at the group
         level, so skip them here."""
-        if rollout.has_error:
+        if rollout.has_error or not rollout.trainable:
             return
         algorithm = self.train_envs.get(rollout.env_name).algorithm
         value_enabled = algorithm.value_evaluator is not None
-        task_prompt = getattr(rollout.task, "value_function_prompt", None) if value_enabled else None
+        task_prompt = getattr(rollout.task.data, "value_function_prompt", None) if value_enabled else None
         if value_enabled and self._value_privileged_context == "group_leave_one_out" and task_prompt is not None:
             raise ValueError(
                 "task value_function_prompt cannot be combined with "
                 "value_function.privileged_context='group_leave_one_out' "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         materialization = await asyncio.to_thread(
             materialize_training_data,
@@ -247,7 +247,7 @@ class TrainSink:
         if not group:
             return
         env_name = group[0].env_name
-        task_idx = group[0].task.idx
+        task_idx = group[0].task.data.idx
         num_errored = sum(r.has_error for r in group)
         num_without_samples = sum(not r.has_error and not r.samples for r in group)
         survivors = [r for r in group if not r.has_error and r.samples]
@@ -365,12 +365,12 @@ class TrainSink:
             return None
         if not isinstance(prompt, str):
             raise TypeError(
-                f"value context prompt must be a string (env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"value context prompt must be a string (env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         if not prompt.strip():
             raise ValueError(
                 "value context prompt must contain non-whitespace text "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
 
         rendered = self.renderer.render_ids(
@@ -382,18 +382,18 @@ class TrainSink:
         if len(set(branch_has_bos)) != 1:
             raise ValueError(
                 "all branches in a rollout must use the same BOS convention "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         rendered_has_bos = bos_token_id is not None and rendered[:1] == [bos_token_id]
         if rendered_has_bos != branch_has_bos[0]:
             raise ValueError(
                 "rendered value context and policy branches must use the same BOS convention "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         prefix_token_ids = tuple(rendered[1:] if rendered_has_bos else rendered)
         if not prefix_token_ids:
             raise ValueError(
-                f"value context rendered to no prefix tokens (env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"value context rendered to no prefix tokens (env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         prefix = TokenPrefix(
             token_ids=prefix_token_ids,
@@ -404,7 +404,7 @@ class TrainSink:
             if merged_length > self._value_seq_len:
                 raise ValueError(
                     "conditioned value input exceeds value_function.model.seq_len "
-                    f"(env={rollout.env_name!r}, task={rollout.task.idx}, branch={branch}, "
+                    f"(env={rollout.env_name!r}, task={rollout.task.data.idx}, branch={branch}, "
                     f"original_tokens={len(sample.token_ids)}, prefix_tokens={len(prefix.token_ids)}, "
                     f"merged_tokens={merged_length}, seq_len={self._value_seq_len}); "
                     "increase the critic sequence length, shorten the privileged context, "

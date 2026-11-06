@@ -1,0 +1,21 @@
+{
+  "archive": {
+    "bytes": 435807,
+    "sha256": "927e19b27291e360c48c071e8a03a65959b24d4b129d84618a55335c3af90164",
+    "files_verified": 265,
+    "persistent_location": "prime-values-shared:/data/episode-sync-001/evidence.tar.gz",
+    "full_model_states_included": false
+  },
+  "current_code_hash_matches": 319,
+  "source_manifest_entries": 2312,
+  "initial_source_verification": "2310 regular files and two symlinks; renderer wheel24 Python source files also matched",
+  "final_source_verification": "2310 regular file hashes after driver exit; symlinks covered at initial verification",
+  "review": "Root independently rechecked archived member hashes, runtime source fingerprints against current checkout, stage coverage, exact restored counters and policy-only result. Dedicated resumed inference has the existing narrowly classified expected shutdown EngineDead event; other checks clear. No reward gain, full latest-main support, or exact sampler/RNG restart claim.",
+  "natural_returncodes": [
+    0,
+    0,
+    0,
+    0,
+    0
+  ]
+}

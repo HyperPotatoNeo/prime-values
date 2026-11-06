@@ -1,0 +1,68 @@
+{
+  "scope": "Focused CPU/config evidence and final artifact inventory; GPU qualifications are in gpu/verification.json",
+  "core": {
+    "core-tests.xml": {
+      "tests": 168,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "configs-complete.xml": {
+      "tests": 180,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "credit": {
+    "cases": 8,
+    "exact_match": true,
+    "first_difference": null,
+    "comparison": "finalized credit, requests, controller state, actor/critic loss and full logit gradients"
+  },
+  "files": {
+    "color-codeword-finite.json": "938d7f8cb2c739214e4e79b1b94238cbe4e50669121c9fe9d4b84b9c7c984a00",
+    "configs-complete.xml": "e38bc74123074f9e5b98d66dea1ebba8cfba29c5113d3209403509f1279558ca",
+    "core-tests.xml": "3183a9bd53d9dc468a96a66ddc895c774eecbc42b102d8e79a0f3eecdc6f0513",
+    "cpu-environment/pyproject.toml": "913214c7e94aa4d08c5052b435f870c328c020b1d1063b35b5a49d11bbd47255",
+    "cpu-environment/uv.lock": "c7364417a9f508cf3f33b16e21386625fa0959b2afc9badee1e9c91e8cd637e4",
+    "credit/baseline.json": "e9e74c184acff63ea9f4553a791c4f5cf30e1b67616fb99862ff5c10c20e1e16",
+    "credit/baseline.log": "d63575d19a5ca0ea38fd1d075a6dcd801491a5652fdfcb2fef3f4bfdbb54db72",
+    "credit/candidate.json": "ea99a1e75d0006d74239b2f6e4ded387b9b102b50b3cffe5dc9b241a595fe682",
+    "credit/candidate.log": "f400667045470393e0c1727f4b520acd58cb5b7ad5f8ce4747a25e219d390fb4",
+    "credit/comparison.json": "22632d639f5fb6f8490c439c2c77ce5e13e185a30e71fd2adeeae21c3ed988a2",
+    "environment-preflight.json": "8b0606cc70e665622ebc4a0d432f203244cb6fe9f957911feabbab087c714334",
+    "example-configs.json": "1e7673a336195a40e7ab3be62f88270c829a127c617d860453d82b0157024667",
+    "gpu/dedicated-summary.json": "a7337442dd3db23449a8376830d78973cfd93f1fe37d8ab04abaabf99bd9168c",
+    "gpu/evidence-files.json": "f22c4379c824ec6ab16d3d7f9a1680f6ff72b51f4d97912932fb3c8aa2198d3c",
+    "gpu/runtime-source.json": "c8e31c67eb1d5949f8442dde97661145bf394182f2e548f8c9fba9f6272e1b97",
+    "gpu/source-files.json": "ddf80d96b65e96c45f895270619b2a3ae9331b269a19bd1ecb61f367789e798a",
+    "gpu/source-final-check.json": "7ff4cdcdcccb399c390677145efeb84cef7abbb5c4731b80ac81a23a81451770",
+    "gpu/trainer-summary.json": "26a3f4593d01248a585d447cb9fdc177503fd49277480ff40087a3dcaf7010a9",
+    "gpu/validation-environment.json": "7e59119a9d7a91a61b0cc9de5901e1bfc0985cdccd85a524df2690fb56bf50f2",
+    "gpu/value-disabled-summary.json": "befd59c648b5e0df9b66040f622cdd96c6498c418466428355c3662ebfe0a596",
+    "gpu/verification.json": "48a05a6d83392cdfb56e59915469f99f8c90c252bb5f6141a31cd2b4577f9beb",
+    "gpu/verified-runtime.json": "c7089fabc896843e5c6b8ecef329b61a0e4f1962cdcfddbd14e8c251894c9df5",
+    "manual-review-and-next-unit.json": "84e702f4fc37bbb580595fd275211abc26f1d2f2557d7e08440da7af41bf47e9",
+    "native-spawn.log": "eab45bd05eda69cb68947bf90789961215372797da53e0ffb2c940bde2d8a9c5",
+    "next-unit-packed-review.json": "455a583a5b3f410f0fe5d78c40022bd24da92cc3231179f522e54abff3879b4e",
+    "next-unit-value-review.json": "720164bdc4113dcf85735828f95e93a03f90b2dd17bc5a065ca964809e59e283",
+    "numerical-dependencies.json": "cb0fcdc45fbe92c5efbd724778681fc0c0cd0dd156ffa8485df0e2d006f95c85",
+    "preflight/launch-configs/inference.reloaded.json": "8339e67e49a60af779ab40d718c21be946f561c85b2c7f1828cab0b53be826c8",
+    "preflight/launch-configs/inference.toml": "d68cb1d1f56cf1d2b7519eb9afebd542189f516749737278bc26e78e7a3f43ef",
+    "preflight/launch-configs/orchestrator.reloaded.json": "457064ec83d418d349f4a96d9b3b442c104d4d4e8b4742a2995578860d22129b",
+    "preflight/launch-configs/orchestrator.toml": "29f9a5a188fedae422e3cd70bcc1c1f1318bd18584b34038537be98bb225d0aa",
+    "preflight/launch-configs/trainer.reloaded.json": "7ea682018fe6209abc88597860b7220e4a2d5456a6b29df7bff379d8271888a5",
+    "preflight/launch-configs/trainer.toml": "9c6e3a641ca48ea7951f02b6ead8fbd35fda6e340dae3bf6cc8d573d001ae897",
+    "preflight/launch-configs/value.reloaded.json": "90a764b688631a8275d4cc5ac9312485c6ffff96038837616e4cf986d921145f",
+    "preflight/launch-configs/value.toml": "3c1a2a24239d9b3912ea81f027b5930ba8c2813b1aa54560a26c06a5dccfd110",
+    "preflight/requested.json": "23f3531b8f9360dc980b6f7e8b70ddeb64c3efb5694ac68b576600662b7cd28e",
+    "preflight/resolved.json": "3c9408a1d5c0b483381378dc6625783ce437c02f5f6e13757cda725c52afd844",
+    "producer.json": "4a11973954285874e79463f714b1c171b0631633573226293b4d0025ba48b1ba",
+    "receipt.json": "706b5a301931c588b852cf423bb938633766a10093acfc9ada7678ededbb8977",
+    "renderer-METADATA.txt": "375af3cb4c7c1ca511c9e09180a838771c0e5c8d31ababd916e4036ce9cb3d2d",
+    "renderer-build.json": "6447d96cabaa08c90aba82100a278c43f44987df31c454637449d8142fe5145e",
+    "renderer-scope-review.json": "930b2d933ea5b7668dcbe7361795fa59fef78de792a62779ad5c3818609f2663",
+    "task-ownership-design.json": "892966941b25d110bf94711096663546ef1afeccf4c6181f1eb59db562b5e0ad"
+  }
+}

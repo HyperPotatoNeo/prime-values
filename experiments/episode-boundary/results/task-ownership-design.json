@@ -1,0 +1,48 @@
+{
+  "status": "Read-only design of the next unit; implementation may be staged separately, never in the GPU-frozen source tree.",
+  "decision": "Prefer client-owned native tasks next. Packed sequence lengths are independent and valuable, but touch policy and value forward numerics; they should be a separate subsequent unit.",
+  "references": {
+    "prime_rl": "f5946b098e7d085732897292c150e959138bb703",
+    "verifiers_before": "192fd8ef0d2fdcefc8566b0ec793d73631e7b51a",
+    "verifiers_after": "b13ba60da63cea91389e7575766b7270d0d11fc5",
+    "packed_lengths": "8dcf55acbcc01b4792e86b61ce411d2d803e8a7c",
+    "paths": ["prime-rl:src/prime_rl/orchestrator/{envs,train_source,dispatcher,types}.py", "verifiers:verifiers/v1/{serve/client,serve/server,serve/types,task,taskset,env,legacy}.py"]
+  },
+  "actual_dependency_delta": {
+    "unchanged": ["pyproject.toml dependencies", "verifiers/v1/trace.py", "verifiers/v1/graph.py", "legacy run_group scoring", "Episode wire fields (episode.py changes comments only)"],
+    "required": ["Native RunRequest carries task_data; legacy carries task_idx; exactly one required.", "Native EnvServer does not load/cache tasks or report a count. It validates data and constructs declared task_type(data, configured task subtree).", "Taskset.task_type() added; EnvConfig.taskset is non-optional with empty config for legacy; TaskData.idx becomes optional.", "Native CLI evaluation resume matches task content with multiplicity; this does not checkpoint Prime RL sampler state."],
+    "additional_commits": {"1dd627da3": "Agent.run shared_tools keyword becomes tools", "6552a4178": "Agent closes owned clients, rejects reuse after close", "fe11f3fca": "Docker execution network policy, runtime setup/execution hooks, Harbor dataset network metadata", "cb9c84969_and_3ed199986": "Documentation changes"},
+    "pin_search": "b13 is the only client-side-tasksets/stateless-env commit found in locally fetched all-ref history; no earlier published Episode-compatible ownership pin avoids fe11. Keep other dependency pins and all numerical wheels fixed."
+  },
+  "atomic_implementation": [
+    "Env loads native taskset once, finite off-loop; exposes finite iterator/count or bounded lazy iterator. Legacy still obtains dataset count and joint-score flag from server.",
+    "TrainSource shuffles tasks in original dataset order with the same RNG calls as old row-index sampling. Semantic task.data.idx must not replace the row coordinate used to select content. Infinite advances only after permits admit a group.",
+    "Validate each selected native Task has exactly the declared task class and configured task config, and data survives declared-class dump/revalidation. Fail explicitly on unsupported row subclass/config variation or excluded data. Never strip custom scoring behavior.",
+    "At group creation model_dump(mode=json) creates one owned task_data dictionary, then every sibling uses it. EnvClient._request synchronously serializes request to msgpack before its first await; it does not mutate task_data. No extra recursive immutable structure or repeated deepcopy is needed. Do not hand the owned dictionary to mutating consumers.",
+    "Keep UUID group identity for credit, cancellation and pass@k. Missing semantic idx is a logging/API decision, not a reason to alias groups or invent an unbounded global identity table. Preserve semantic idx without silently substituting row positions.",
+    "Keep canonical Episode and the existing single-original-trace adapter/value-owned snapshot. Adapt only producer addressing, source selection, group payload and old-config normalization.",
+    "Bound infinite eval explicitly and reuse its selected tasks each eval. Do not add sampler checkpoint claims: current finite RNG/cursors already restart, and infinite generator state is not saved.",
+    "Update actual-server preflight and producer smoke to reconstruct client-selected tasks; update relevant start-run instructions. Integrate after current Episode GPU unit is committed."
+  ],
+  "harbor_admission": {
+    "finding": "b13 serializes HarborData.task_dir; HarborTask.solved reads task_dir/tests on the worker. fe11 additionally derives network_allow from Harbor task metadata and imports Harbor NetworkMode/phase-policy APIs. Default TaskData network_allow=['*'] does not imply Harbor behavior parity.",
+    "current_use": "Shipped SWE-bench Verified configs use local spawned workers, with no authored remote address found. Local workers share host cache paths. Do not remove existing local support or silently suppress the network policy.",
+    "required_checks": ["Pinned Harbor 0.14.0 exposes actual newly imported APIs and parses a representative local fixture.", "Declared task_type preserves SWE-bench Verified finalize subclass and configured per-task options.", "A second local process reads the same grading artifact bytes; missing files produce a clear error.", "A restricted Harbor fixture has expected network_allow after parse; document this intentional upstream behavior change."],
+    "remote_limit": "An externally hosted Harbor worker requires the same artifact path/content. No new transport protocol or monkeypatch is proposed. Admit only with an explicit shared-artifact contract or fail clearly before rollout; do not claim arbitrary remote Harbor support."
+  },
+  "meaningful_acceptance": [
+    "Two actual native workers, one client dataset load and zero worker loads; selected nested/private task data reconstructed identically in both workers.",
+    "Seeded mixed-env finite selection matches old content order across epoch boundaries even with non-contiguous semantic idx; legacy joint-score group membership and rewards unchanged.",
+    "Mutate original task nested data after group creation; every sibling still receives original owned payload and privileged value prompt. Cancellation retains UUID, emits owed failed markers, and cannot credit rejected payloads.",
+    "Infinite fixture advances once per admitted group, not once per sibling or failed permit; eval without a finite bound rejects. Explicit type/config/excluded-field and addressing negative cases reject.",
+    "Existing exact value-credit and LOO prompt comparisons remain unchanged. One bounded real model pipeline verifies value warmup, version adoption, updates and restart; no repeat broad suite without relevant changes."
+  ],
+  "reject_if": ["Silent row type/config/data loss", "Legacy joint scoring becomes independent scoring", "One group sends changing task payloads", "Private critic data enters public records", "Infinite materialization or unbounded duplicate-ID history", "Claims of exact sampler restart without saved state", "Loss, dtype, renderer, or GPU dependency changes mixed into this unit"],
+  "packed_lengths_comparison": {
+    "relationship": "8dcf55ac is an ancestor of cb74ae2b, but was not part of the selective Episode port. Neither task ownership nor packed lengths requires the other.",
+    "scope": "Upstream 38-file change introduces TransportMicroBatch/RL seq_lens, removes position-id-derived boundaries across custom models and CP helpers, changes padding contract, and also alters SFT stacking/resume. Do not blindly bundle unrelated SFT removal or later multimodal packing.",
+    "value_work": "Current ValueMicroBatch/ValueInputMicroBatch already store sequence_lengths, but value/trainer.py and value/inference.py call trainer/model.py:predict_value using only input_ids and position_ids. The value wrapper and every supported forward need the new explicit boundary argument too.",
+    "acceptance": "Packed versus separately evaluated variable-length sequences must match value/policy outputs and gradients at real tokens, including padding, first-token alignment, final partial packs and CP boundaries. Test independent analytic boundaries rather than reproducing the packing implementation. This deserves its own numerical baseline and GPU unit."
+  },
+  "limitations": "Source inspection, not new runtime proof. No production edits or repeated broad tests performed for this design."
+}

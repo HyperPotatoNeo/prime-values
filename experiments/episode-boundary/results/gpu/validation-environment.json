@@ -1,0 +1,133 @@
+{
+  "source_archive": {
+    "sha256": "cfb30fbd8c31d74b26a73a5f3ba1ba4eb0b8a198a152ee3bb67757d94adac5ca",
+    "bytes": 19117408
+  },
+  "source_manifest": "source-files.json",
+  "job": {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+      "name": "pv-episode-sync-001",
+      "namespace": "siddarth",
+      "labels": {
+        "kueue.x-k8s.io/queue-name": "gpu"
+      }
+    },
+    "spec": {
+      "backoffLimit": 0,
+      "activeDeadlineSeconds": 10800,
+      "ttlSecondsAfterFinished": 86400,
+      "template": {
+        "spec": {
+          "restartPolicy": "Never",
+          "securityContext": {
+            "runAsNonRoot": true,
+            "runAsUser": 1000,
+            "runAsGroup": 1000,
+            "fsGroup": 1000,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            }
+          },
+          "tolerations": [
+            {
+              "key": "nvidia.com/gpu",
+              "operator": "Exists",
+              "effect": "NoSchedule"
+            }
+          ],
+          "containers": [
+            {
+              "name": "episode-sync",
+              "image": "primeintellect/prime-rl@sha256:e175fb968a270de9450cde72817ebac0a97087fbfc3b7765f1c10cc5b5886209",
+              "command": [
+                "bash",
+                "-lc"
+              ],
+              "args": [
+                "set -eu; mkdir -p /data/episode-sync-001; touch /data/episode-sync-001/ready; while [ ! -e /data/episode-sync-001/done ]; do sleep 5; done"
+              ],
+              "env": [
+                {
+                  "name": "UV_PROJECT_ENVIRONMENT",
+                  "value": "/app/.venv"
+                },
+                {
+                  "name": "UV_CACHE_DIR",
+                  "value": "/data/cache/uv"
+                },
+                {
+                  "name": "HF_HOME",
+                  "value": "/data/cache/huggingface"
+                },
+                {
+                  "name": "OMP_NUM_THREADS",
+                  "value": "1"
+                },
+                {
+                  "name": "WANDB_MODE",
+                  "value": "offline"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "32",
+                  "memory": "512Gi",
+                  "nvidia.com/gpu": 8,
+                  "nvidia.com/hostdev": 8
+                },
+                "limits": {
+                  "cpu": "32",
+                  "memory": "512Gi",
+                  "nvidia.com/gpu": 8,
+                  "nvidia.com/hostdev": 8
+                }
+              },
+              "securityContext": {
+                "allowPrivilegeEscalation": false,
+                "capabilities": {
+                  "drop": [
+                    "ALL"
+                  ]
+                }
+              },
+              "volumeMounts": [
+                {
+                  "name": "shared",
+                  "mountPath": "/data"
+                },
+                {
+                  "name": "shm",
+                  "mountPath": "/dev/shm"
+                }
+              ]
+            }
+          ],
+          "volumes": [
+            {
+              "name": "shared",
+              "persistentVolumeClaim": {
+                "claimName": "prime-values-shared"
+              }
+            },
+            {
+              "name": "shm",
+              "emptyDir": {
+                "medium": "Memory",
+                "sizeLimit": "32Gi"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+  "renderer_wheel": {
+    "name": "renderers-0.1.9.dev1-py3-none-any.whl",
+    "sha256": "0530292f094fcb7c7f095b0b7b1320bc9f6b4d3ad218a7f140a39f347ee8b0f9"
+  },
+  "qualification": "Image cuDNN9.22.0.52 matches the repository lock but conflicts with torch package metadata requesting9.19.0.56; existing GPU stack preserved. Full Qwen states reside on disposable node-local storage and are excluded from evidence. Lifecycle validation, not a reward benchmark."
+}
