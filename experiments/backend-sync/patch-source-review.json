@@ -1,0 +1,83 @@
+{
+  "status": "Actual installed imports/explicit patch installers and native config gates passed; read-only admin registration passed. Model/weight-adoption GPU acceptance remains separately pending.",
+  "checks": {
+    "LoRA loader rebase": {
+      "source": "lora/lora_model.py",
+      "sha256": "8fa422bf787117d50855df341578bee95e361f6f33b06db6be785e933d580c0d",
+      "finding": "Target method lacks TensorizerConfig branch; production copy retains actual target loading behavior, changing only expert suffix/qualified-name acceptance."
+    },
+    "Prompt-budget patch removal": {
+      "source": "renderers/params.py",
+      "sha256": "5113461cd308266727d9ced82900cbe65ae50245a2f3cb16224f6689574570a9",
+      "finding": "TokenizeParams.max_input_tokens returns max_total_tokens; generation budget no longer reserved from prompt budget. Genuine target tests required."
+    },
+    "Qwen newline patch removal": {
+      "source": "parser/qwen3.py",
+      "sha256": "2fa80f910f0da453c2134027564a3859cb1f2ec01035198b40f11da37fe0ac0a",
+      "finding": "Native _trim_wrapping_newlines removes exactly one leading and trailing newline and converter uses it for complete/partial parameters."
+    },
+    "Harmony stop patch removal": {
+      "source": "entrypoints/openai/chat_completion/protocol.py",
+      "sha256": "8744d5e2004b2d376e34cf17de51c919bca6d81b0cc8392da138db1ef05a7c61",
+      "finding": "Native to_sampling_params merges request and default stop_token_ids, preserving order and removing duplicates."
+    },
+    "NIXL routed bypass removal": {
+      "source": "config/vllm.py",
+      "sha256": "573692a80364d5c373321754c6213b4792ae292ba6aea7d6573ae013c2c71ae9",
+      "finding": "Aux-output flag moved out of model_config; native compatibility checker rejects P/D and requires V2. Root-approved P/D/routing deferral, not an upstream correctness-fix claim."
+    },
+    "V1 padded-input scrub retained": {
+      "source": "v1/worker/gpu_model_runner.py",
+      "sha256": "4cf95efe4ea8caa3110dcd231ff95ceb97e8136f5056e6bdd388300a484c4a81",
+      "finding": "Exact _preprocess(self,scheduler_output,num_input_tokens,intermediate_tensors=None) boundary retained; return leading input_ids/inputs_embeds/positions unchanged. Native zeroes positions tail but does not equivalently scrub all input arrays."
+    },
+    "KV finish patch rebase": {
+      "source": "v1/core/sched/scheduler.py",
+      "sha256": "d9a39870286c424cef2fc0730e24092ee3df67e848608e2278944846bab804ae",
+      "finding": "Preserves native _set_kv_fetch_stage(req,KV_FETCH_COMPLETED_WAITING) in addition to prior freed-request tolerance."
+    },
+    "FP32 lm_head compatibility": {
+      "source": "model_executor/layers/logits_processor.py",
+      "sha256": "35cf8235cb529ba2d37358fe9b9e5a29f40b5c3cbcc9e6750c8480c51bd7da83",
+      "finding": "New skip_gather argument forwarded when disabled and honored before gather when enabled; original native bf16xbf16->fp32 GEMM remains unchanged."
+    },
+    "DP timeout retained": {
+      "source": "v1/engine/coordinator.py",
+      "sha256": "7aa75ef66eb448a2994490af97acbccb6ef64f3ebc2455b43d15acde20b9654e",
+      "finding": "Same _wait_for_zmq_addrs method and120-second native wait; existing bounded300-second custom override retained."
+    },
+    "Native route serialization": {
+      "source": "entrypoints/scale_out/token_in_token_out/api_router.py",
+      "sha256": "cae8048e7aa433af5dffe0ddee890be7325afeae8811da796d8f0aeb9f254de3",
+      "finding": "GenerateResponseBase instances serialize model_dump directly, so response subclass literal-token representation is preserved without base-schema recoercion."
+    },
+    "Native dev admin collision": {
+      "source": "entrypoints/launchers/api_server/routers.py",
+      "sha256": "641fbd7b21eb97c64986bd2ee0c2421366cff0628b27e4083c47d6f5aecb4a77",
+      "finding": "Native RL mutation router registers only in dev mode and precedes appended custom routes, including an incompatible POST /update_weights. Experimental profile rejects dev mode explicitly; no route surgery. Read-only status is available in the custom router."
+    },
+    "Official label and pause observation": {
+      "source": "entrypoints/rl/online/api_router.py",
+      "sha256": "3a894fa5e46a0651dff6c610b7f7504f52c55f02120bc1be8051a0d0bbfbf207",
+      "finding": "GET /weight_info uses await engine.get_weight_version and GET /is_paused uses await engine.is_paused. Custom read-only endpoints use the same official client APIs without enabling dev mutations."
+    },
+    "RoPE override semantics": {
+      "source": "config/model.py",
+      "sha256": "04ca37ea1d50128a7ddede30e7baa4e0a56bccec85091577a2c81c5de1a8fab8",
+      "finding": "Native dictionary override replaces dict-valued rope_parameters after config loading. That can drop checkpoint theta. Supported callable override runs before native normalization and preserves flat checkpoint theta/partial values, with explicit nested rejection. Actual config-loader probe provides separate execution evidence."
+    },
+    "Absent filesystem weights": {
+      "source": "model_executor/model_loader/default_loader.py",
+      "sha256": "3101d49e14d78321ad9aa2aa5fb1a8d478d1c8a57511d12433afa5a174a53615",
+      "finding": "_get_weights_iterator is ordinary synchronous function returning a generator expression after _prepare_weights. Empty directory raises Cannot find any model weights before our worker enters layerwise reload. Actual failure/paused/version/recovery behavior remains runtime-gated."
+    }
+  },
+  "preserved": [
+    "processed_logprobs override",
+    "model/optimizer/reduction precision defaults",
+    "existing nano_v3 compatibility parser",
+    "dense V1 runner default",
+    "value and policy objective math"
+  ],
+  "scope": "No imported P/D workaround suite, packed-logprob optimization, new models or GC tuning."
+}

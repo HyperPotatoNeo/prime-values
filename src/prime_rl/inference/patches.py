@@ -14,10 +14,8 @@ def apply_shared_vllm_patches():
     _patch_lora_key_prefix()
     _patch_qwen35_moe_lora_format()
     monkey_patch_nano_v3_reasoning_parser()
-    monkey_patch_qwen3_coder_param_newline_trim()
     monkey_patch_minimax_m2_think_end_passthrough()
     monkey_patch_vllm_padded_input_scrub()
-    monkey_patch_return_routed_experts_with_nixl_connector()
     monkey_patch_kv_xfer_finished_tolerate_freed()
 
 
@@ -46,6 +44,7 @@ def monkey_patch_kv_xfer_finished_tolerate_freed():
     """
     from vllm.logger import init_logger
     from vllm.v1.core.sched.scheduler import Scheduler
+    from vllm.v1.metrics.stats import KV_FETCH_COMPLETED_WAITING
     from vllm.v1.request import RequestStatus
 
     logger = init_logger("vllm.v1.core.sched.scheduler")
@@ -66,6 +65,7 @@ def monkey_patch_kv_xfer_finished_tolerate_freed():
             req = self.requests[req_id]
             if req.status == RequestStatus.WAITING_FOR_REMOTE_KVS:
                 self.finished_recving_kv_req_ids.add(req_id)
+                self._set_kv_fetch_stage(req, KV_FETCH_COMPLETED_WAITING)
             else:
                 assert RequestStatus.is_finished(req.status)
                 self._free_blocks(self.requests[req_id])
@@ -97,57 +97,6 @@ def monkey_patch_nano_v3_reasoning_parser():
             return reasoning_content, final_content
 
     ReasoningParserManager.register_module("nano_v3", module=NanoV3ReasoningParser)
-
-
-def monkey_patch_qwen3_coder_param_newline_trim():
-    """Restore vLLM 0.23's single-newline trim for qwen3_coder tool parameters.
-
-    vLLM 0.24's parser engine applies a full ``.strip()`` to every parameter
-    value in ``_qwen3_arg_converter``; 0.23's ``Qwen3CoderToolParser`` trimmed
-    exactly one leading and one trailing newline. A full strip corrupts
-    whitespace-significant string parameters (str_replace-style
-    ``old_str``/``new_str``, file content with an indented first line, values
-    with intentional trailing newlines), silently changing tool execution and
-    rewards for agentic runs. Copy of ``_qwen3_arg_converter`` with only the
-    trim changed. Also covers ``nemotron_v3``, which reuses ``qwen3_config``.
-    """
-    import json
-
-    from vllm.parser import qwen3
-
-    def _trim_one_newline(value: str) -> str:
-        if value.startswith("\n"):
-            value = value[1:]
-        if value.endswith("\n"):
-            value = value[:-1]
-        return value
-
-    def _patched_arg_converter(raw_args: str, partial: bool) -> str:
-        params: dict[str, object] = {}
-
-        for match in qwen3._PARAM_RE.finditer(raw_args):
-            name = match.group(1)
-            value = match.group(2)
-            ## START PATCHED CODE (upstream: value.strip())
-            params[name] = _trim_one_newline(value)
-            ## END PATCHED CODE
-
-        if partial:
-            remaining = qwen3._PARAM_RE.sub("", raw_args)
-            m = qwen3._PARTIAL_PARAM_RE.search(remaining)
-            if m:
-                name = m.group(1)
-                value = m.group(2)
-                if name:
-                    ## START PATCHED CODE (upstream: value.strip())
-                    params[name] = _trim_one_newline(value)
-                    ## END PATCHED CODE
-
-        return json.dumps(params, ensure_ascii=False)
-
-    qwen3._qwen3_arg_converter = _patched_arg_converter
-    # qwen3_config captures the converter when first built; drop any cached configs.
-    qwen3.qwen3_config.cache_clear()
 
 
 def monkey_patch_minimax_m2_think_end_passthrough():
@@ -182,50 +131,6 @@ def monkey_patch_minimax_m2_think_end_passthrough():
         )
 
     minimax_m2.minimax_m2_config = _patched_config
-
-
-def monkey_patch_return_routed_experts_with_nixl_connector():
-    from vllm import envs
-    from vllm.config.vllm import VllmConfig
-    from vllm.logger import init_logger
-
-    logger = init_logger(__name__)
-    original_post_init = VllmConfig.__post_init__
-
-    if getattr(original_post_init, "_prime_rl_allows_nixl_routed_experts", False):
-        return
-
-    def _is_nixl_routed_experts_pd_config(config: VllmConfig) -> bool:
-        kv_transfer_config = config.kv_transfer_config
-        return (
-            config.model_config is not None
-            and config.model_config.enable_return_routed_experts
-            and kv_transfer_config is not None
-            and kv_transfer_config.kv_connector == "NixlConnector"
-            and kv_transfer_config.is_kv_transfer_instance
-        )
-
-    def _post_init(config: VllmConfig):
-        if not _is_nixl_routed_experts_pd_config(config):
-            return original_post_init(config)
-
-        if config.parallel_config.pipeline_parallel_size > 1:
-            raise ValueError("--enable-return-routed-experts is incompatible with pipeline parallelism (PP > 1).")
-        if envs.VLLM_USE_V2_MODEL_RUNNER:
-            raise ValueError("VLLM_USE_V2_MODEL_RUNNER does not yet support: routed experts capture")
-
-        # vLLM rejects every KV connector, but our P/D path uses NIXL and
-        # stitches prefill/decode routed experts in the router. CPU KV offload
-        # remains rejected by prime-rl config validation.
-        config.model_config.enable_return_routed_experts = False
-        try:
-            return original_post_init(config)
-        finally:
-            config.model_config.enable_return_routed_experts = True
-
-    _post_init._prime_rl_allows_nixl_routed_experts = True
-    VllmConfig.__post_init__ = _post_init
-    logger.warning("Enabled vLLM routed-experts capture with NIXL connector patch.")
 
 
 def monkey_patch_strip_routed_experts_from_chat():
@@ -292,7 +197,7 @@ def _patch_qwen35_moe_lora_format():
 def _patch_lora_key_prefix():
     """Accept both bare-suffix and fully-qualified expert module names in LoRA adapters.
 
-    Copy of vLLM 0.24.0's ``LoRAModel.from_local_checkpoint`` with one change: the
+    Copy of vLLM 0.32.0's ``LoRAModel.from_local_checkpoint`` with one change: the
     ``.experts`` branch of ``check_unexpected_modules`` accepts either the bare suffix
     (``down_proj``) or the qualified per-expert name (``experts.N.down_proj``), where
     upstream only accepts the qualified form. Our trainer's 2D per-expert adapters
@@ -304,7 +209,6 @@ def _patch_lora_key_prefix():
         LoRAModel,
         MoEEPLoadSpec,
         PEFTHelper,
-        TensorizerConfig,
         WeightsMapper,
         _is_remote_expert_key,
         get_lora_id,
@@ -325,7 +229,6 @@ def _patch_lora_key_prefix():
         dtype: torch.dtype | None = None,
         model_vocab_size: int | None = None,
         weights_mapper: WeightsMapper | None = None,
-        tensorizer_config_dict: dict | None = None,
         skip_prefixes: list[str] | None = None,
         moe_ep_spec: MoEEPLoadSpec | None = None,
     ) -> "LoRAModel":
@@ -340,10 +243,14 @@ def _patch_lora_key_prefix():
                 a global counter.
             device: Device where the lora model is loaded.
             dtype: dtype of the lora model weights.
+            model_vocab_size: Vocab size of the base model, used to size the
+                embedding deltas.
+            weights_mapper: Optional mapper rewriting checkpoint weight names
+                to vLLM names.
             skip_prefixes: List of module name prefixes to skip during loading.
                 Models can define this to skip modules not used in inference
                 (e.g., MTP layers). Format: ["mtp."]
-            moe_ep_spec: When 2D FusedMoE LoRA modules are present with
+            moe_ep_spec: When 2D FusedMoEFactory LoRA modules are present with
                 expert parallelism enabled, the (ep_rank, local, global)
                 slicing metadata shared across all MoE layers. Non-local
                 expert weights are skipped at read time instead of being
@@ -351,6 +258,7 @@ def _patch_lora_key_prefix():
 
         Returns:
             Loaded LoRA Model.
+
         """
         lora_tensor_path = os.path.join(lora_dir, "adapter_model.safetensors")
         lora_bin_file_path = os.path.join(lora_dir, "adapter_model.bin")
@@ -371,16 +279,15 @@ def _patch_lora_key_prefix():
                 if skip_prefixes and cls._should_skip_module(lora_module, skip_prefixes):
                     continue
                 module_name, _ = parse_fine_tuned_lora_name(lora_module, weights_mapper)
-                # Case for expert lora weights.
-                ## START PATCHED CODE (upstream only accepts the qualified form)
+                base_name = module_name.rsplit(".", 1)[-1]
+                # Case for expert lora weights
                 if ".experts" in module_name:
                     expert_suffix = module_name.split(".")[-1]
                     experts_qualified = "experts" + module_name.split(".experts", 1)[-1]
                     if expert_suffix not in expected_lora_modules and experts_qualified not in expected_lora_modules:
                         unexpected_modules.append(module_name)
-                ## END PATCHED CODE
 
-                elif module_name.rsplit(".", 1)[-1] not in expected_lora_modules:
+                elif base_name not in expected_lora_modules and base_name not in (peft_helper.modules_to_save or ()):
                     unexpected_modules.append(module_name)
 
             if unexpected_modules:
@@ -391,24 +298,7 @@ def _patch_lora_key_prefix():
                     f" Please verify that the loaded LoRA module is correct"
                 )
 
-        if tensorizer_config_dict:
-            from tensorizer import TensorDeserializer
-
-            tensorizer_config = TensorizerConfig(**tensorizer_config_dict)
-            tensorizer_dir = tensorizer_config.tensorizer_dir
-            if tensorizer_dir is None:
-                raise ValueError("tensorizer_dir must be set in tensorizer config.")
-            lora_tensor_path = os.path.join(tensorizer_dir, "adapter_model.tensors")
-            tensorizer_args = tensorizer_config._construct_tensorizer_args()
-            tensors = TensorDeserializer(
-                lora_tensor_path,
-                dtype=tensorizer_config.dtype,
-                device=device,
-                **tensorizer_args.deserialization_kwargs,
-            )
-            check_unexpected_modules(tensors)
-
-        elif os.path.isfile(lora_tensor_path):
+        if os.path.isfile(lora_tensor_path):
             # Find unexpected modules.
             # Use safetensor key as a source of truth to find expected modules.
             # in peft if you have target_modules A, B, C and C does not exist
@@ -447,76 +337,6 @@ def _patch_lora_key_prefix():
         )
 
     LoRAModel.from_local_checkpoint = classmethod(_patched_from_local_checkpoint)
-
-
-# Monkeypatch TokenizeParams to fix overly conservative validation
-def monkey_patch_tokenize_params_validation():
-    """
-    Patch TokenizeParams validation to only reject requests where the prompt
-    itself exceeds max_model_len, not where prompt + max_tokens > max_model_len.
-
-    Original behavior:
-        - Rejects if prompt_len > (max_model_len - max_tokens)
-
-    Patched behavior:
-        - Only rejects if prompt_len > max_model_len
-        - Lets the engine naturally cap generation at max_model_len
-    """
-    from vllm.exceptions import VLLMValidationError
-    from vllm.renderers.params import TokenizeParams
-
-    def _patched_token_len_check(self, tokenizer, tokens):
-        """Only validate that prompt fits in max_model_len, not prompt+max_tokens"""
-        if self.max_total_tokens is not None and len(tokens) > self.max_total_tokens:
-            raise VLLMValidationError(
-                f"The prompt is {len(tokens)} tokens, which exceeds the "
-                f"model's maximum context length of {self.max_total_tokens} tokens. "
-                f"Please reduce the length of the input prompt.",
-                parameter="input_tokens",
-                value=len(tokens),
-            )
-        return tokens
-
-    def _patched_text_len_check(self, tokenizer, text):
-        """Only validate text length against max_model_len, not max_input_tokens"""
-        if self.max_total_tokens is None or tokenizer is None:
-            return text
-
-        if self.truncate_prompt_tokens is None:
-            max_chars = self.max_total_tokens * tokenizer.max_chars_per_token
-            if len(text) > max_chars:
-                raise VLLMValidationError(
-                    f"You passed {len(text)} input characters. "
-                    f"However, the model's context length is only "
-                    f"{self.max_total_tokens} tokens "
-                    f"(at most {max_chars} characters). "
-                    f"Please reduce the length of the input prompt.",
-                    parameter="input_text",
-                    value=len(text),
-                )
-        return text
-
-    def _patched_get_encode_kwargs(self):
-        """Use max_total_tokens (max_model_len) instead of max_input_tokens for HF tokenizer truncation.
-
-        The original uses max_input_tokens (= max_model_len - max_tokens) + 1, which causes HuggingFace's
-        tokenizer.encode() to left-truncate prompts before _token_len_check even runs.
-        """
-        max_length = self.truncate_prompt_tokens
-        if max_length is not None and max_length < 0:
-            max_length = self.max_total_tokens
-        elif max_length is None and self.max_total_tokens is not None:
-            max_length = self.max_total_tokens + 1
-
-        return dict(
-            truncation=max_length is not None,
-            max_length=max_length,
-            add_special_tokens=self.add_special_tokens,
-        )
-
-    TokenizeParams._token_len_check = _patched_token_len_check
-    TokenizeParams._text_len_check = _patched_text_len_check
-    TokenizeParams.get_encode_kwargs = _patched_get_encode_kwargs
 
 
 def monkey_patch_minimax_m2_for_lora():
@@ -587,32 +407,6 @@ def monkey_patch_minimax_m2_for_lora():
     )
 
 
-def monkey_patch_harmony_stop_token_propagation():
-    """Fix: vLLM doesn't merge harmony stop tokens into per-request SamplingParams.
-
-    The harmony mode sets stop_token_ids (including <|call|> and <|return|>) in
-    default_sampling_params at server init, but ChatCompletionRequest.to_sampling_params()
-    ignores them, using only self.stop_token_ids (which defaults to []).
-
-    Upstream: https://github.com/vllm-project/vllm/issues/22519
-    """
-    from vllm.entrypoints.openai.chat_completion.protocol import ChatCompletionRequest
-
-    _original_to_sampling_params = ChatCompletionRequest.to_sampling_params
-
-    def _patched_to_sampling_params(self, max_tokens, default_sampling_params):
-        params = _original_to_sampling_params(self, max_tokens, default_sampling_params)
-        # Merge harmony stop tokens from default_sampling_params
-        default_stop_ids = default_sampling_params.get("stop_token_ids", [])
-        if default_stop_ids:
-            existing = set(params.stop_token_ids or [])
-            merged = list(existing | set(default_stop_ids))
-            params.stop_token_ids = merged
-        return params
-
-    ChatCompletionRequest.to_sampling_params = _patched_to_sampling_params
-
-
 def monkey_patch_no_moe_lora():
     """This disables LoRA for MoE layers and makes them pick better kernels.
 
@@ -671,9 +465,9 @@ def monkey_patch_fp32_lm_head():
         if self._fp32_lm_head_enabled:
             logger.warning("fp32 lm_head ENABLED for this LogitsProcessor instance.")
 
-    def _patched_get_logits(self, hidden_states, lm_head, embedding_bias):
+    def _patched_get_logits(self, hidden_states, lm_head, embedding_bias, skip_gather=False):
         if not getattr(self, "_fp32_lm_head_enabled", False):
-            return _original_get_logits(self, hidden_states, lm_head, embedding_bias)
+            return _original_get_logits(self, hidden_states, lm_head, embedding_bias, skip_gather=skip_gather)
 
         # Native bf16xbf16 -> fp32 GEMM. torch.mm requires 2D inputs; vLLM v1's
         # generative path passes 2D [num_tokens, hidden_size] hidden_states, but
@@ -685,7 +479,10 @@ def monkey_patch_fp32_lm_head():
         if hidden_states.dim() > 2:
             logits = logits.reshape(*hidden_states.shape[:-1], -1)
 
-        logits = self._gather_logits(logits)
+        if skip_gather:
+            return logits
+        if lm_head.tp_size > 1:
+            logits = self._gather_logits(logits)
         if logits is not None:
             logits = logits[..., : self.org_vocab_size]
         return logits

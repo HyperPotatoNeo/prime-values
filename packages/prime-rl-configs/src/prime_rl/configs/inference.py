@@ -1,4 +1,7 @@
+import json
 from argparse import Namespace
+from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
@@ -10,6 +13,35 @@ from prime_rl.utils.config import find_package_resource, rgetattr, rsetattr
 from prime_rl.utils.parsers import resolve_reasoning_parser, resolve_tool_call_parser
 
 # TODO: Set thinking/ solution budget
+
+
+@dataclass(frozen=True)
+class _RopeScalingOverride:
+    scaling: dict[str, Any]
+
+    def __call__(self, config):
+        # vLLM probes architecture overrides before loading the real config.
+        if getattr(config, "model_type", "").startswith("dummy_"):
+            return config
+        text_config = config.get_text_config()
+        original = getattr(text_config, "rope_parameters", None) or {}
+        if (
+            not isinstance(original, dict)
+            or any(isinstance(value, dict) for value in original.values())
+            or text_config.nested_rope_parameter_keys(original)
+            or text_config.nested_rope_parameter_keys(self.scaling)
+        ):
+            raise ValueError("model.rope_scaling only supports flat text RoPE parameters in this backend profile")
+        parameters = deepcopy(self.scaling)
+        for key in ("rope_theta", "partial_rotary_factor"):
+            value = original.get(key, getattr(text_config, key, None))
+            if value is not None:
+                parameters.setdefault(key, value)
+        if parameters.get("rope_theta") is None:
+            raise ValueError("model.rope_scaling requires an explicit or checkpoint-defined rope_theta")
+        # Native vLLM standardization/validation runs after this override.
+        text_config.rope_parameters = parameters
+        return config
 
 
 class ServerConfig(BaseConfig):
@@ -64,7 +96,7 @@ class ModelConfig(BaseModelConfig):
     """Parser for extracting reasoning content from model outputs. Forwarded as ``--reasoning-parser``. Set to ``"auto"`` (default) to detect from the model name, or ``None`` to disable."""
 
     rope_scaling: dict[str, Any] | str | None = None
-    """RoPE scaling configuration as a dict (e.g. ``{rope_type="yarn", factor=4.0, original_max_position_embeddings=32768}``). Forwarded as ``--rope-scaling``."""
+    """Flat text RoPE scaling as a dict or JSON string. Applied through vLLM's HF override while preserving checkpoint base frequency and partial rotation unless explicitly overridden."""
 
     @model_validator(mode="after")
     def auto_resolve_parsers(self):
@@ -564,7 +596,6 @@ class InferenceConfig(BaseConfig):
             "model.chat_template": "chat_template",
             "model.tool_call_parser": "tool_call_parser",
             "model.reasoning_parser": "reasoning_parser",
-            "model.rope_scaling": "rope_scaling",
             "parallel.tp": "tensor_parallel_size",
             "parallel.dp": "data_parallel_size",
             "data_parallel_size_local": "data_parallel_size_local",
@@ -588,6 +619,9 @@ class InferenceConfig(BaseConfig):
         for config_key, vllm_key in to_vllm.items():
             value = rgetattr(self, config_key.replace("-", "_"))
             rsetattr(namespace, vllm_key, value)
+
+        # The native token endpoint is gated separately from OpenAI chat routes.
+        rsetattr(namespace, "enable_scale_out", True)
 
         # Set `logprobs_mode` to `processed_logprobs` by default
         rsetattr(namespace, "logprobs_mode", "processed_logprobs")
@@ -625,9 +659,12 @@ class InferenceConfig(BaseConfig):
         if hasattr(namespace, "lora_target_modules") and namespace.lora_target_modules is None:
             delattr(namespace, "lora_target_modules")
 
-        # Remove rope_scaling if not set (vLLM doesn't accept None)
-        if hasattr(namespace, "rope_scaling"):
-            if namespace.rope_scaling is None:
-                delattr(namespace, "rope_scaling")
+        if self.model.rope_scaling is not None:
+            scaling = self.model.rope_scaling
+            if isinstance(scaling, str):
+                scaling = json.loads(scaling)
+            if not isinstance(scaling, dict) or any(isinstance(value, dict) for value in scaling.values()):
+                raise ValueError("model.rope_scaling must be a flat dict or JSON object")
+            namespace.hf_overrides = _RopeScalingOverride(deepcopy(scaling))
 
         return namespace

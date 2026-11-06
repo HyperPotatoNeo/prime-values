@@ -24,10 +24,14 @@ git submodule update --init --recursive
 ```bash
 uv sync                    # core only
 uv sync --group dev        # + pytest, ruff, pre-commit
-uv sync --all-extras       # recommended: envs, flash-attn, flash-attn-cute, etc.
+uv sync --all-extras --locked  # this branch's explicit native/backend profile
 ```
 
 The `envs` extra installs environments listed under `[project.optional-dependencies].envs`, resolved through `[tool.uv.sources]`. Adding a new env means adding its package name to `envs` and its editable source path to `[tool.uv.sources]`.
+
+This experimental branch uses the vLLM 0.32/CUDA 13 dependency family and the native RG/reverse-text environment profile. FlashAttention 4 is deliberately absent: its TVM-FFI requirement conflicts with the exact vLLM dependency, and actor/value configs reject `fa4` and `flash_attention_4` early. Use FA2/FA3 in this profile. Do not force incompatible metadata overrides or claim GPU compatibility from a successful resolver/CPU import alone. See `experiments/backend-sync/README.md` and its actual acceptance receipts; optional historical profiles require separate migration evidence.
+
+When deploying source archives, Git-backed `hatch-vcs` dependencies can report `0.0.0` without their Git metadata. Per-distribution `SETUPTOOLS_SCM` overrides did not reach the isolated builds in the recorded deployment. Use a checkout retaining Git metadata, or genuine wheels built from the exact clean pinned checkouts with verified wheel hashes and source equality. Never rewrite version metadata or manually edit the installed environment to make dependency checks pass. Preserve the original installation/checker output alongside any explicitly reviewed static metadata exceptions.
 
 When bumping a package past the workspace-wide `exclude-newer = "7 days"` window, add it (and any newly-required transitives) to `[tool.uv.exclude-newer-package]` before refreshing `uv.lock`.
 

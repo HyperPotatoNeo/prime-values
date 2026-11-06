@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from .flash_attn_ops import flash_attn_2_varlen_op, flash_attn_3_varlen_op
 from .norms import RMSNorm, RMSNormConfig
 from .rotary_emb import apply_rotary_pos_emb
 
@@ -50,8 +51,8 @@ class FlashAttention(nn.Module):
     """Flash Attention"""
 
     _funcs = {
-        2: flash_attn_varlen_func,
-        3: flash_attn_3_varlen_func,
+        2: flash_attn_2_varlen_op if flash_attn_varlen_func is not None else None,
+        3: flash_attn_3_varlen_op if flash_attn_3_varlen_func is not None else None,
         4: flash_attn_4_varlen_func,
     }
 
