@@ -133,7 +133,7 @@ class NCCLWeightUpdateWorker(Worker):
         """No-op RPC used by the API server liveness endpoint."""
         return None
 
-    def update_weights_from_path(self, weight_dir: str) -> None:
+    def update_weights_from_path(self, weight_dir: str | None) -> None:
         """Update weights with the nccl communicator."""
         model_runner = self.model_runner
         if hasattr(model_runner.model, "runnable"):

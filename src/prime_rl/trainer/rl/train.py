@@ -234,6 +234,8 @@ def train(config: TrainerConfig):
         # The checkpoint finished step ``checkpoint_step``; resume training at the next step.
         progress.step += 1
         logger.info(f"Resuming training from checkpoint step {checkpoint_step}")
+        if weight_broadcast is not None:
+            weight_broadcast.synchronize_restored_weights(model, checkpoint_step)
 
     logger.info(
         f"Starting from step {progress.step} (total_tokens={progress.total_tokens}, total_samples={progress.total_samples})"
