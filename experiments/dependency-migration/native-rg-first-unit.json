@@ -1,0 +1,56 @@
+{
+  "recommendation": "Yes: the next coherent migration unit should port the actually used RG mix environment to canonical native TaskData on the current b13 verifier stack. Keep the existing legacy environment entrypoint and all other environment routes available. This removes one important dependency blocker without moving vLLM, renderers, Torch or value algorithms.",
+  "status": "Read-only plan; no environment, dependency, config or training changes performed",
+  "inventory": {
+    "repository_config_scan": "environment-inventory.json:78 TOML files,88 train/eval environment entries, zero parse errors. These are declared examples/configurations, not execution evidence.",
+    "legacy_entries": 69,
+    "native_entries": 19,
+    "largest_declared_legacy_dependencies": {
+      "reverse-text": 33,
+      "math-env": 9,
+      "mini-swe-agent-plus": 7
+    },
+    "actually_used_rg_configs": [
+      "/Users/siddarth/Documents/ChatGPT/prime-values/experiments/rg-mix-cluster2/results/configs/orchestrator.toml",
+      "/Users/siddarth/Documents/ChatGPT/prime-values/experiments/rg-mix-cluster2-100/resolved/orchestrator.toml"
+    ],
+    "rg_identity": "Both use id=rg-mix-env, dataset_path=/data/rg-dataset, num_train_examples10000, num_eval_examples256, seed42. These saved historical runs are not to be rewritten or restarted. Future experiment defaults (group8, ancestral sampling, online W&B for substantive runs) are a separate standing user preference, not a reason to mutate historical evidence.",
+    "used_current_sync_acceptance": "experiments/rl-safety/pipeline.py uses native reverse-text-v1, null subprocess harness, group2 and real actor/value runtime. experiments/episode-boundary/producer_smoke.py separately exercises real legacy joint-group scoring. Native RG is not yet covered by either proof.",
+    "value_example": "examples/value_function/rl.toml still declares legacy reverse-text, so RG migration alone does not authorize removal of the legacy bridge.",
+    "rg_source": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/{rg_mix_env.py,generate_rg_mix_dataset.py,pyproject.toml}",
+    "rg_source_provenance": "Package version0.1.4; observed local files are not returned by git ls-files in the live checkout. Freeze their exact hashes/origin into the new package change before porting; do not claim they are pinned by live HEAD30bfbf30. inventory JSON records observed hashes. Do not modify the other chat's checkout.",
+    "scorer_dependency": "Observed live uv.lock pins reasoning-gym0.1.25; rg-mix-env metadata only requires>=0.1.10. Keep the exact installed scoring dependency, not the loose floor, for parity. Current native verifier target remains b13ba60da63cea91389e7575766b7270d0d11fc5 and renderer remains bdb96b0c84a307e2b71c6a366c9d718c3ac7fe78."
+  },
+  "source_behavior_to_preserve": [
+    "The five variants are arc_1d, sokoban_hard, countdown_7, zebra_puzzles_7 and cryptarithm. The sampler uses Random(seed).choices with inverse recorded pass@1 weights; per-variant generators use seed+i+1. Global row i maps to that variant's entry i, and train/eval slices are positional. Preserve the actual saved dataset and metadata, not merely the same seed.",
+    "Rows carry question, answer=str(global_idx), and info.variant_id; answer is an index into private scorer metadata, not the true textual solution. _load_dataset restores JSON entry_map/entries_cache and creates tiny size1 reasoning-gym scorer instances using the same variant configs.",
+    "Policy prompt is the reasoning-gym default system prompt plus the original question. Pin its exact bytes from the actual environment; do not substitute the new native taskset's default instructions or expose scorer entries/solutions in the prompt.",
+    "Reward calls str(XMLParser(fields=['answer']).parse_answer(completion)).strip(), then the selected dataset's score_answer(response, entry). For message-list completions the parser walks assistant messages backward but selects the FIRST matching answer tag within the chosen message. For raw string completions it selects the LAST tag. Missing answer becomes the literal string None. A naive trace.last_reply plus last-tag parser would change rewards.",
+    "Format reward has weight0. Preserve any exposed metric intentionally, but never convert it into an objective term. RG reward is per rollout: the package registers no joint/group reward. Preserve group selection/versions/complete-or-cancel behavior in the orchestrator; do not add cross-sibling scoring.",
+    "The current package adds no value_function_prompt. Preserve that absence; new private scorer payload must not implicitly become a critic prefix. Group-LOO remains a separate configured value feature, with original completion requirements."
+  ],
+  "minimal_package_unit": [
+    "Add native taskset/task/data classes beside the existing package entrypoint, with a distinct native registration name such as rg-mix-v1. Follow existing reverse-text-v1 loading and native Taskset conventions; do not introduce a second environment framework or put RG parsing/scoring inside Prime RL core.",
+    "Factor only package-owned pure dataset loading/variant selection and RG-specific answer extraction/scoring into a shared module. The legacy load_environment behavior remains available and serves as the frozen oracle. Do not vendor the generic legacy XMLParser runtime; implement the narrow documented RG extraction contract and compare against the real old parser.",
+    "Native Taskset.load owns dataset selection. Typed TaskData contains stable idx, original prompt/system prompt, variant/global index, and the JSON scorer entry needed to reconstruct the task on workers. Workers use the selected payload and lightweight scorer instances; they must not reload or regenerate the dataset per rollout. Data must survive declared-type JSON roundtrip without excluded fields or changes.",
+    "Native Task defines single-turn stopping and one weight1 deterministic RG reward. Use the null subprocess harness and unchanged model sampling configuration. Existing Env.validate_task and one-owned-payload-per-group boundary handle dispatch.",
+    "Add a new native RG example/resolved config for future runs and preserve historical configs. Do not remove legacy routes or migrate unrelated SWE/Harbor/math examples in this unit. No new inference/backend dependency is required."
+  ],
+  "bounded_acceptance": [
+    "Frozen package versus native taskset over the same saved dataset/metadata: exact ordered train/eval rows, indices, variants, question/system-prompt bytes and scorer-entry JSON. Use actual cached records covering all five variants and split boundaries; avoid regenerating the full expensive dataset just for tests.",
+    "Actual old parser/scorer versus new package code on correct/incorrect/partial answers, multiple tags, missing/empty tags, whitespace, multipart text and multiple assistant messages. Compare exact extracted response and deterministic reward, including partial-credit cases. This is independent of native implementation outputs.",
+    "Real two-worker EnvServer/EnvClient run on two selected RG tasks with deterministic model endpoint: client loads once, workers do not load datasets, siblings receive the same owned selected payload, actual Episode wire survives and rewards match the frozen scorer. Reuse existing cancellation/arrival-version/TrainSink framework checks, adding only RG payload and policy/private-prefix assertions.",
+    "One representative original/native RG trace through the real value-owned materializer/finalizer: original physical tokens and masks, reward, returns/advantages, absent task-prefix behavior and group-LOO prompt bytes remain identical. Reuse existing analytic value tests rather than another model/rank grid.",
+    "If the same pinned backend and renderer serve the same prompt/token payload, a new large GPU RL run is unnecessary for this package-only port. A short actual serving path is justified only if the native agent changes renderer/request construction; then compare that changed boundary directly before training."
+  ],
+  "subsequent_dependency_units": [
+    "Migrate the other currently selected legacy example families package by package, or explicitly retain the current-stack branch for them. Math native defaults need judge=None because later upstream enables an LLM fallback. Known group-scored environments require a real equivalent group scoring design before retiring their legacy route. The later MathTaskConfig judge default is enabled: disabling it must survive the actual config exporter/loader roundtrip; a Python judge=None value omitted from TOML would restore the enabled default. Do not claim preservation from in-memory config alone.",
+    "Then adopt the canonical streamed Episode/renderer APIs in a separate coherent stack branch, preserving physical token geometry, sampled-mask provenance, filtering/publication timing and private context. Verifier91d4f69e6 removes the v1 bridge and renames native -v1 IDs; verifier66a606493 removes the remaining v0 stack. These are actual removals, not import aliases that can be assumed permanent.",
+    "Only after the backend/dependency acceptance succeeds, add real engine-to-token version provenance and observational mismatch bins. Do not fabricate schema or label dispatch versions as exact sampled-token versions."
+  ],
+  "user_decisions": {
+    "required_for_preparation_or_native_rg_port": [],
+    "reason": "The user already authorized preservation-focused migration. Native RG can be added alongside legacy on the current stack with no change to existing runs or objectives, so no extra permission question is needed.",
+    "conditional_future_decisions": "Ask only if preserving a currently used environment is impossible without a real behavior tradeoff, or if retiring a still-used legacy route is proposed. Do not invent a request to choose default prompts, rewards, group size, precision, EMA or centering while claiming a compatibility port."
+  }
+}

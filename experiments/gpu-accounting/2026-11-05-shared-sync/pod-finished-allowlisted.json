@@ -1,0 +1,30 @@
+{
+  "observed_at": "2026-11-06T02:59:55.452805+00:00",
+  "cluster": "resolution-h200-2",
+  "project": "prime-values",
+  "source": "kubectl get pods -o json; allowlisted fields only",
+  "scope": "caller-selected pods; empty does not prove namespace-wide cleanup",
+  "pods": [
+    {
+      "pod_uid": "a2833b7c-38c2-4755-a232-30bb4f9b3377",
+      "pod": "pv-episode-sync-001-xr7f4",
+      "namespace": "siddarth",
+      "owner_uids": [
+        "0a6f94b3-4b1c-4519-8e3f-1a70b960aa3a"
+      ],
+      "node": "np-7843d43b-13.eu-iceland1-a.compute.internal",
+      "phase": "Succeeded",
+      "requested_gpus": 8,
+      "created_at": "2026-11-06T00:51:26Z",
+      "scheduled_at": "2026-11-06T00:51:27Z",
+      "container_states": [
+        {
+          "name": "episode-sync",
+          "restart_count": 0,
+          "started_at": null,
+          "finished_at": "2026-11-06T02:59:08Z"
+        }
+      ]
+    }
+  ]
+}

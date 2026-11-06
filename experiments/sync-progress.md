@@ -21,7 +21,7 @@ The comparison target is Prime RL `3c96816de9a2a906649a04026a46517840a0f4a6`; th
 
 Each unit has its own evidence and limitations. In particular, the earlier safety unit's historical fresh-exit uncertainty remains in its record; later normal-exit observations do not rewrite it. Passing these checks does not establish improved reward, all model families or exact stochastic replay after restart.
 
-## Current efficiency work
+## Completed efficiency and resume work
 
 Explicit packed-sequence boundaries have passed their separate acceptance checks and are included in this unit. Existing host sequence lengths supply attention boundaries for supported custom FlashAttention models in policy training, critic training and the shared value-serving helper. Padding, token alignment, independent GAE/TD lambdas, targets, loss normalization and optimizer/reduction dtypes remain unchanged. Acceptance compared actual outputs, full gradients and updates to frozen source, including context parallelism and the normal compiled distributed critic runtime; all covered paired tensors matched exactly. See [packing evidence](packed-boundary/README.md).
 
@@ -34,6 +34,8 @@ CPU-offloaded optimizer checkpoints now restore non-tensor group metadata while 
 Batch-balancing swaps are now vectorized with exact ordered assignments and a per-iteration integer-safety check. Unsupported numeric ranges retain the original scalar algorithm. The actual full packed batch, transport bytes and component counts were identical, so no unrelated GPU training run was added. See [packing refinement evidence](packing-swap/README.md).
 
 ## Next dependency boundary
+
+The [migration plan](dependency-migration/README.md) starts with a native RG package port on the current stack, preserving its legacy entrypoint and existing runs. This unit is being developed separately before any backend pin change.
 
 Exact sampled-token policy ages require a coordinated producer chain: vLLM's version-labeled generation, renderer pass-through and the canonical verifier schema. The current stack does not produce that information. Group-start policy versions remain useful scheduler provenance but must not be labeled exact token ages. A consumer that reports only unknown values is not considered a completed feature.
 

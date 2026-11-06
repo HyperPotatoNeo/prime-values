@@ -1,0 +1,41 @@
+{
+  "scope": "Read-only local source audit; no dependency or production changes",
+  "recommendation": "Close the current-stack milestone after the bounded optimizer-resume fix; prepare a separate coherent dependency-chain branch. Do not present a vLLM/renderer/verifier pin bump as a small token-provenance feature.",
+  "source_pins": {
+    "current_prime_values": "fe06cbb0",
+    "current_verifier": "b13ba60da63cea91389e7575766b7270d0d11fc5",
+    "current_renderer": "bdb96b0c",
+    "current_vllm": "0.24.0",
+    "minimum_reviewed_provenance_verifier": "3f142cc61adb4b0168d925fb44e76370d6299a37",
+    "minimum_reviewed_provenance_renderer": "0526944665ac9f00e8d56e110babe97a2c174fa4",
+    "provenance_vllm": "0.32.0",
+    "pinned_upstream_target": "3c96816d",
+    "target_verifier": "308619da69c2e918c6b7c96e68f746485a913dba",
+    "target_renderer": "a9d16769865bba7506f3a7ce91d34c25b9ae7365",
+    "target_prime_envs": "797040d29ed633f242bb01d93875dd9d85ba053f"
+  },
+  "concrete_breaks": [
+    "Verifier b13 to3f142 changes708files; verifiers/v1/legacy.py and verifiers/envs v0 are deleted. Current EnvConfig(id=...), legacy dataset-row dispatch and joint run_group scoring rely on those APIs. Silently dropping them would break existing RG/legacy experiments and change group reward semantics.",
+    "New serve RunRequest requires task_data only. EnvClient assembles streamed trace deltas into WireEpisode; current cancellation/failure/no-trace accounting and group completion must be revalidated against actual streamed assembly, not a fabricated final Episode alone.",
+    "New Episode exposes last_error rather than current error used by episodes.from_episode; schema adaptation is required even for failed single-trace native runs.",
+    "Graph now distinguishes physical token_ids from renderer_token_ids/logical_ids, changes prefix matching and node construction, and carries trainability/weight streams/provenance. Value geometry must remain tied to actual model-token positions; logical renderer IDs cannot substitute for critic input indices.",
+    "Renderer bdb to052 changes89files, including reasoning-history retention, prefix-stability contracts, message/token ordering, Qwen/Nemotron formatting and parsing. Same message text does not establish identical tokens, action masks or private critic prefixes.",
+    "Pinned upstream target3c968 also moves transformers to5.19, torch>=2.13, vLLM>=0.32 and newer canonical package families. Exact old-kernel gradient equality should not be assumed across this backend transition; preserve independent semantic oracles and declare numerical tolerances from frozen controls before candidate acceptance.",
+    "Legacy removal is two concrete commits:91d4f69e6 removes the v1 bridge and native-v1 suffixes;66a606493 removes the remaining relocated v0 stack. By3f142 the package root exports only its version, so old vf.SingleTurnEnv/vf.XMLParser imports also require package migration."
+  ],
+  "bounded_next_branch_sequence": [
+    "First inventory actually used native/legacy environment configurations and map them to maintained canonical tasksets. Preserve selected task payload, scoring, prompts, timeout/cancellation and joint-group behavior. Port used environments cleanly at their own package boundary; do not vendor a second legacy runtime into value code.",
+    "Adopt coherent canonical Episode/delta protocol and renderer stack with no token-age diagnostics yet. Reuse real two-worker task/payload/cancellation tests and exact LOO prompt/geometry oracles, adding only changed logical-vs-physical token boundary cases. Maintain original-trace-before-filter and critic publication before policy admission.",
+    "Validate the inference backend and tokenizer/reasoning contract on actual used models, with same ancestral sampling configuration and pinned tokenizer revisions. One real serving-to-training actor/critic acceptance is justified for this stack change; do not multiply unrelated model/rank grids.",
+    "Only after the coherent stack is sound, implement observational sampled-token version spans end to end. Keep group dispatch/critic replay provenance distinct; unknown remains unknown. Reuse reviewed streaming statistics for age bins; do not alter stale-group cancellation or masks."
+  ],
+  "value_invariants": [
+    "Capture immutable original physical branch geometry before filtering and score-hook geometry mutations, refresh reward only at the established hook boundary, and keep sequential branch state transitions intact.",
+    "Preserve full group-LOO completion requirements, UTF-8 private prompt bytes and model token positions; cancelled/failed siblings never become critic peers or TETHER observations.",
+    "TETHER uses native sampled-mask provenance for shared-prefix positioning and deduplicated masks for fitting; new canonical trainability/weight streams must not redefine this implicitly.",
+    "Publish copied critic targets/returns/versions before actor filtering or graph release; preserve existing cold replay and scheduler provenance semantics."
+  ],
+  "why_not_now": "This is a qualitatively larger compatibility migration with real removed APIs and tokenization changes. The remaining current-stack DCP metadata bug is independently useful, small, and testable without destabilizing six completed units. Preparing the coherent next branch is meaningful progress; shipping a partial consumer-only provenance stub is not.",
+  "limitations": "No proposed stack has been installed or executed. No universal environment compatibility claim. Local exact Git objects were inspected; no web/runtime verification was needed for source-only conclusions.",
+  "recommended_first_increment": "See native-rg-first-unit.json: add native RG TaskData on current b13 before any backend upgrade; retain existing legacy routes. This is useful bounded implementation, not a reason to stop because the broader stack is large."
+}

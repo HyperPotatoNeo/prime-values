@@ -1,0 +1,1566 @@
+{
+  "scope": "Read-only declared config inventory; repository examples are not evidence of executed runs. Separate RG entries correspond to saved research configs already referenced by the shared project handoff.",
+  "repository_root": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/prime-values-analysis",
+  "config_files_scanned": 78,
+  "environment_entries": [
+    {
+      "file": "configs/alphabet_sort/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "alphabet-sort",
+      "name": "alphabet-sort",
+      "args": {
+        "min_turns": 2,
+        "max_turns": 2
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/alphabet_sort/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "alphabet-sort",
+      "name": "alphabet-sort",
+      "args": {
+        "min_turns": 2,
+        "max_turns": 2
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/alphabet_sort.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "alphabet-sort",
+      "name": "alphabet-sort",
+      "args": {
+        "min_turns": 2,
+        "max_turns": 2,
+        "min_names_per_turn": 1,
+        "max_names_per_turn": 3,
+        "similarity_power": 4,
+        "power_per_turn": false
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text/resume.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text/start.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_lora/resume.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_lora/start.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_moe/start.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_multi_run/orchestrator.toml",
+      "location": "train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_rl_opd/start.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_rl_opd/start.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_rl_sft/start.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/integration/reverse_text_rl_sft/start.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/ci/nightly/multimodal_color_codeword.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "color-codeword-v1",
+      "name": "color-codeword",
+      "args": {},
+      "taskset": {
+        "id": "color-codeword-v1",
+        "images_per_turn": 1,
+        "num_examples": 1000
+      },
+      "agent": {},
+      "legacy_flat_harness": {
+        "id": "null",
+        "runtime": {
+          "type": "subprocess"
+        }
+      },
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/echo.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "alphabet-sort",
+      "name": null,
+      "args": {
+        "min_turns": 3,
+        "max_turns": 5,
+        "power_per_turn": false
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/grpo.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/grpo.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/max_rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/max_rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/mixed_grpo_opd.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": "reverse-text-grpo",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/mixed_grpo_opd.toml",
+      "location": "orchestrator.train.env.1",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": "reverse-text-opd",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/mixed_grpo_opd.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/opd.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/opd.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/opd_lora.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/opd_lora.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/self_distill.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/self_distill.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/sft_distill.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/sft_distill.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/sft_distill_lora.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/algorithms/sft_distill_lora.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/hendrycks_sanity/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "hendrycks-math",
+      "args": {
+        "dataset_name": "mikasenghaas/Sanity-Test-R1D-1.5B",
+        "dataset_subset": "default"
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/hendrycks_sanity/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "aime24-v1",
+      "name": "aime2024",
+      "args": {},
+      "taskset": {
+        "id": "aime24-v1"
+      },
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/multi_env/reverse_text.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": "reverse-text-train-1",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/multi_env/reverse_text.toml",
+      "location": "orchestrator.train.env.1",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": "reverse-text-train-2",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/multi_env/reverse_text.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": "reverse-text-eval-1",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/multi_env/reverse_text.toml",
+      "location": "orchestrator.eval.env.1",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": "reverse-text-eval-2",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/multimodal.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "color-codeword-v1",
+      "name": "color-codeword",
+      "args": {},
+      "taskset": {
+        "id": "color-codeword-v1",
+        "images_per_turn": 1,
+        "num_examples": 1000
+      },
+      "agent": {},
+      "legacy_flat_harness": {
+        "id": "null",
+        "runtime": {
+          "type": "subprocess"
+        }
+      },
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/alphabet_sort.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "alphabet-sort-v1",
+      "name": "alphabet-sort",
+      "args": {},
+      "taskset": {
+        "id": "alphabet-sort-v1",
+        "min_turns": 3,
+        "max_turns": 5,
+        "task": {
+          "power_per_turn": false
+        }
+      },
+      "agent": {
+        "harness": {
+          "id": "null",
+          "runtime": {
+            "type": "subprocess"
+          }
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/general_agent.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "general-agent-v1",
+      "name": null,
+      "args": {},
+      "taskset": {
+        "id": "general-agent-v1",
+        "task": {
+          "tools": {
+            "colocated": true
+          }
+        }
+      },
+      "agent": {
+        "harness": {
+          "id": "null",
+          "runtime": {
+            "type": "modal"
+          }
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/gsm8k.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "gsm8k-v1",
+      "name": null,
+      "args": {},
+      "taskset": {
+        "id": "gsm8k-v1",
+        "split": "train"
+      },
+      "agent": {
+        "harness": {
+          "id": "null",
+          "runtime": {
+            "type": "subprocess"
+          }
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/gsm8k.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "gsm8k-v1",
+      "name": null,
+      "args": {},
+      "taskset": {
+        "id": "gsm8k-v1",
+        "split": "test"
+      },
+      "agent": {
+        "harness": {
+          "id": "null",
+          "runtime": {
+            "type": "subprocess"
+          }
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/hendrycks_sanity.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "math-env-v1",
+      "name": "hendrycks-math",
+      "args": {},
+      "taskset": {
+        "id": "math-env-v1",
+        "dataset_name": "mikasenghaas/Sanity-Test-R1D-1.5B",
+        "dataset_subset": "default"
+      },
+      "agent": {
+        "harness": {
+          "id": "null",
+          "runtime": {
+            "type": "modal"
+          }
+        },
+        "timeout": {
+          "scoring": 300
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/hendrycks_sanity.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "aime24-v1",
+      "name": "aime2024",
+      "args": {},
+      "taskset": {
+        "id": "aime24-v1"
+      },
+      "agent": {
+        "harness": {
+          "id": "null",
+          "runtime": {
+            "type": "modal"
+          }
+        },
+        "timeout": {
+          "scoring": 300
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/r2e_gym.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "r2e-gym-v1",
+      "name": "rlm-swe-r2e",
+      "args": {},
+      "taskset": {
+        "id": "r2e-gym-v1"
+      },
+      "agent": {
+        "harness": {
+          "id": "rlm",
+          "runtime": {
+            "type": "prime",
+            "labels": [
+              "rlm-swe-qwen35-4b"
+            ]
+          }
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/reverse_text.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "reverse-text-v1",
+      "name": null,
+      "args": {},
+      "taskset": {
+        "id": "reverse-text-v1"
+      },
+      "agent": {
+        "harness": {
+          "id": "null",
+          "runtime": {
+            "type": "subprocess"
+          }
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/scaleswe.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "scaleswe-v1",
+      "name": "scaleswe",
+      "args": {},
+      "taskset": {
+        "id": "scaleswe-v1"
+      },
+      "agent": {
+        "harness": {
+          "id": "rlm",
+          "runtime": {
+            "type": "prime",
+            "labels": [
+              "scaleswe-qwen36-35b-a3b-rlm"
+            ]
+          }
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/debug/v1/scaleswe.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "swebench-verified-v1",
+      "name": "swebench-verified",
+      "args": {},
+      "taskset": {
+        "id": "swebench-verified-v1",
+        "use_prime_registry": true
+      },
+      "agent": {
+        "harness": {
+          "id": "rlm",
+          "runtime": {
+            "type": "prime",
+            "labels": [
+              "scaleswe-qwen36-35b-a3b-rlm"
+            ]
+          }
+        },
+        "timeout": {
+          "rollout": 3600
+        }
+      },
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/elastic/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "alphabet-sort",
+      "name": "alphabet-sort",
+      "args": {
+        "min_turns": 3,
+        "max_turns": 5,
+        "power_per_turn": false
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/general_agent/rl_qwen3_0p6b.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "general-agent-solver-rlm",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/general_agent/rl_qwen3_30b_a3b.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "general-agent-solver-rlm",
+      "name": null,
+      "args": {
+        "min_tier": 1
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/general_agent/rl_qwen3_4b.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "general-agent-solver-rlm",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/glm45air/swe.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "scaleswe-v1",
+      "name": "scaleswe",
+      "args": {},
+      "taskset": {
+        "id": "scaleswe-v1"
+      },
+      "agent": {},
+      "legacy_flat_harness": {
+        "id": "rlm",
+        "runtime": {
+          "type": "prime",
+          "labels": [
+            "glm45air-swe"
+          ]
+        }
+      },
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/glm45air/swe.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "swebench-verified-v1",
+      "name": "swebench-verified",
+      "args": {},
+      "taskset": {
+        "id": "swebench-verified-v1",
+        "use_prime_registry": true
+      },
+      "agent": {},
+      "legacy_flat_harness": {
+        "id": "rlm",
+        "runtime": {
+          "type": "prime",
+          "labels": [
+            "glm45air-swe"
+          ]
+        }
+      },
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/gsm8k/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "gsm8k",
+      "args": {
+        "dataset_name": "openai/gsm8k",
+        "dataset_subset": "main",
+        "math_verify_max_workers": 128,
+        "math_verify_timeout": 60
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/hendrycks_math/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "hendrycks-math",
+      "args": {
+        "dataset_name": "PrimeIntellect/Hendrycks-Math",
+        "dataset_subset": "default",
+        "math_verify_max_workers": 128,
+        "math_verify_timeout": 60
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/hendrycks_math/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "math500-v1",
+      "name": "math500",
+      "args": {},
+      "taskset": {
+        "id": "math500-v1"
+      },
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/math_python/math_python.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-python",
+      "name": null,
+      "args": {
+        "sandbox_client_max_workers": 128,
+        "sandbox_timeout_minutes": 10,
+        "sandbox_memory_gb": 1,
+        "sandbox_disk_size_gb": 1,
+        "pip_install_packages": "numpy sympy"
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/nemotron_4node/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "hendrycks-math",
+      "args": {
+        "dataset_name": "PrimeIntellect/Hendrycks-Math",
+        "dataset_subset": "default",
+        "math_verify_max_workers": 128,
+        "math_verify_timeout": 60
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/nemotron_4node/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "math500-v1",
+      "name": "math500",
+      "args": {},
+      "taskset": {
+        "id": "math500-v1"
+      },
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/nemotron_debug/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "hendrycks-math",
+      "args": {
+        "dataset_name": "PrimeIntellect/Hendrycks-Math",
+        "dataset_subset": "default",
+        "math_verify_max_workers": 128,
+        "math_verify_timeout": 60
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/nemotron_debug/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "native",
+      "id": "math500-v1",
+      "name": "math500",
+      "args": {},
+      "taskset": {
+        "id": "math500-v1"
+      },
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/wiki_search/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "wiki-search",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "configs/wordle/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "primeintellect/wordle",
+      "name": "wordle",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/Intellect-3.1/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "name": "swe",
+      "args": {
+        "max_turns": 200,
+        "cpu_cores": 2,
+        "memory_gb": 4,
+        "disk_size_gb": 4,
+        "labels": [
+          "mini-swe-agent-plus"
+        ],
+        "total_timeout_minutes": 720,
+        "sandbox_client_max_workers": 256,
+        "max_command_timeouts": 3,
+        "sandbox_command_timeout": 30
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/Intellect-3.1/rl.toml",
+      "location": "orchestrator.train.env.1",
+      "kind": "legacy",
+      "id": "deepdive",
+      "name": "deepdive",
+      "args": {
+        "finish_with_tool": true,
+        "open_max_workers": 128,
+        "cache_dir": "/tmp/i3_deepdive_cache_train"
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/Intellect-3.1/rl.toml",
+      "location": "orchestrator.train.env.2",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "math",
+      "args": {
+        "min_avg_reward": 0.0,
+        "max_avg_reward": 0.874
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/Intellect-3.1/rl.toml",
+      "location": "orchestrator.train.env.3",
+      "kind": "legacy",
+      "id": "logic-env",
+      "name": "logic",
+      "args": {
+        "min_avg_reward": 0.0,
+        "max_avg_reward": 0.874
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/Intellect-3.1/rl.toml",
+      "location": "orchestrator.train.env.4",
+      "kind": "legacy",
+      "id": "code-env",
+      "name": "code",
+      "args": {
+        "pool_size": 512
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/Intellect-3.1/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "name": "swe-bench-verified-quick",
+      "args": {
+        "dataset_name": "PrimeIntellect/SWE-Bench-Verified-Quick",
+        "max_turns": 200,
+        "cpu_cores": 2,
+        "memory_gb": 4,
+        "disk_size_gb": 4,
+        "labels": [
+          "mini-swe-agent-plus"
+        ],
+        "total_timeout_minutes": 720,
+        "sandbox_client_max_workers": 256,
+        "max_command_timeouts": 3,
+        "sandbox_command_timeout": 30
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/Intellect-3.1/rl.toml",
+      "location": "orchestrator.eval.env.1",
+      "kind": "legacy",
+      "id": "aime2025",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/alphabet_sort/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "primeintellect/alphabet-sort",
+      "name": "alphabet-sort",
+      "args": {
+        "min_turns": 3,
+        "max_turns": 5,
+        "power_per_turn": false
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/glm5_llmd/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "native",
+      "id": "r2e-gym-v1",
+      "name": "r2e",
+      "args": {},
+      "taskset": {
+        "id": "r2e-gym-v1"
+      },
+      "agent": {},
+      "legacy_flat_harness": {
+        "id": "rlm",
+        "runtime": {
+          "type": "prime",
+          "labels": [
+            "glm5-llmd"
+          ]
+        }
+      },
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/glm5_pd_disag/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "name": "swe-bench-verified-quick",
+      "args": {
+        "dataset_name": "PrimeIntellect/SWE-Bench-Verified-Quick",
+        "max_turns": 200,
+        "cpu_cores": 2,
+        "memory_gb": 4,
+        "disk_size_gb": 4,
+        "labels": [
+          "mini-swe-agent-plus"
+        ],
+        "total_timeout_minutes": 720,
+        "sandbox_client_max_workers": 256,
+        "max_command_timeouts": 3,
+        "sandbox_command_timeout": 30
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/hendrycks_sanity/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "hendrycks-math",
+      "args": {
+        "dataset_name": "mikasenghaas/Sanity-Test-R1D-1.5B",
+        "dataset_subset": "default"
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/hendrycks_sanity/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "primeintellect/aime2024",
+      "name": "aime2024",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/minimax_m2.5_swe/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "name": "swe",
+      "args": {
+        "max_turns": 200,
+        "cpu_cores": 2,
+        "memory_gb": 4,
+        "disk_size_gb": 4,
+        "labels": [
+          "mini-swe-agent-plus"
+        ],
+        "total_timeout_minutes": 720,
+        "sandbox_client_max_workers": 256,
+        "max_command_timeouts": 3,
+        "sandbox_command_timeout": 30
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/minimax_m2.5_swe/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "name": "swe-bench-verified-quick",
+      "args": {
+        "dataset_name": "PrimeIntellect/SWE-Bench-Verified-Quick",
+        "max_turns": 200,
+        "cpu_cores": 2,
+        "memory_gb": 4,
+        "disk_size_gb": 4,
+        "labels": [
+          "mini-swe-agent-plus"
+        ],
+        "total_timeout_minutes": 720,
+        "sandbox_client_max_workers": 256,
+        "max_command_timeouts": 3,
+        "sandbox_command_timeout": 30
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/multinode/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "hendrycks-math",
+      "args": {
+        "dataset_name": "PrimeIntellect/Hendrycks-Math",
+        "dataset_subset": "default",
+        "math_verify_max_workers": 128,
+        "math_verify_timeout": 60
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/qwen30b_math/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "math-env",
+      "name": "math",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/qwen30b_math/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "aime2025",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/qwen30b_swe/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "name": "swe",
+      "args": {
+        "max_turns": 200,
+        "cpu_cores": 2,
+        "memory_gb": 4,
+        "disk_size_gb": 4,
+        "labels": [
+          "mini-swe-agent-plus"
+        ],
+        "total_timeout_minutes": 720,
+        "sandbox_client_max_workers": 256,
+        "max_command_timeouts": 3,
+        "sandbox_command_timeout": 30
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/qwen30b_swe/rl.toml",
+      "location": "orchestrator.eval.env.0",
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "name": "swe-bench-verified-quick",
+      "args": {
+        "dataset_name": "PrimeIntellect/SWE-Bench-Verified-Quick",
+        "max_turns": 200,
+        "cpu_cores": 2,
+        "memory_gb": 4,
+        "disk_size_gb": 4,
+        "labels": [
+          "mini-swe-agent-plus"
+        ],
+        "total_timeout_minutes": 720,
+        "sandbox_client_max_workers": 256,
+        "max_command_timeouts": 3,
+        "sandbox_command_timeout": 30
+      },
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/reverse_text/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/value_function/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "reverse-text",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/wiki_search/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "primeintellect/wiki-search",
+      "name": null,
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    },
+    {
+      "file": "examples/wordle/rl.toml",
+      "location": "orchestrator.train.env.0",
+      "kind": "legacy",
+      "id": "primeintellect/wordle",
+      "name": "wordle",
+      "args": {},
+      "taskset": {},
+      "agent": {},
+      "legacy_flat_harness": null,
+      "declared_only_not_execution_proof": true
+    }
+  ],
+  "counts": [
+    {
+      "kind": "legacy",
+      "id": "aime2025",
+      "entries": 2
+    },
+    {
+      "kind": "legacy",
+      "id": "alphabet-sort",
+      "entries": 5
+    },
+    {
+      "kind": "legacy",
+      "id": "code-env",
+      "entries": 1
+    },
+    {
+      "kind": "legacy",
+      "id": "deepdive",
+      "entries": 1
+    },
+    {
+      "kind": "legacy",
+      "id": "general-agent-solver-rlm",
+      "entries": 3
+    },
+    {
+      "kind": "legacy",
+      "id": "logic-env",
+      "entries": 1
+    },
+    {
+      "kind": "legacy",
+      "id": "math-env",
+      "entries": 9
+    },
+    {
+      "kind": "legacy",
+      "id": "math-python",
+      "entries": 1
+    },
+    {
+      "kind": "legacy",
+      "id": "mini-swe-agent-plus",
+      "entries": 7
+    },
+    {
+      "kind": "legacy",
+      "id": "primeintellect/aime2024",
+      "entries": 1
+    },
+    {
+      "kind": "legacy",
+      "id": "primeintellect/alphabet-sort",
+      "entries": 1
+    },
+    {
+      "kind": "legacy",
+      "id": "primeintellect/wiki-search",
+      "entries": 1
+    },
+    {
+      "kind": "legacy",
+      "id": "primeintellect/wordle",
+      "entries": 2
+    },
+    {
+      "kind": "legacy",
+      "id": "reverse-text",
+      "entries": 33
+    },
+    {
+      "kind": "legacy",
+      "id": "wiki-search",
+      "entries": 1
+    },
+    {
+      "kind": "native",
+      "id": "aime24-v1",
+      "entries": 2
+    },
+    {
+      "kind": "native",
+      "id": "alphabet-sort-v1",
+      "entries": 1
+    },
+    {
+      "kind": "native",
+      "id": "color-codeword-v1",
+      "entries": 2
+    },
+    {
+      "kind": "native",
+      "id": "general-agent-v1",
+      "entries": 1
+    },
+    {
+      "kind": "native",
+      "id": "gsm8k-v1",
+      "entries": 2
+    },
+    {
+      "kind": "native",
+      "id": "math-env-v1",
+      "entries": 1
+    },
+    {
+      "kind": "native",
+      "id": "math500-v1",
+      "entries": 3
+    },
+    {
+      "kind": "native",
+      "id": "r2e-gym-v1",
+      "entries": 2
+    },
+    {
+      "kind": "native",
+      "id": "reverse-text-v1",
+      "entries": 1
+    },
+    {
+      "kind": "native",
+      "id": "scaleswe-v1",
+      "entries": 2
+    },
+    {
+      "kind": "native",
+      "id": "swebench-verified-v1",
+      "entries": 2
+    }
+  ],
+  "parse_errors": [],
+  "research_sources": [
+    {
+      "file": "/Users/siddarth/Documents/ChatGPT/prime-values/experiments/rg-mix-cluster2/results/configs/orchestrator.toml",
+      "sha256": "9c818a96b52cd859aae99183b5a44b3caee2595f78f5e937f5d0bc66659dc748"
+    },
+    {
+      "file": "/Users/siddarth/Documents/ChatGPT/prime-values/experiments/rg-mix-cluster2-100/resolved/orchestrator.toml",
+      "sha256": "68593582f21f174b3bdd860d7e0083d308e7d3d1599fdf19728fefc19a53558a"
+    },
+    {
+      "file": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/rg_mix_env.py",
+      "sha256": "592950ed34eb49cf8eb397fd1baa7b6fbb6d1e8f92b3feea9e63bde01d7f9ea4"
+    },
+    {
+      "file": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/pyproject.toml",
+      "sha256": "6fa615efc43397614bb4e820255947bc918d42949a860b91cc16b11fcbff0386"
+    },
+    {
+      "file": "/Users/siddarth/Documents/ChatGPT/prime-values/deps/rg-mix-env/generate_rg_mix_dataset.py",
+      "sha256": "62c57de714c86f4fb61fd5ed8e8afdc10395c71cee488c1669718dafdd7fdf69"
+    },
+    {
+      "file": "/Users/siddarth/Documents/ChatGPT/prime-values/uv.lock",
+      "sha256": "4f41b64ac4ffd0b9626de55d9e75a85f1656815df1986d2b63a89075c0f17266"
+    }
+  ]
+}

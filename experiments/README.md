@@ -18,3 +18,5 @@ This index tracks the staged PrimeRL synchronization work while keeping Prime Va
 The [initial upstream audit and staged plan](upstream-plan.txt) preserves the original feature assessment and value-contract analysis as a historical record.
 
 Canonical Episode integration is complete for the recorded upstream landmark. Native task ownership is also complete. Explicit packing boundaries are also complete. Streaming entropy/mismatch collection is complete. Activation offload parameter ownership is complete. CPU-offloaded optimizer metadata restoration is complete. Exact-order batch refinement is also complete; exact token provenance requires a separately validated inference-stack upgrade. New objectives, staleness eligibility and aggregation alternatives require separate opt-in evaluation. These records establish covered behavior; they do not imply reward improvements or universal compatibility.
+
+The [next producer/dependency plan](dependency-migration/README.md) starts with a native RG package alongside the existing legacy environment on the current stack. The inventory and compatibility audit distinguish this new work from completed synchronization evidence.
