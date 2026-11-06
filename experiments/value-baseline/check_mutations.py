@@ -24,7 +24,7 @@ VALUE = "tests/unit/value/test_model_parity.py::test_critic_packing_serving_and_
 MUTATIONS = [
     (
         "shared_lambdas",
-        "prime_rl/orchestrator/algo/advantage.py",
+        "prime_rl/value/credit.py",
         "gamma * value_target_lambda * nonterminal * next_target_advantage",
         "gamma * gae_lambda * nonterminal * next_target_advantage",
         1,
@@ -32,7 +32,7 @@ MUTATIONS = [
     ),
     (
         "context_as_action",
-        "prime_rl/orchestrator/algo/advantage.py",
+        "prime_rl/value/credit.py",
         "[index for index, trainable in enumerate(mask) if trainable]",
         "list(range(len(mask)))",
         1,

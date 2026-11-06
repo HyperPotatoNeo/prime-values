@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from collections import defaultdict
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,6 +11,7 @@ from prime_rl.orchestrator.metrics import TrainRollouts
 from prime_rl.orchestrator.train_sink import TrainSink
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
+from prime_rl.value.trajectory import snapshot_value_trajectory
 
 
 def _sample() -> TrainingSample:
@@ -40,6 +42,13 @@ def _rollout(
         value_returns=[[0.0, 1.0] for _ in samples] if samples else None,
         value_version=value_version if samples else None,
         value_prefix=None,
+        value_trajectory=snapshot_value_trajectory(
+            samples,
+            sampled_masks=[sample.mask for sample in samples],
+            layout=None,
+            reward=1.0,
+            policy_version=policy_version,
+        ),
         policy_version=policy_version,
         num_total_tokens=2,
         is_filtered=False,
@@ -173,6 +182,11 @@ def test_value_rollout_truncates_and_copies_sample_data():
     sample = rollout.samples[0]
     targets = rollout.value_returns[0]
 
+    sample.token_ids[:] = [99, 100]
+    sample.mask[:] = [True, False]
+    rollout.samples.clear()
+    rollout.policy_version = 99
+
     sink._publish_value_rollouts([rollout])
 
     value_sample = publisher.publish.call_args.args[0].samples[0]
@@ -182,6 +196,7 @@ def test_value_rollout_truncates_and_copies_sample_data():
     assert value_sample.token_ids is not sample.token_ids
     assert value_sample.mask is not sample.mask
     assert value_sample.targets is not targets
+    assert publisher.publish.call_args.args[0].policy_version == 0
 
 
 @pytest.mark.parametrize(
@@ -196,6 +211,7 @@ def test_value_rollout_lifts_policy_streams_around_privileged_prefix(insert_at, 
     sink = _value_sink(publisher, seq_len=4)
     rollout = _rollout()
     rollout.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=insert_at)
+    rollout.value_trajectory = replace(rollout.value_trajectory, prefix=rollout.value_prefix)
     policy_token_ids = list(rollout.samples[0].token_ids)
     policy_mask = list(rollout.samples[0].mask)
     policy_targets = list(rollout.value_returns[0])

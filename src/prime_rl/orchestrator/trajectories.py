@@ -54,6 +54,7 @@ class TrainingLayout:
 class TrainingMaterialization:
     samples: list[TrainingSample]
     layout: TrainingLayout | None
+    sampled_masks: tuple[tuple[bool, ...], ...]
 
 
 @dataclass(frozen=True)
@@ -173,6 +174,7 @@ def materialize_training_data(
     *,
     env_name: str = "",
     mm_token_type_ids_mapping: dict[int, int] | None = None,
+    capture_sampled_masks: bool = False,
 ) -> TrainingMaterialization:
     """Convert a v1 `Trace` into `TrainingSample`s — one per branch.
 
@@ -186,6 +188,7 @@ def materialize_training_data(
     yield nothing.
     """
     samples: list[TrainingSample] = []
+    sampled_masks: list[tuple[bool, ...]] = []
     sample_branch_indices: list[int] = []
     sample_node_indices: list[tuple[int, ...]] = []
     branches = trace.branches
@@ -193,6 +196,8 @@ def materialize_training_data(
     for item in _iter_trainable_branches(trace, branches):
         branch = item.branch
         mask = item.mask
+        if capture_sampled_masks:
+            sampled_masks.append(tuple(branch.sampled_mask))
         token_ids = branch.token_ids
         mm_kwargs: dict[str, EncodedTensor] | None = None
         mm_token_type_ids: list[int] | None = None
@@ -246,7 +251,7 @@ def materialize_training_data(
         if spans_by_node is not None
         else None
     )
-    return TrainingMaterialization(samples=samples, layout=layout)
+    return TrainingMaterialization(samples=samples, layout=layout, sampled_masks=tuple(sampled_masks))
 
 
 def trace_to_samples(

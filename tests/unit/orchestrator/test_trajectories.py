@@ -41,6 +41,7 @@ def test_linear_materialization_preserves_samples_without_layout():
     materialization = materialize_training_data(trace, env_name="test")
 
     assert materialization.layout is None
+    assert materialization.sampled_masks == ()
     assert materialization.samples == trace_to_samples(trace, env_name="test")
     assert materialization.samples[0].token_ids == [0, 1, 2]
     assert materialization.samples[0].mask == [False, True, True]
@@ -110,12 +111,16 @@ def test_layout_owns_shared_sampled_prefix_exactly_once():
         ]
     )
 
-    materialization = materialize_training_data(trace)
+    materialization = materialize_training_data(trace, capture_sampled_masks=True)
 
     assert [sample.mask for sample in materialization.samples] == [
         [False, True, True, False, True],
         [False, False, False, False, True],
     ]
+    assert materialization.sampled_masks == (
+        (False, True, True, False, True),
+        (False, True, True, False, True),
+    )
     assert materialization.layout is not None
     assert [span.node_index for span in materialization.layout.trainable_spans] == [
         1,

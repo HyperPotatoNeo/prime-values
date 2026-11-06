@@ -13,6 +13,7 @@ from verifiers.v1.task import TaskT
 from prime_rl.orchestrator.trajectories import TrainingLayout
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
+from prime_rl.value.trajectory import ValueTrajectory
 
 if TYPE_CHECKING:
     from prime_rl.orchestrator.metrics import EvalRollouts, TrainRollouts
@@ -104,6 +105,7 @@ class Rollout(vf.Trace[TaskT], Generic[TaskT]):
     value_returns: list[list[float]] | None = Field(default=None, exclude=True)
     value_version: int | None = Field(default=None, exclude=True)
     value_prefix: TokenPrefix | None = Field(default=None, exclude=True)
+    value_trajectory: ValueTrajectory | None = Field(default=None, exclude=True)
     is_filtered: bool = Field(default=False, exclude=True)
     filter_results: dict[str, bool] = Field(default_factory=dict, exclude=True)
     eval_step: int | None = Field(default=None, exclude=True)

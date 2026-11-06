@@ -41,15 +41,17 @@ Every *frozen* model an algorithm needs is an external endpoint it *connects to*
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from prime_rl.configs.algorithm import ActionLossType, AlgoConfig, FrozenModelConfig, GRPOAlgoConfig
 from prime_rl.configs.value import ValueFunctionConfig
-from prime_rl.orchestrator.algo.advantage import compute_gae
 from prime_rl.orchestrator.algo.routing import stamp_advantages, stamp_loss_routing
-from prime_rl.orchestrator.trajectories import TrainingLayout
+from prime_rl.orchestrator.trajectories import TrainingLayout, iter_trainable_branches
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.utils.logger import get_logger
+from prime_rl.value.credit import compute_value_result, sequential_value_layout, value_input
+from prime_rl.value.trajectory import ValueTrajectory, snapshot_value_trajectory
 
 if TYPE_CHECKING:
     from renderers import RendererConfig
@@ -193,7 +195,10 @@ class Algorithm:
         """Arrival phase (non-virtual): rollout-local scoring as each rollout is
         tokenized."""
         if rollout.samples:
+            trajectory = self._value_trajectory(rollout) if self.value_evaluator is not None else None
             await self.score_rollout(rollout)
+            if trajectory is not None:
+                rollout.value_trajectory = replace(trajectory, reward=float(rollout.reward))
             if (
                 self.value_evaluator is not None
                 and self.value_config is not None
@@ -223,11 +228,12 @@ class Algorithm:
     async def _evaluate_value_group(self, rollouts: list[Rollout]) -> None:
         assert self.value_evaluator is not None
         assert self.value_config is not None
+        trajectories = [self._value_trajectory(rollout) for rollout in rollouts]
         layouts = [self._sequential_value_layout(rollout) for rollout in rollouts]
         token_ids = [
-            self._value_input(sample.token_ids, rollout.value_prefix)
-            for rollout in rollouts
-            for sample in rollout.samples
+            self._value_input(sample.token_ids, trajectory.prefix)
+            for trajectory in trajectories
+            for sample in trajectory.samples
         ]
         response = await self.value_evaluator.evaluate(token_ids)
         if len(response.values) != len(token_ids):
@@ -237,8 +243,8 @@ class Algorithm:
 
         updates = []
         offset = 0
-        for rollout, layout in zip(rollouts, layouts, strict=True):
-            count = len(rollout.samples)
+        for rollout, trajectory, layout in zip(rollouts, trajectories, layouts, strict=True):
+            count = len(trajectory.samples)
             updates.append(
                 self._compute_value_result(
                     rollout,
@@ -256,53 +262,48 @@ class Algorithm:
     async def _evaluate_value(self, rollout: Rollout) -> None:
         assert self.value_evaluator is not None
         layout = self._sequential_value_layout(rollout)
+        trajectory = self._value_trajectory(rollout)
         response = await self.value_evaluator.evaluate(
-            [self._value_input(sample.token_ids, rollout.value_prefix) for sample in rollout.samples]
+            [self._value_input(sample.token_ids, trajectory.prefix) for sample in trajectory.samples]
         )
         self._assign_value_result(rollout, response.values, response.version, layout=layout)
 
+    def _value_trajectory(self, rollout: Rollout) -> ValueTrajectory:
+        trajectory = getattr(rollout, "value_trajectory", None)
+        if trajectory is None:
+            # Direct algorithm callers may supply samples without passing through the sink.
+            branches = list(iter_trainable_branches(rollout))
+            sampled_masks = (
+                [branch.sampled_mask for branch, _ in branches]
+                if branches
+                else [sample.mask for sample in rollout.samples]
+            )
+            trajectory = snapshot_value_trajectory(
+                rollout.samples,
+                sampled_masks=sampled_masks,
+                layout=rollout.training_layout,
+                reward=rollout.reward,
+                prefix=rollout.value_prefix,
+                env_name=rollout.env_name,
+                group_id=str(rollout.group_id),
+                policy_version=rollout.policy_version,
+            )
+            rollout.value_trajectory = trajectory
+        return trajectory
+
     def _value_input(self, token_ids: list[int], prefix: TokenPrefix | None = None) -> list[int]:
         assert self.value_config is not None and self.value_config.model is not None
-        if prefix is not None:
-            return prefix.apply(token_ids)
-        return token_ids[: self.value_config.model.seq_len]
+        return value_input(token_ids, prefix, self.value_config.model.seq_len)
 
     def _sequential_value_layout(self, rollout: Rollout) -> TrainingLayout | None:
-        """Return generation order when configured credit must cross branches."""
         assert self.value_config is not None
         config = cast(GRPOAlgoConfig, self.config)
-        needs_stitching = (
-            self.value_config.gamma < 1.0
-            or self.value_config.value_target_lambda < 1.0
-            or (config.baseline.uses_policy_gae and self.value_config.gae_lambda < 1.0)
+        return sequential_value_layout(
+            self._value_trajectory(rollout),
+            self.value_config,
+            uses_policy_gae=config.baseline.uses_policy_gae,
+            branch_semantics=config.branch_semantics,
         )
-        if len(rollout.samples) <= 1 or not needs_stitching:
-            return None
-        if config.branch_semantics != "sequential":
-            raise ValueError(
-                "temporal value credit over multiple branches requires "
-                "algo.branch_semantics='sequential'; "
-                f"env={rollout.env_name!r}, group={rollout.group_id}, "
-                f"branches={len(rollout.samples)}, gamma={self.value_config.gamma}, "
-                f"gae_lambda={self.value_config.gae_lambda}, "
-                f"value_target_lambda={self.value_config.value_target_lambda}"
-            )
-        layout = rollout.training_layout
-        assert layout is not None
-        assert self.value_config.model is not None
-        if rollout.value_prefix is not None:
-            return layout
-        visible_lengths = [min(len(sample.token_ids), self.value_config.model.seq_len) for sample in rollout.samples]
-        for span in layout.trainable_spans:
-            end = span.sample_start + span.length
-            visible_length = visible_lengths[span.sample_index]
-            if end > visible_length:
-                raise ValueError(
-                    "sequential temporal credit requires every trainable token to be visible "
-                    f"to the critic; sample {span.sample_index} span [{span.sample_start}, {end}) "
-                    f"exceeds visible length {visible_length}"
-                )
-        return layout
 
     def _assign_value_result(
         self,
@@ -330,69 +331,6 @@ class Algorithm:
         layout: TrainingLayout | None = None,
     ) -> tuple[list[list[float]], list[list[float]], list[list[float]]]:
         assert self.value_config is not None
-        if len(predictions) != len(rollout.samples):
-            raise ValueError(
-                f"value evaluator returned {len(predictions)} branches for rollout with {len(rollout.samples)} samples"
-            )
         if layout is None:
             layout = self._sequential_value_layout(rollout)
-        projected_predictions: list[list[float]] = []
-        for sample, values in zip(rollout.samples, predictions, strict=True):
-            value_input = self._value_input(sample.token_ids, rollout.value_prefix)
-            if len(values) != len(value_input):
-                if rollout.value_prefix is None:
-                    raise ValueError(
-                        f"value evaluator returned {len(values)} tokens for truncated value input of {len(value_input)}"
-                    )
-                raise ValueError(
-                    f"value evaluator returned {len(values)} tokens for conditioned value input of {len(value_input)}"
-                )
-            projected = rollout.value_prefix.project(values) if rollout.value_prefix is not None else values
-            projected_predictions.append(projected)
-
-        if layout is None:
-            advantages: list[list[float]] = []
-            returns: list[list[float]] = []
-            for sample, projected in zip(rollout.samples, projected_predictions, strict=True):
-                value_length = len(projected)
-                sample_advantages, sample_returns = compute_gae(
-                    reward=float(rollout.reward),
-                    values=projected,
-                    mask=sample.mask[:value_length],
-                    gamma=self.value_config.gamma,
-                    gae_lambda=self.value_config.gae_lambda,
-                    value_target_lambda=self.value_config.value_target_lambda,
-                )
-                padding = len(sample.token_ids) - value_length
-                advantages.append(sample_advantages + [0.0] * padding)
-                returns.append(sample_returns + [0.0] * padding)
-        else:
-            flat_values = [
-                value
-                for span in layout.trainable_spans
-                for value in projected_predictions[span.sample_index][
-                    span.sample_start : span.sample_start + span.length
-                ]
-            ]
-            flat_advantages, flat_returns = compute_gae(
-                reward=float(rollout.reward),
-                values=flat_values,
-                mask=[True] * len(flat_values),
-                gamma=self.value_config.gamma,
-                gae_lambda=self.value_config.gae_lambda,
-                value_target_lambda=self.value_config.value_target_lambda,
-            )
-            advantages = [[0.0] * len(sample.token_ids) for sample in rollout.samples]
-            returns = [[0.0] * len(sample.token_ids) for sample in rollout.samples]
-            offset = 0
-            for span in layout.trainable_spans:
-                end = offset + span.length
-                sample_end = span.sample_start + span.length
-                advantages[span.sample_index][span.sample_start : sample_end] = flat_advantages[offset:end]
-                returns[span.sample_index][span.sample_start : sample_end] = flat_returns[offset:end]
-                offset = end
-        value_predictions = [
-            values + [0.0] * (len(sample.token_ids) - len(values))
-            for sample, values in zip(rollout.samples, projected_predictions, strict=True)
-        ]
-        return value_predictions, advantages, returns
+        return compute_value_result(self._value_trajectory(rollout), predictions, self.value_config, layout=layout)

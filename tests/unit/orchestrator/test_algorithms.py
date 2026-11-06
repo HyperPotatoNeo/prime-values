@@ -836,7 +836,8 @@ def _shared_prefix_value_rollout() -> Rollout:
     return rollout
 
 
-def test_positioned_tether_counts_native_shared_prefix_after_deduplication():
+@pytest.mark.parametrize("mutate_policy", [False, True])
+def test_positioned_tether_counts_native_shared_prefix_after_deduplication(mutate_policy):
     success = _shared_prefix_value_rollout()
     failure = _shared_prefix_value_rollout()
     failure.rewards = {"r": 0.0}
@@ -855,6 +856,13 @@ def test_positioned_tether_counts_native_shared_prefix_after_deduplication():
             [[9.0, 0.7, 9.0, 0.9], [9.0, 0.7, 9.0, 0.9]],
             version=4,
         )
+    if mutate_policy:
+        for rollout in (success, failure):
+            for sample in rollout.samples:
+                sample.mask[:] = [False] * len(sample.mask)
+                sample.token_ids[:] = [999] * len(sample.token_ids)
+            rollout.nodes.clear()
+            rollout.rewards = {"r": 50.0}
     runtime = TetherRuntime(
         TetherBaselineConfig(
             adaptive=AdaptiveTetherConfig(position={"bin_size": 1, "max_action_tokens": 2, "min_bin_rollouts": 1})
@@ -1085,3 +1093,48 @@ def test_echo_filter_narrows_selection():
     rollout = _two_turn_rollout()
     with pytest.raises(ValueError, match="span the branch's tokens"):
         asyncio.run(_echo_algorithm(filter_fn=lambda trace: [[True] * 6]).score_rollout(rollout))
+
+
+def test_value_evaluation_freezes_inputs_before_awaiting_response():
+    async def run_test() -> None:
+        sample = TrainingSample(
+            token_ids=[0, 1, 2],
+            mask=[False, True, True],
+            logprobs=[0.0, -0.1, -0.1],
+            temperatures=[],
+            env_name="test-env",
+        )
+        rollout = _make_rollout([sample])
+        rollout.rewards = {"r": 1.0}
+
+        async def score_rollout(scored):
+            assert scored.value_trajectory.samples[0].token_ids == (0, 1, 2)
+            scored.rewards = {"r": 2.0}
+
+        async def evaluate(token_ids):
+            assert token_ids == [[0, 1, 2]]
+            sample.token_ids[:] = [10, 11, 12]
+            sample.mask[:] = [False, False, False]
+            rollout.rewards = {"r": 9.0}
+            return SimpleNamespace(values=[[0.0, 0.2, 0.6]], version=7)
+
+        evaluator = SimpleNamespace(evaluate=evaluate)
+        algorithm = Algorithm(
+            _build(type="grpo", baseline={"type": "value"}),
+            MagicMock(),
+            value_evaluator=evaluator,
+            value_config=ValueFunctionConfig(
+                model={"seq_len": 8, "attn": "sdpa"}, gae_lambda=0.5, value_target_lambda=1.0
+            ),
+        )
+        algorithm.score_rollout = score_rollout
+        await algorithm.finalize_rollout(rollout)
+        assert rollout.value_version == 7
+        assert rollout.value_predictions[0] == pytest.approx([0.0, 0.2, 0.6])
+        assert rollout.value_advantages[0] == pytest.approx([0.0, 1.1, 1.4])
+        assert rollout.value_returns[0] == pytest.approx([0.0, 2.0, 2.0])
+        assert rollout.value_trajectory.reward == 2.0
+        assert rollout.value_trajectory.samples[0].token_ids == (0, 1, 2)
+        assert rollout.value_trajectory.samples[0].mask == (False, True, True)
+
+    asyncio.run(run_test())

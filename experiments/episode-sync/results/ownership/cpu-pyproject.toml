@@ -1,0 +1,16 @@
+[project]
+name = "prime-values-cpu-checks"
+version = "0.0.0"
+requires-python = "==3.12.*"
+dependencies = [
+  "torch==2.11.0", "transformers==5.6.2", "pytest==9.0.3", "pytest-asyncio",
+  "prime-rl-configs", "verifiers", "renderers", "prime-pydantic-config",
+  "beartype", "jaxtyping", "loguru", "psutil", "setproctitle", "msgspec",
+  "wandb", "rich", "orjson", "tomli", "tomli-w", "pandas",
+]
+
+[tool.uv.sources]
+prime-rl-configs = { path = "../prime-values-analysis/packages/prime-rl-configs", editable = true }
+verifiers = { path = "../prime-values-analysis/deps/verifiers", editable = true }
+renderers = { path = "../prime-values-analysis/deps/renderers", editable = true }
+prime-pydantic-config = { path = "../prime-values-analysis/deps/pydantic-config", editable = true }

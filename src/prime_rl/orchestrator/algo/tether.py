@@ -593,15 +593,25 @@ class TetherRuntime:
             self._score_positioned_group(group)
             return
 
-        anchors = group_baselines([float(rollout.reward) for rollout in group], self.config.group)
+        anchors = group_baselines(
+            [
+                trajectory.reward
+                if (trajectory := getattr(rollout, "value_trajectory", None)) is not None
+                else float(rollout.reward)
+                for rollout in group
+            ],
+            self.config.group,
+        )
         rho = self.rho
         regression_stats: list[TetherRegressionStats] = []
         for rollout, anchor in zip(group, anchors, strict=True):
+            trajectory = getattr(rollout, "value_trajectory", None)
+            samples = trajectory.samples if trajectory is not None else rollout.samples
             predictions = rollout.value_predictions
             raw_advantages = rollout.value_advantages
             if predictions is None or raw_advantages is None:
                 raise RuntimeError("value evaluator did not attach TETHER predictions and policy GAE")
-            if len(predictions) != len(rollout.samples) or len(raw_advantages) != len(rollout.samples):
+            if len(predictions) != len(samples) or len(raw_advantages) != len(samples):
                 raise ValueError("TETHER value/sample branch count mismatch")
 
             rollout_advantages: list[float] = []
@@ -610,7 +620,7 @@ class TetherRuntime:
             feature_target = 0.0
             target_target = 0.0
             for sample, values, value_advantages in zip(
-                rollout.samples,
+                samples,
                 predictions,
                 raw_advantages,
                 strict=True,
@@ -656,37 +666,52 @@ class TetherRuntime:
 
     def _score_positioned_group(self, group: list[Rollout]) -> None:
         assert self.positioned_adaptive is not None
-        anchors = group_baselines([float(rollout.reward) for rollout in group], self.config.group)
+        anchors = group_baselines(
+            [
+                trajectory.reward
+                if (trajectory := getattr(rollout, "value_trajectory", None)) is not None
+                else float(rollout.reward)
+                for rollout in group
+            ],
+            self.config.group,
+        )
         coefficients = self.positioned_adaptive.coefficient_table
         regression_stats: list[TetherRolloutStats] = []
         for rollout, anchor in zip(group, anchors, strict=True):
+            trajectory = getattr(rollout, "value_trajectory", None)
+            samples = trajectory.samples if trajectory is not None else rollout.samples
             predictions = rollout.value_predictions
             raw_advantages = rollout.value_advantages
             if predictions is None or raw_advantages is None:
                 raise RuntimeError("value evaluator did not attach TETHER predictions and policy GAE")
-            branch_views = list(iter_trainable_branches(rollout))
+            branch_views = (
+                [(sample.token_ids, sample.sampled_mask, sample.mask) for sample in samples]
+                if trajectory is not None
+                else [
+                    (branch.token_ids, branch.sampled_mask, mask) for branch, mask in iter_trainable_branches(rollout)
+                ]
+            )
             if (
-                len(branch_views) != len(rollout.samples)
-                or len(predictions) != len(rollout.samples)
-                or len(raw_advantages) != len(rollout.samples)
+                len(branch_views) != len(samples)
+                or len(predictions) != len(samples)
+                or len(raw_advantages) != len(samples)
             ):
                 raise ValueError("positioned TETHER branch/sample/value alignment mismatch")
 
             rollout_advantages: list[float] = []
             rollout_bins = [TetherRegressionStats() for _ in range(coefficients.num_bins)]
-            for (branch, train_mask), sample, values, value_advantages in zip(
+            for (branch_tokens, action_mask, train_mask), sample, values, value_advantages in zip(
                 branch_views,
-                rollout.samples,
+                samples,
                 predictions,
                 raw_advantages,
                 strict=True,
             ):
                 sample_length = len(sample.token_ids)
-                if sample.token_ids != branch.token_ids or sample.mask != train_mask:
+                if sample.token_ids != branch_tokens or sample.mask != train_mask:
                     raise ValueError("positioned TETHER branch/sample token streams are misaligned")
                 if len(values) != sample_length or len(value_advantages) != sample_length:
                     raise ValueError("TETHER value streams must span the padded sample stream")
-                action_mask = branch.sampled_mask
                 if len(action_mask) != sample_length or any(
                     trainable and not sampled for trainable, sampled in zip(train_mask, action_mask, strict=True)
                 ):
@@ -750,7 +775,9 @@ class TetherRuntime:
         )
 
     def _critic_visible_length(self, rollout: Rollout, sample_length: int) -> int:
-        critic_length = sample_length if rollout.value_prefix is not None else self.value_seq_len
+        trajectory = getattr(rollout, "value_trajectory", None)
+        prefix = trajectory.prefix if trajectory is not None else rollout.value_prefix
+        critic_length = sample_length if prefix is not None else self.value_seq_len
         return min(sample_length, critic_length)
 
     def metrics(self) -> dict[str, float]:

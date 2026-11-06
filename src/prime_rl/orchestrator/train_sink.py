@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections import defaultdict
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
@@ -32,6 +33,7 @@ from prime_rl.transport import TrainingSample
 from prime_rl.utils.async_utils import safe_cancel_all
 from prime_rl.utils.logger import get_logger
 from prime_rl.value.transport import ValueRolloutPublisher
+from prime_rl.value.trajectory import snapshot_value_trajectory
 from prime_rl.value.types import ValueTrainingRollout, ValueTrainingSample
 
 if TYPE_CHECKING:
@@ -207,6 +209,7 @@ class TrainSink:
             rollout,
             env_name=rollout.env_name,
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
+            capture_sampled_masks=value_enabled,
         )
         samples = materialization.samples
         value_prefix = self._build_value_prefix(
@@ -218,6 +221,17 @@ class TrainSink:
         rollout.samples = samples
         rollout.training_layout = materialization.layout
         rollout.value_prefix = value_prefix
+        if value_enabled:
+            rollout.value_trajectory = snapshot_value_trajectory(
+                samples,
+                sampled_masks=materialization.sampled_masks,
+                layout=materialization.layout,
+                reward=float(rollout.reward),
+                prefix=value_prefix,
+                env_name=rollout.env_name,
+                group_id=str(rollout.group_id),
+                policy_version=rollout.policy_version,
+            )
         # Arrival phase: rollout-local scoring (raw reward, echo observation
         # weighting, opd/opsd reference logprobs) runs as soon as the rollout is
         # tokenized — before its group is complete.
@@ -284,8 +298,12 @@ class TrainSink:
 
         if group_value_context:
             prefixes = await asyncio.to_thread(self._build_group_value_prefixes, survivors)
+            if any(rollout.value_trajectory is None for rollout in survivors):
+                raise RuntimeError("value trajectory was not captured before group finalization")
             for rollout, prefix in zip(survivors, prefixes, strict=True):
                 rollout.value_prefix = prefix
+                assert rollout.value_trajectory is not None
+                rollout.value_trajectory = replace(rollout.value_trajectory, prefix=prefix)
 
         # Advantages + per-sample wire stamping (advantage stream, loss
         # routing) are the algorithm's job (finalize_group); the sink only
@@ -410,26 +428,34 @@ class TrainSink:
     def _publish_value_rollouts(self, rollouts: list[Rollout]) -> None:
         if self._value_publisher is None:
             return
-        trainable_rollouts = [rollout for rollout in rollouts if rollout.samples]
+        trainable_rollouts = [
+            rollout
+            for rollout in rollouts
+            if (rollout.value_trajectory is not None and rollout.value_trajectory.samples) or rollout.samples
+        ]
         if not any(rollout.value_returns is not None for rollout in trainable_rollouts):
             return
         if not all(
             rollout.value_returns is not None and rollout.value_version is not None for rollout in trainable_rollouts
         ):
             raise RuntimeError("value evaluator did not attach concrete lambda-return targets")
+        if any(rollout.value_trajectory is None for rollout in trainable_rollouts):
+            raise RuntimeError("value trajectory was not captured before critic publication")
         assert self._value_seq_len is not None
         for rollout in trainable_rollouts:
             assert rollout.value_returns is not None and rollout.value_version is not None
+            trajectory = rollout.value_trajectory
+            assert trajectory is not None
             samples: list[ValueTrainingSample] = []
-            for sample, targets in zip(rollout.samples, rollout.value_returns, strict=True):
-                if rollout.value_prefix is not None:
-                    token_ids = rollout.value_prefix.apply(sample.token_ids)
-                    mask = rollout.value_prefix.lift(sample.mask, fill=False)
-                    value_targets = rollout.value_prefix.lift(targets, fill=0.0)
+            for sample, targets in zip(trajectory.samples, rollout.value_returns, strict=True):
+                if trajectory.prefix is not None:
+                    token_ids = trajectory.prefix.apply(list(sample.token_ids))
+                    mask = trajectory.prefix.lift(list(sample.mask), fill=False)
+                    value_targets = trajectory.prefix.lift(targets, fill=0.0)
                 else:
                     value_length = min(len(sample.token_ids), self._value_seq_len)
-                    token_ids = sample.token_ids[:value_length]
-                    mask = sample.mask[:value_length]
+                    token_ids = list(sample.token_ids[:value_length])
+                    mask = list(sample.mask[:value_length])
                     value_targets = targets[:value_length]
                 samples.append(
                     ValueTrainingSample(
@@ -442,7 +468,7 @@ class TrainSink:
                 ValueTrainingRollout(
                     samples=samples,
                     rollout_id=self._next_value_rollout_id,
-                    policy_version=rollout.policy_version,
+                    policy_version=trajectory.policy_version,
                     value_version=rollout.value_version,
                 )
             )

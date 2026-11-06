@@ -127,6 +127,14 @@ sequence, it:
 4. queues the finalized rollout and its lambda returns for replay while
    stamping the selected advantage on the policy sample.
 
+The value plane owns a copied trajectory: tokens, unique training masks,
+native action positions, branch layout, scoring reward, privileged prefix and
+sampling policy version. Policy filtering or payload cleanup cannot rewrite
+these critic inputs. Positioned TETHER counts native action positions while
+fitting only the unique training tokens, including when branches share a prefix.
+The credit functions live in `prime_rl.value.credit`; the orchestrator attaches
+their results to the independently versioned critic and policy streams.
+
 Context, prompt, and tool-response tokens are never value-loss members. Packed
 sequences reset both the causal value shift and GAE recursion at every sequence
 boundary. Each rollout retains its arrival-time value predictions and their
