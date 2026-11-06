@@ -13,9 +13,10 @@ The comparison target is Prime RL `3c96816de9a2a906649a04026a46517840a0f4a6`; th
 | Critic ownership | Critic-owned trajectory snapshots and pure credit module, independent of later policy mutation | `4b8ca528` |
 | Canonical Episodes | Actual native and maintained legacy producers through a deliberately single-trace boundary | `4835142d` |
 | Explicit packing boundaries | Host-owned boundaries with exact covered model, CP and compiled critic comparisons | `1708eb0c` |
-| CPU-offloaded optimizer resume | Restore group metadata with exact actual DCP continuation controls | [Evidence](optimizer-resume/README.md) |
-| Parameter-safe activation offload | Live parameter storage exclusion with exact compiled expert and critic comparisons | [Evidence](activation-offload/README.md) |
-| Streaming trainer metrics | Bounded standard entropy/mismatch collection; preserved scalar/custom metrics | [Evidence](trainer-metrics/README.md) |
+| Exact-order packing refinement | Vectorized CPU swaps with exact ordered partitions and full serialized batches | [Evidence](packing-swap/README.md) |
+| CPU-offloaded optimizer resume | Restore group metadata with exact actual DCP continuation controls | `01ccbc11` |
+| Parameter-safe activation offload | Live parameter storage exclusion with exact compiled expert and critic comparisons | `2fc16d64` |
+| Streaming trainer metrics | Bounded standard entropy/mismatch collection; preserved scalar/custom metrics | `fe06cbb0` |
 | Native task ownership | One selected/serialized task per group; stateless native workers; preserved legacy addressing and group scoring | `5f80407b` |
 
 Each unit has its own evidence and limitations. In particular, the earlier safety unit's historical fresh-exit uncertainty remains in its record; later normal-exit observations do not rewrite it. Passing these checks does not establish improved reward, all model families or exact stochastic replay after restart.
@@ -30,7 +31,7 @@ Activation offload now excludes views of live parameter storage and still offloa
 
 CPU-offloaded optimizer checkpoints now restore non-tensor group metadata while retaining parameter identities and state buffers. Actual Muon/mixed controls reproduced the frozen step-reset bug; the corrected implementation matched full state, gradients and two continued updates, with Adam also exact. See [checkpoint evidence](optimizer-resume/README.md).
 
-The next bounded CPU optimization vectorizes batch-balancing swaps while preserving exact ordered assignments and Python integer range through a guarded scalar fallback. No GPU training rerun is required for a source-isolated packing helper whose complete materialized batches remain identical.
+Batch-balancing swaps are now vectorized with exact ordered assignments and a per-iteration integer-safety check. Unsupported numeric ranges retain the original scalar algorithm. The actual full packed batch, transport bytes and component counts were identical, so no unrelated GPU training run was added. See [packing refinement evidence](packing-swap/README.md).
 
 ## Next dependency boundary
 

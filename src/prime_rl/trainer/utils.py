@@ -11,6 +11,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.distributed as dist
@@ -226,7 +227,7 @@ def _partition_loads(weights: Sequence[int], partitions: list[list[int]]) -> lis
     return [sum(weights[i] for i in partition) for partition in partitions]
 
 
-def _refine_by_swapping(weights: Sequence[int], partitions: list[list[int]]) -> list[list[int]]:
+def _refine_by_swapping_scalar(weights: Sequence[int], partitions: list[list[int]]) -> list[list[int]]:
     partitions = [list(partition) for partition in partitions]
     loads = _partition_loads(weights, partitions)
 
@@ -254,6 +255,66 @@ def _refine_by_swapping(weights: Sequence[int], partitions: list[list[int]]) -> 
             partitions[right_rank][right_pos],
             partitions[left_rank][left_pos],
         )
+
+
+def _refine_by_swapping(weights: Sequence[int], partitions: list[list[int]]) -> list[list[int]]:
+    """Apply the best pairwise swap until none lowers ``(max load, max - min load)``.
+
+    Ties go to the first swap in (rank pair, left position, right position) order.
+    Relative loads avoid overflowing large totals. Values outside the proven int64
+    range use Python integer arithmetic with the same swap order.
+    """
+    partitions = [list(partition) for partition in partitions]
+    loads = _partition_loads(weights, partitions)
+    if any(type(weight) is not int for weight in weights):
+        return _refine_by_swapping_scalar(weights, partitions)
+    max_weight = max((abs(weight) for weight in weights), default=0)
+    int64_max = int(np.iinfo(np.int64).max)
+    if 4 * max_weight >= int64_max:
+        return _refine_by_swapping_scalar(weights, partitions)
+    item_weights = np.asarray(weights, dtype=np.int64)
+    num_partitions = len(partitions)
+    no_other_max, no_other_min = np.iinfo(np.int64).min, np.iinfo(np.int64).max
+
+    while True:
+        top = max(loads)
+        # Relative candidate loads lie in [-spread - 2W, 2W]; their
+        # difference is at most spread + 4W. Recheck after every swap.
+        if top - min(loads) + 4 * max_weight >= int64_max:
+            return _refine_by_swapping_scalar(weights, partitions)
+        relative = np.array([load - top for load in loads], dtype=np.int64)
+        best_score = (0, top - min(loads))
+        best_swap = None
+        for left_rank in range(num_partitions):
+            for right_rank in range(left_rank + 1, num_partitions):
+                if not partitions[left_rank] or not partitions[right_rank]:
+                    continue
+                others = np.delete(relative, [left_rank, right_rank])
+                other_max = others.max() if len(others) else no_other_max
+                other_min = others.min() if len(others) else no_other_min
+                left_weights = item_weights[partitions[left_rank]][:, None]
+                right_weights = item_weights[partitions[right_rank]][None, :]
+                new_left = relative[left_rank] - left_weights + right_weights
+                new_right = relative[right_rank] - right_weights + left_weights
+                new_max = np.maximum(np.maximum(new_left, new_right), other_max)
+                lowest_max = int(new_max.min())
+                if lowest_max > best_score[0]:
+                    continue
+                new_min = np.minimum(np.minimum(new_left, new_right), other_min)
+                spread = np.where(new_max == lowest_max, new_max - new_min, no_other_min)
+                flat = int(spread.argmin())
+                score = (lowest_max, int(spread.flat[flat]))
+                if score < best_score:
+                    best_score = score
+                    best_swap = (left_rank, right_rank, *divmod(flat, right_weights.shape[1]))
+        if best_swap is None:
+            return partitions
+
+        left_rank, right_rank, left_pos, right_pos = best_swap
+        left_idx, right_idx = partitions[left_rank][left_pos], partitions[right_rank][right_pos]
+        partitions[left_rank][left_pos], partitions[right_rank][right_pos] = right_idx, left_idx
+        loads[left_rank] += weights[right_idx] - weights[left_idx]
+        loads[right_rank] += weights[left_idx] - weights[right_idx]
 
 
 def balanced_partition(weights: Sequence[int], num_partitions: int) -> list[list[int]]:

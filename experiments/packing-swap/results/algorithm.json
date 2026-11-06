@@ -1,0 +1,720 @@
+{
+  "source_files": {
+    "baseline": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/optimizer-resume-candidate/src/prime_rl/trainer/utils.py",
+      "sha256": "a76db1a4aa903006ae553bd3ba20e2e95da0653984367c1338d3f9d01ba341c1"
+    },
+    "candidate": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/packing-swap-candidate/src/prime_rl/trainer/utils.py",
+      "sha256": "743d1842fe70668c2c02c95ca39a2ad64e1ee9239c139dd2991476374bb5ba77"
+    }
+  },
+  "harness_sha256": "ded86196c6a6b879b5a9ddf8d1c4391b580781f153804fb2b09c86ceaf09daca",
+  "direct_cases": [
+    {
+      "case": "improving-tie",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "ties",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "empty-partitions",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "empty-items",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "one-partition",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "huge-weights",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": true
+    },
+    {
+      "case": "unsafe-spread",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": true
+    },
+    {
+      "case": "large-totals-safe-relative",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "negative-weights",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "non-integer-fallback",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": true
+    },
+    {
+      "case": "seeded-0",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-1",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-2",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-3",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-4",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-5",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-6",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-7",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-8",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-9",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-10",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-11",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-12",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-13",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-14",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-15",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-16",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-17",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-18",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-19",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-20",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-21",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-22",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-23",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-24",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-25",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-26",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-27",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-28",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-29",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-30",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-31",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-32",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-33",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-34",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-35",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-36",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-37",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-38",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-39",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-40",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-41",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-42",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-43",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-44",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-45",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-46",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-47",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-48",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-49",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-50",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-51",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-52",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-53",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-54",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-55",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-56",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-57",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-58",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-59",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-60",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-61",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-62",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-63",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-64",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-65",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-66",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-67",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-68",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-69",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-70",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-71",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-72",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-73",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-74",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-75",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-76",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-77",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-78",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-79",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-80",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-81",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-82",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-83",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-84",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-85",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-86",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-87",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-88",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-89",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-90",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-91",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-92",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-93",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-94",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-95",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-96",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-97",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-98",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-99",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-100",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-101",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-102",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-103",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-104",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-105",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-106",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-107",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-108",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-109",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-110",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-111",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-112",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-113",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-114",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-115",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-116",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-117",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-118",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    },
+    {
+      "case": "seeded-119",
+      "exact_ordered_partitions": true,
+      "scalar_fallback": false
+    }
+  ],
+  "public_balanced_partition_cases": 12,
+  "timings": [
+    {
+      "items": 64,
+      "ranks": 8,
+      "repeats": 3,
+      "frozen_seconds": [
+        0.0005353339947760105,
+        0.0005354590102797374,
+        0.0005047089944127947
+      ],
+      "frozen_median_seconds": 0.0005353339947760105,
+      "candidate_seconds": [
+        0.0002503750001778826,
+        0.00021425000159069896,
+        0.00022083301155362278
+      ],
+      "candidate_median_seconds": 0.00022083301155362278
+    },
+    {
+      "items": 128,
+      "ranks": 8,
+      "repeats": 3,
+      "frozen_seconds": [
+        0.0019612500036600977,
+        0.002100707992212847,
+        0.0022061250056140125
+      ],
+      "frozen_median_seconds": 0.002100707992212847,
+      "candidate_seconds": [
+        0.00024308300635311753,
+        0.0002545000024838373,
+        0.00020120799308642745
+      ],
+      "candidate_median_seconds": 0.00024308300635311753
+    },
+    {
+      "items": 512,
+      "ranks": 32,
+      "repeats": 3,
+      "frozen_seconds": [
+        3.0502584999921964,
+        3.146533292005188,
+        3.0133443329978036
+      ],
+      "frozen_median_seconds": 3.0502584999921964,
+      "candidate_seconds": [
+        0.12299212499056011,
+        0.12310070799139794,
+        0.12345254101091996
+      ],
+      "candidate_median_seconds": 0.12310070799139794
+    }
+  ],
+  "scope": "Actual pure helper ASTs extracted from frozen/current sources; exact ordered partitions and nonmutation, arbitrary-integer fallback controls. CPU helper timings only; no model, GPU or end-to-end throughput claim."
+}

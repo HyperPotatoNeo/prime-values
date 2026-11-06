@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "packed_bytes_equal": true,
+  "packed_bytes": 1007809,
+  "packed_sha256": "e8e58d634dd5a7c37f60630dc925892bb976e64b6d726e0e6543cb5491757484",
+  "global_component_counts": [
+    4179,
+    2230,
+    1336
+  ],
+  "per_rank_counts_equal": true,
+  "same_harness": "34a5c838b4d129913e4c1803c60fbdd91d4cb15ceda9a4bc301700fc84d0c530",
+  "scope": "Actual CPU packer/transport/count helper; simulated rank partition sum, no distributed collective or model."
+}
