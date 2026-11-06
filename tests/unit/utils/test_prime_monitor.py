@@ -36,10 +36,11 @@ def _build_rollout(*, example_id: int, reward: float, task: str) -> Rollout:
         ),
     ]
     rollout = Rollout[vf.TaskData](
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=example_id, prompt=f"prompt-{example_id}")),
         nodes=nodes,
-        rewards={"reward": reward},
+        rewards={"reward": vf.Reward(score=reward)},
     )
     rollout.env_name = task
     # Per-token advantage stream (full-length-N): 0.0 on the 3 prompt tokens,
@@ -82,7 +83,9 @@ def test_rollouts_to_parquet_bytes_skips_rollouts_without_trajectory():
 
     rollout_with_branches = _build_rollout(example_id=1, reward=1.0, task="task-a")
     rollout_without_branches = Rollout[vf.TaskData](
-        ok=True, task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=2, prompt="missing-trajectory"))
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
+        ok=True,
+        task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=2, prompt="missing-trajectory")),
     )
     assert rollout_without_branches.branches == []
 

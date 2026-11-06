@@ -222,6 +222,7 @@ def _make_rollout(
     advantages: list[float] | None = None,
 ) -> Rollout:
     rollout = Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=[],
@@ -416,7 +417,7 @@ def test_group_leave_one_out_value_evaluation_is_one_aligned_group_request():
             _make_rollout([sample([8, 9, 10], [False, True, True])]),
         ]
         for rollout, reward in zip(rollouts, (0.3, 0.6, 0.9), strict=True):
-            rollout.rewards = {"score": reward}
+            rollout.rewards = {"score": vf.Reward(score=reward)}
         rollouts[0].value_prefix = TokenPrefix(token_ids=(90,), insert_at=1)
         rollouts[1].value_prefix = TokenPrefix(token_ids=(91, 92), insert_at=1)
         rollouts[2].value_prefix = TokenPrefix(token_ids=(93,), insert_at=0)
@@ -506,10 +507,11 @@ def _branched_value_rollout() -> Rollout:
         _node(AssistantMessage(content="A2"), parent=4, sampled=True, token_ids=[50]),
     ]
     rollout = Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"r": 1.0},
+        rewards={"r": vf.Reward(score=1.0)},
         env_name="test-env",
     )
     materialization = materialize_training_data(rollout)
@@ -657,7 +659,7 @@ def test_tether_policy_gae_uses_sequential_branch_layout():
 def test_tether_runtime_uses_stitched_value_lambda_return_in_generation_order():
     success = _branched_value_rollout()
     failure = _branched_value_rollout()
-    failure.rewards = {"r": 0.0}
+    failure.rewards = {"r": vf.Reward(score=0.0)}
     value_algorithm = Algorithm(
         _build(
             type="grpo",
@@ -696,7 +698,7 @@ def test_tether_runtime_uses_stitched_value_lambda_return_in_generation_order():
 def test_tether_lambda_one_preserves_discounted_sequential_formula():
     success = _branched_value_rollout()
     failure = _branched_value_rollout()
-    failure.rewards = {"r": 0.0}
+    failure.rewards = {"r": vf.Reward(score=0.0)}
     value_algorithm = Algorithm(
         _build(
             type="grpo",
@@ -736,7 +738,7 @@ def test_tether_lambda_one_preserves_discounted_sequential_formula():
 def test_positioned_tether_uses_branch_local_bins_after_sequential_q_stitching():
     success = _branched_value_rollout()
     failure = _branched_value_rollout()
-    failure.rewards = {"r": 0.0}
+    failure.rewards = {"r": vf.Reward(score=0.0)}
     value_algorithm = Algorithm(
         _build(
             type="grpo",
@@ -832,10 +834,11 @@ def _shared_prefix_value_rollout() -> Rollout:
         _node(AssistantMessage(content="B"), parent=4, sampled=True, token_ids=[50]),
     ]
     rollout = Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"r": 1.0},
+        rewards={"r": vf.Reward(score=1.0)},
         env_name="test-env",
     )
     materialization = materialize_training_data(rollout)
@@ -848,7 +851,7 @@ def _shared_prefix_value_rollout() -> Rollout:
 def test_positioned_tether_counts_native_shared_prefix_after_deduplication(mutate_policy):
     success = _shared_prefix_value_rollout()
     failure = _shared_prefix_value_rollout()
-    failure.rewards = {"r": 0.0}
+    failure.rewards = {"r": vf.Reward(score=0.0)}
     value_algorithm = Algorithm(
         _build(type="grpo", baseline={"type": "tether"}),
         MagicMock(),
@@ -870,7 +873,7 @@ def test_positioned_tether_counts_native_shared_prefix_after_deduplication(mutat
                 sample.mask[:] = [False] * len(sample.mask)
                 sample.token_ids[:] = [999] * len(sample.token_ids)
             rollout.nodes.clear()
-            rollout.rewards = {"r": 50.0}
+            rollout.rewards = {"r": vf.Reward(score=50.0)}
     runtime = TetherRuntime(
         TetherBaselineConfig(
             adaptive=AdaptiveTetherConfig(position={"bin_size": 1, "max_action_tokens": 2, "min_bin_rollouts": 1})
@@ -1029,10 +1032,11 @@ def _two_turn_rollout(observation_role: str = "tool") -> Rollout:
         _node(AssistantMessage(content="A2"), parent=2, sampled=True, token_ids=[7, 8], logprobs=[-0.3, -0.4]),
     ]
     rollout = Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"r": 1.0},
+        rewards={"r": vf.Reward(score=1.0)},
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")
@@ -1081,10 +1085,11 @@ def test_echo_weights_only_content_tokens_when_is_content_present():
         _node(AssistantMessage(content="A2"), parent=2, sampled=True, token_ids=[7, 8], logprobs=[-0.3, -0.4]),
     ]
     rollout = Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"r": 1.0},
+        rewards={"r": vf.Reward(score=1.0)},
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")
@@ -1125,17 +1130,17 @@ def test_value_evaluation_freezes_inputs_before_awaiting_response():
             env_name="test-env",
         )
         rollout = _make_rollout([sample])
-        rollout.rewards = {"r": 1.0}
+        rollout.rewards = {"r": vf.Reward(score=1.0)}
 
         async def score_rollout(scored):
             assert scored.value_trajectory.samples[0].token_ids == (0, 1, 2)
-            scored.rewards = {"r": 2.0}
+            scored.rewards = {"r": vf.Reward(score=2.0)}
 
         async def evaluate(token_ids):
             assert token_ids == [[0, 1, 2]]
             sample.token_ids[:] = [10, 11, 12]
             sample.mask[:] = [False, False, False]
-            rollout.rewards = {"r": 9.0}
+            rollout.rewards = {"r": vf.Reward(score=9.0)}
             return SimpleNamespace(values=[[0.0, 0.2, 0.6]], version=7)
 
         evaluator = SimpleNamespace(evaluate=evaluate)

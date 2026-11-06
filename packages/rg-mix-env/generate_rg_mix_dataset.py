@@ -15,12 +15,11 @@ import argparse
 import json
 import random
 import time
-from collections import Counter, defaultdict
+from collections import Counter
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
 from datasets import Dataset
-
 
 # Must be at module level for multiprocessing pickling
 _WORKER_DATASETS = {}
@@ -29,6 +28,7 @@ _WORKER_DATASETS = {}
 def _init_worker(task_configs, seed, total_examples):
     """Initialize each worker with its own rg dataset instances."""
     import reasoning_gym as rg
+
     global _WORKER_DATASETS
     for i, (vid, task_name, config) in enumerate(task_configs):
         ds = rg.create_dataset(
@@ -54,8 +54,7 @@ def main():
     parser.add_argument("--num-train", type=int, default=7500, help="Number of training examples")
     parser.add_argument("--num-test", type=int, default=100, help="Number of test/eval examples")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--workers", type=int, default=0,
-                        help="Number of worker processes (default: cpu_count)")
+    parser.add_argument("--workers", type=int, default=0, help="Number of worker processes (default: cpu_count)")
     args = parser.parse_args()
 
     output_path = Path(args.output)
@@ -97,9 +96,7 @@ def main():
     print(f"\nGenerating {len(needed_entries)} entries with {n_workers} workers...", flush=True)
     t0 = time.time()
 
-    task_configs = [
-        (v["id"], v["task"], v["config"]) for v in TASK_VARIANTS
-    ]
+    task_configs = [(v["id"], v["task"], v["config"]) for v in TASK_VARIANTS]
 
     with Pool(
         processes=n_workers,
@@ -107,19 +104,19 @@ def main():
         initargs=(task_configs, seed, total_examples),
     ) as pool:
         results = []
-        for i, result in enumerate(pool.imap(
-            _generate_entry, needed_entries, chunksize=16
-        )):
+        for i, result in enumerate(pool.imap(_generate_entry, needed_entries, chunksize=16)):
             results.append(result)
             if (i + 1) % 500 == 0 or i == len(needed_entries) - 1:
                 elapsed = time.time() - t0
                 rate = (i + 1) / elapsed
                 eta = (len(needed_entries) - i - 1) / rate if rate > 0 else 0
-                print(f"  [{i+1}/{len(needed_entries)}] {elapsed:.0f}s elapsed, "
-                      f"{rate:.1f} entries/s, ETA {eta:.0f}s", flush=True)
+                print(
+                    f"  [{i + 1}/{len(needed_entries)}] {elapsed:.0f}s elapsed, {rate:.1f} entries/s, ETA {eta:.0f}s",
+                    flush=True,
+                )
 
     elapsed = time.time() - t0
-    print(f"\nGeneration complete in {elapsed:.1f}s ({len(results)/elapsed:.1f} entries/s)", flush=True)
+    print(f"\nGeneration complete in {elapsed:.1f}s ({len(results) / elapsed:.1f} entries/s)", flush=True)
 
     # Phase 3: Build the dataset rows
     print("\nBuilding dataset...", flush=True)
@@ -130,11 +127,13 @@ def main():
     for i, (vid, entry_idx, entry) in enumerate(results):
         entry_map.append((vid, entry_idx))
         entries_cache[i] = entry
-        rows.append({
-            "question": entry["question"],
-            "answer": str(i),
-            "task": vid,
-        })
+        rows.append(
+            {
+                "question": entry["question"],
+                "answer": str(i),
+                "task": vid,
+            }
+        )
 
     # Print final distribution
     final_counts = Counter(r["task"] for r in rows)

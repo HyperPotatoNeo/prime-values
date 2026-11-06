@@ -119,6 +119,7 @@ def _build_rollout(
     reward: float,
     *,
     sampled_lengths: list[int],
+    prompt_length: int = 1,
     obs_lengths: list[int] | None = None,
     env_name: str = "test",
     metrics: dict | None = None,
@@ -143,7 +144,7 @@ def _build_rollout(
         return ids
 
     # Leading user prompt (never trainable).
-    prompt_ids = _take(1)
+    prompt_ids = _take(prompt_length)
     nodes.append(
         vf.MessageNode(
             message=vf.UserMessage(content="q"),
@@ -184,10 +185,22 @@ def _build_rollout(
             parent = len(nodes) - 1
 
     rollout = Rollout[vf.TaskData](
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": reward},
+        calls=[
+            vf.ModelCall(
+                node=index,
+                usage=vf.Usage(
+                    prompt_tokens=sum(len(previous.token_ids) for previous in nodes[:index]),
+                    completion_tokens=len(node.token_ids),
+                ),
+            )
+            for index, node in enumerate(nodes)
+            if node.sampled
+        ],
+        rewards={"reward": vf.Reward(score=reward)},
         metrics=metrics or {},
     )
     rollout.env_name = env_name
@@ -300,7 +313,7 @@ def test_linear_context_term_penalizes_more_context():
     cfg = LinearLengthPenaltyConfig(num_output_tokens_weight=0.0, num_input_tokens_weight=0.25, num_turns_weight=0.0)
     group = [
         _build_rollout(1.0, sampled_lengths=[10], obs_lengths=[]),
-        _build_rollout(1.0, sampled_lengths=[10], obs_lengths=[100]),
+        _build_rollout(1.0, sampled_lengths=[10], prompt_length=101),
     ]
     asyncio.run(GRPOAlgorithm(GRPOAlgoConfig(length_penalty=cfg), policy_pool=None).score_group(group))
     advs = [_scalar(rollout) for rollout in group]

@@ -32,7 +32,7 @@ from prime_rl.utils.logger import get_logger
 if TYPE_CHECKING:
     from prime_rl.configs.value import ValueFunctionConfig
 
-# Legacy workers may download their dataset before reporting an address.
+# Worker startup can include environment resource initialization.
 ENV_SERVER_SPAWN_TIMEOUT = 600.0
 
 
@@ -160,7 +160,7 @@ class Env:
         return task
 
     async def _spawn(self, log_dir: Path, log_level: str, json_logging: bool) -> str:
-        """Spawn a worker for agent execution (and legacy dataset ownership).
+        """Spawn a worker for agent execution; tasksets remain client-owned.
         The server binds an OS-assigned port (``:0``) and reports the concrete
         address back over a queue — no free-port guess, no TOCTOU race. Its output
         goes to ``<log_dir>/<name>.log`` (``log_dir`` is already the train/eval-split

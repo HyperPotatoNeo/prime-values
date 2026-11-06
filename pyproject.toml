@@ -273,7 +273,8 @@ known-first-party = ["prime_rl"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["deps"]
+# Frozen comparison inputs retain their original bytes for provenance checks.
+extend-exclude = ["deps", "experiments/native-rg/frozen-legacy"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"

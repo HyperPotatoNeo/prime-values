@@ -59,10 +59,11 @@ def _rollout(reward: float, *, values: list[float]) -> Rollout:
         ),
     ]
     rollout = Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": reward},
+        rewards={"reward": vf.Reward(score=reward)},
         env_name="test",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test")
@@ -108,10 +109,11 @@ def _position_rollout(reward: float, *, values: list[float]) -> Rollout:
         ),
     ]
     rollout = Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": reward},
+        rewards={"reward": vf.Reward(score=reward)},
         env_name="test",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test")

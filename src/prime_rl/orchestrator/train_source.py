@@ -4,8 +4,8 @@ Weights are each env's configured ``ratio`` (default 1, i.e. equal weight
 per env). A v1 env serves the tasks the orchestrator loaded client-side: a
 finite one as a shuffled table (reshuffled on cursor exhaustion), an
 infinite one (``num_tasks is None``) straight off its generator — every
-pull is a fresh task and there are no epochs to shuffle. A legacy env's
-dataset lives on its server, so it serves shuffled task *indices*."""
+pull is a fresh task and there are no epochs to shuffle. Index-only env
+adapters retain a shuffled index fallback; the native profile supplies tasks."""
 
 from __future__ import annotations
 

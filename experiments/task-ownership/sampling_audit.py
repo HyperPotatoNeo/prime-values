@@ -32,17 +32,9 @@ builders = [
 def fingerprint(source, name, method):
     path = source / name
     tree = ast.parse(path.read_text())
-    node = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.ClassDef) and node.name == method[0]
-    )
+    node = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == method[0])
     if method[1] is not None:
-        node = next(
-            node
-            for node in node.body
-            if isinstance(node, ast.FunctionDef) and node.name == method[1]
-        )
+        node = next(node for node in node.body if isinstance(node, ast.FunctionDef) and node.name == method[1])
     return {
         "path": str(path),
         "line": node.lineno,
@@ -68,8 +60,7 @@ for node in params.body:
     if (
         isinstance(node, ast.AnnAssign)
         and isinstance(node.target, ast.Name)
-        and node.target.id
-        in {"presence_penalty", "frequency_penalty", "repetition_penalty"}
+        and node.target.id in {"presence_penalty", "frequency_penalty", "repetition_penalty"}
     ):
         penalties[node.target.id] = ast.literal_eval(node.value)
 assert penalties == {
@@ -85,14 +76,10 @@ for label, base in [("episode_unit", prior), ("task_data_unit", root)]:
     env_config = config.orchestrator.train.env[0]
     assert env_config.algo.sampling.source == "policy"
     env = Env(env_config)
-    env.sampling_args = Sampler(env_config.algo.sampling, None).sampling_args(
-        env_config.sampling.to_sampling_args()
-    )
+    env.sampling_args = Sampler(env_config.algo.sampling, None).sampling_args(env_config.sampling.to_sampling_args())
     request = env._sampling(None).model_dump(exclude_none=True)
     assert request["temperature"] == request["top_p"] == 1.0
-    assert (
-        request["extra_body"]["top_k"] == -1 and request["extra_body"]["min_p"] == 0.0
-    )
+    assert request["extra_body"]["top_k"] == -1 and request["extra_body"]["min_p"] == 0.0
     assert not any(key in request or key in request["extra_body"] for key in penalties)
     log_path = (
         evidence / "logs/inference.log"
@@ -102,14 +89,10 @@ for label, base in [("episode_unit", prior), ("task_data_unit", root)]:
     if not log_path.exists():
         log_path = base / "output/dedicated/run/logs/inference.log"
     content = log_path.read_text()
-    match = re.search(
-        r"overridden by the model's `generation_config.json`: `([^`]+)`", content
-    )
+    match = re.search(r"overridden by the model's `generation_config.json`: `([^`]+)`", content)
     assert match, log_path
     model_overrides = ast.literal_eval(match[1])
-    assert model_overrides == {"temperature": 0.7, "top_k": 20, "top_p": 0.8}, (
-        model_overrides
-    )
+    assert model_overrides == {"temperature": 0.7, "top_k": 20, "top_p": 0.8}, model_overrides
     records[label] = {
         "resolved_config": str(config_path),
         "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),

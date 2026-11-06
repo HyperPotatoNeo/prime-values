@@ -794,8 +794,7 @@ class Orchestrator:
         self.dispatcher.disable_train_scheduling()
         n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
         get_logger().info(
-            f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); "
-            f"any in-flight evals will complete)"
+            f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); any in-flight evals will complete)"
         )
 
     def maybe_trigger_eval(self, step: int) -> None:

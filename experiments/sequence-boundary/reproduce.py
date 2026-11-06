@@ -12,16 +12,17 @@ from pathlib import Path
 
 import verifiers.v1 as vf
 from aiohttp import web
+from rg_mix_v1.taskset import RGMixConfig, RGMixTaskset
+from transformers import AutoTokenizer
+from verifiers.v1.legacy import LegacyEnvServer
+from verifiers.v1.serve import EnvClient, EnvServer
+
 from prime_rl.configs.orchestrator import EnvConfig
 from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.orchestrator.episodes import from_episode
 from prime_rl.orchestrator.trajectories import materialize_training_data
 from prime_rl.value.credit import compute_value_result
 from prime_rl.value.trajectory import snapshot_value_trajectory
-from rg_mix_v1.taskset import RGMixConfig, RGMixTaskset
-from transformers import AutoTokenizer
-from verifiers.v1.legacy import LegacyEnvServer
-from verifiers.v1.serve import EnvClient, EnvServer
 
 
 def load_module(name, path):
@@ -35,9 +36,7 @@ def load_module(name, path):
 def project(episode):
     assert episode.ok and len(episode.traces) == 1
     rollout = from_episode(episode.model_copy(deep=True))
-    materialized = materialize_training_data(
-        rollout, env_name="boundary", capture_sampled_masks=True
-    )
+    materialized = materialize_training_data(rollout, env_name="boundary", capture_sampled_masks=True)
     owned = snapshot_value_trajectory(
         materialized.samples,
         sampled_masks=materialized.sampled_masks,
@@ -51,16 +50,9 @@ def project(episode):
         value_target_lambda=1.0,
     )
     predictions = [[0.0] * len(sample.token_ids) for sample in owned.samples]
-    values, advantages, targets = compute_value_result(
-        owned, predictions, config, layout=None
-    )
-    action_indices = [
-        [i for i, mask in enumerate(sample.mask) if mask] for sample in owned.samples
-    ]
-    action_targets = [
-        [target[i] for i in indices]
-        for target, indices in zip(targets, action_indices, strict=True)
-    ]
+    values, advantages, targets = compute_value_result(owned, predictions, config, layout=None)
+    action_indices = [[i for i, mask in enumerate(sample.mask) if mask] for sample in owned.samples]
+    action_targets = [[target[i] for i in indices] for target, indices in zip(targets, action_indices, strict=True)]
     for sequence in action_targets:
         assert sequence[-1] == rollout.reward == 1.0
         for i, target in enumerate(sequence):
@@ -85,25 +77,14 @@ def project(episode):
 
 async def main(args):
     args.output.mkdir(parents=True, exist_ok=False)
-    acceptance = load_module(
-        "frozen_unit9_acceptance", args.source / "experiments/native-rg/acceptance.py"
-    )
+    acceptance = load_module("frozen_unit9_acceptance", args.source / "experiments/native-rg/acceptance.py")
     provenance = acceptance.source_provenance(args.source)
-    tokenizer = AutoTokenizer.from_pretrained(
-        str(args.tokenizer), local_files_only=True
-    )
+    tokenizer = AutoTokenizer.from_pretrained(str(args.tokenizer), local_files_only=True)
     task = RGMixTaskset(RGMixConfig(dataset_path=args.dataset)).load()[0]
     # Real cached answer with a trailing explanation yields correct reward while
     # leaving enough sampled tokens to cross a deliberately small actor budget.
-    completion = (
-        "<answer>"
-        + str(task.data.scorer_entry["answer"])
-        + "</answer>"
-        + " trailing" * 20
-    )
-    response_ids = tokenizer.encode(completion, add_special_tokens=False) + [
-        tokenizer.eos_token_id
-    ]
+    completion = "<answer>" + str(task.data.scorer_entry["answer"]) + "</answer>" + " trailing" * 20
+    response_ids = tokenizer.encode(completion, add_special_tokens=False) + [tokenizer.eos_token_id]
     assert len(response_ids) > 6
     requests = []
 
@@ -116,21 +97,14 @@ async def main(args):
                     {
                         "token_ids": response_ids,
                         "finish_reason": "stop",
-                        "logprobs": {
-                            "content": [
-                                {"logprob": -0.4 - i * 0.001}
-                                for i in range(len(response_ids))
-                            ]
-                        },
+                        "logprobs": {"content": [{"logprob": -0.4 - i * 0.001} for i in range(len(response_ids))]},
                     }
                 ],
             }
         )
 
     async def models(request):
-        return web.json_response(
-            {"data": [{"id": "boundary-model", "max_model_len": 32768}]}
-        )
+        return web.json_response({"data": [{"id": "boundary-model", "max_model_len": 32768}]})
 
     app = web.Application()
     app.router.add_post("/inference/v1/generate", generate)
@@ -215,9 +189,7 @@ async def main(args):
                 sampling=sampling,
             )
             old = project(legacy_episode)
-            assert requests[-1] == requests[0], (
-                "The endpoint received different requests"
-            )
+            assert requests[-1] == requests[0], "The endpoint received different requests"
             assert old["reward"] == native_projection["reward"] == 1
             if name == "within_budget":
                 assert old["owned"] == native_projection["owned"]
@@ -226,10 +198,7 @@ async def main(args):
             elif name == "completion_crosses_limit":
                 assert old["sample_lengths"] == [limit] and old["action_counts"] == [3]
                 assert old["action_targets"][0][0] == 0.81
-                assert (
-                    old["action_targets"][0]
-                    != native_projection["action_targets"][0][:3]
-                )
+                assert old["action_targets"][0] != native_projection["action_targets"][0][:3]
             else:
                 assert old["sample_lengths"] == [] and old["action_counts"] == []
             cases.append(
@@ -252,15 +221,11 @@ async def main(args):
             "value_target_lambda": 1.0,
             "provenance": provenance,
             "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-            "legacy_source_sha256": hashlib.sha256(
-                args.legacy.read_bytes()
-            ).hexdigest(),
+            "legacy_source_sha256": hashlib.sha256(args.legacy.read_bytes()).hexdigest(),
             "scope": "Actual pinned legacy/native env servers and training renderer, exact cached RG task, same deterministic HTTP response. Real canonical materializer/snapshot/credit math, zero-value service inputs. No model, GPU, TrainSink publication or proposed behavior change.",
         }
         (args.output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
-        (args.output / "requests.json").write_text(
-            json.dumps(requests, indent=2) + "\n"
-        )
+        (args.output / "requests.json").write_text(json.dumps(requests, indent=2) + "\n")
         print(
             json.dumps(
                 {
@@ -293,7 +258,5 @@ async def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     for name in ("source", "dataset", "tokenizer", "legacy", "output"):
-        parser.add_argument(
-            "--" + name, type=lambda value: Path(value).resolve(), required=True
-        )
+        parser.add_argument("--" + name, type=lambda value: Path(value).resolve(), required=True)
     asyncio.run(asyncio.wait_for(main(parser.parse_args()), timeout=180))

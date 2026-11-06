@@ -82,6 +82,7 @@ def _peer_rollout(label: str, reward: float, *, system: str = "shared system") -
         ),
     ]
     return Rollout(
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
         ok=True,
         task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt="shared task")),
         nodes=nodes,
@@ -90,7 +91,7 @@ def _peer_rollout(label: str, reward: float, *, system: str = "shared system") -
             vf.ModelCall(node=5, finish_reason="stop"),
             vf.ModelCall(node=6, finish_reason="length"),
         ],
-        rewards={"score": reward},
+        rewards={"score": vf.Reward(score=reward)},
         env_name="test-env",
     )
 
