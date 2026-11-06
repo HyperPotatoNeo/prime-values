@@ -1,6 +1,20 @@
 import pytest
 
-from prime_rl.utils.pathing import validate_output_dir
+from prime_rl.utils.pathing import path_exists_fresh, validate_output_dir
+
+
+def test_path_exists_fresh_missing_and_published_paths(tmp_path):
+    path = tmp_path / "step_1" / "rank_0.bin"
+    assert not path_exists_fresh(path)
+    path.parent.mkdir()
+    assert not path_exists_fresh(path)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_bytes(b"complete batch")
+    temporary.rename(path)
+    assert path_exists_fresh(path)
+    assert path.read_bytes() == b"complete batch"
+    path.unlink()
+    assert not path_exists_fresh(path)
 
 
 def test_nonexistent_dir_passes(tmp_path):

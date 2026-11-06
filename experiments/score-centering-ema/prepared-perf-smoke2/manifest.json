@@ -1,0 +1,14 @@
+{
+  "status": "PREPARED_NOT_LAUNCHED",
+  "runs": [
+    "siddarth-rg-sc-s11-k128-b0-perf-smoke2"
+  ],
+  "campaign": "siddarth-sc-ema-perf-smoke2",
+  "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+  "simultaneous_run_limit": 7,
+  "gpus_per_run": 32,
+  "source_root": "/data/siddarth-sc-ema-fast",
+  "attempt_mapping": {
+    "siddarth-rg-sc-s11-k128-b0": "siddarth-rg-sc-s11-k128-b0-perf-smoke2"
+  }
+}

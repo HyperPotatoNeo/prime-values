@@ -5,7 +5,7 @@ from time import time
 from prime_rl.trainer.runs import get_multi_run_manager
 from prime_rl.transport.base import MicroBatchReceiver, MicroBatchSender, TrainingBatchReceiver, TrainingBatchSender
 from prime_rl.transport.types import MicroBatch, TrainingBatch
-from prime_rl.utils.pathing import get_rollout_dir, get_step_path, sync_wait_for_path
+from prime_rl.utils.pathing import get_rollout_dir, get_step_path, path_exists_fresh, sync_wait_for_path
 
 BATCH_FILE_TMP_NAME = "train_rollouts.bin.tmp"
 BATCH_FILE_NAME = "train_rollouts.bin"
@@ -64,7 +64,7 @@ class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
     def can_receive(self) -> bool:
         """Check if any run has a batch file available."""
         for idx in self.multi_run_manager.used_idxs:
-            if not self.multi_run_manager.ready_to_update[idx] and self._get_batch_path(idx).exists():
+            if not self.multi_run_manager.ready_to_update[idx] and path_exists_fresh(self._get_batch_path(idx)):
                 return True
         return False
 
@@ -95,7 +95,7 @@ class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
             if self.multi_run_manager.ready_to_update[idx]:
                 continue
             batch_path = self._get_batch_path(idx)
-            if batch_path.exists():
+            if path_exists_fresh(batch_path):
                 try:
                     with open(batch_path, "rb") as f:
                         batch: TrainingBatch = self.decoder.decode(f.read())
@@ -161,7 +161,7 @@ class FileSystemMicroBatchReceiver(MicroBatchReceiver):
 
     def can_receive(self) -> bool:
         """Check if the micro batch file exists."""
-        return self._get_micro_batch_path().exists()
+        return path_exists_fresh(self._get_micro_batch_path())
 
     def receive(self) -> list[MicroBatch]:
         """Read and return the micro batches from disk."""

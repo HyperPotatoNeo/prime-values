@@ -1,0 +1,273 @@
+{
+  "checkpoint_weights_dir": "/data/outputs/siddarth-rg-sc-s11-k128-b0-perf-smoke2/weights",
+  "seed": 11,
+  "algo": {
+    "sampling": {
+      "source": "policy"
+    },
+    "type": "grpo",
+    "branch_semantics": null,
+    "baseline": {
+      "type": "mean"
+    },
+    "length_penalty": null
+  },
+  "model": {
+    "name": "/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+    "trust_remote_code": false,
+    "vlm": null,
+    "lora": null,
+    "client": {
+      "wait_for_ready_timeout": 1800,
+      "base_url": [
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8000/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8001/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8002/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8003/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8004/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8005/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8006/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8007/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8000/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8001/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8002/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8003/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8004/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8005/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8006/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8007/v1"
+      ],
+      "api_key_var": "VLLM_API_KEY",
+      "headers": {},
+      "headers_from_env": {},
+      "extra_headers_from_state": {
+        "X-Session-ID": "trajectory_id"
+      },
+      "skip_model_check": false,
+      "dp_rank_count": 1,
+      "admin_base_url": [
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8000/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8001/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8002/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8003/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8004/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8005/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8006/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-0:8007/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8000/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8001/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8002/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8003/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8004/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8005/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8006/v1",
+        "http://siddarth-rg-sc-s11-k128-b0-perf-smoke2-infer-1:8007/v1"
+      ],
+      "elastic": null,
+      "router_url": null
+    }
+  },
+  "value_function": null,
+  "train": {
+    "env": [
+      {
+        "taskset": {
+          "id": "",
+          "judges": []
+        },
+        "harness": {
+          "id": "default",
+          "runtime": {
+            "type": "subprocess"
+          },
+          "env": {},
+          "forward_env": [],
+          "disabled_tools": null,
+          "edit": true,
+          "search": false
+        },
+        "timeout": {
+          "setup": null,
+          "rollout": null,
+          "finalize": null,
+          "scoring": null
+        },
+        "retries": {
+          "rollout": {
+            "max_retries": 0,
+            "include": [],
+            "exclude": []
+          }
+        },
+        "max_turns": null,
+        "max_input_tokens": null,
+        "max_output_tokens": null,
+        "max_total_tokens": null,
+        "multiplex": 32,
+        "id": "rg-mix-env",
+        "args": {
+          "dataset_path": "/data/rg-dataset",
+          "num_train_examples": 10000,
+          "num_eval_examples": 256,
+          "seed": 42
+        },
+        "extra_env_kwargs": {
+          "max_seq_len": 8192
+        },
+        "pool": {
+          "type": "elastic",
+          "max_workers": null,
+          "multiplex": 128
+        },
+        "name": null,
+        "address": null,
+        "ratio": 1.0,
+        "sampling": {
+          "temperature": 1.0,
+          "max_completion_tokens": null,
+          "extra_body": {
+            "top_p": 1.0,
+            "top_k": -1,
+            "min_p": 0.0,
+            "presence_penalty": 0.0,
+            "frequency_penalty": 0.0,
+            "repetition_penalty": 1.0,
+            "extra_args": {
+              "score_centering_top_k": 128
+            },
+            "return_token_ids": true
+          }
+        },
+        "group_size": 8,
+        "algo": {
+          "sampling": {
+            "source": "policy"
+          },
+          "type": "grpo",
+          "branch_semantics": null,
+          "baseline": {
+            "type": "mean"
+          },
+          "length_penalty": null
+        }
+      }
+    ],
+    "sampling": {
+      "temperature": 1.0,
+      "max_completion_tokens": null,
+      "extra_body": {
+        "top_p": 1.0,
+        "top_k": -1,
+        "min_p": 0.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "repetition_penalty": 1.0,
+        "extra_args": {
+          "score_centering_top_k": 128
+        }
+      }
+    }
+  },
+  "tokenizer": {
+    "name": "/data/cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+    "trust_remote_code": false,
+    "chat_template": null
+  },
+  "renderer": {
+    "thinking_retention": null,
+    "name": "qwen3",
+    "enable_thinking": true
+  },
+  "pool_size": null,
+  "optim": {
+    "lr": 0.0001
+  },
+  "eval": null,
+  "pre_batch_filters": [
+    {
+      "type": "gibberish",
+      "enforce": false,
+      "token_id_threshold": 100000,
+      "logprob_offset": 2.0
+    },
+    {
+      "type": "repetition",
+      "enforce": false,
+      "window": 3000,
+      "prob_threshold": 0.99
+    },
+    {
+      "type": "zero_advantage",
+      "enforce": false
+    }
+  ],
+  "post_batch_filters": [
+    {
+      "type": "gibberish",
+      "enforce": false,
+      "token_id_threshold": 100000,
+      "logprob_offset": 2.0
+    },
+    {
+      "type": "repetition",
+      "enforce": false,
+      "window": 3000,
+      "prob_threshold": 0.99
+    },
+    {
+      "type": "zero_advantage",
+      "enforce": false
+    }
+  ],
+  "log": {
+    "level": "info",
+    "vf_level": "info",
+    "json_logging": false,
+    "log_data": false,
+    "interval": 10.0
+  },
+  "env_vars": {},
+  "wandb": {
+    "project": "siddarth-prime-values",
+    "entity": "swish",
+    "name": "siddarth-rg-sc-s11-k128-b0-perf-smoke2-orchestrator",
+    "group": "siddarth-rg-sc-s11-k128-b0-perf-smoke2",
+    "tags": [
+      "score-centering-ema",
+      "sc",
+      "seed-11",
+      "perf-smoke2"
+    ],
+    "offline": true,
+    "log_extras": {
+      "samples": true,
+      "distributions": true,
+      "interval": 10,
+      "sample_ratio": null
+    }
+  },
+  "prime_monitor": null,
+  "collect_inference_metrics": true,
+  "inference_metrics_roles": null,
+  "ckpt": null,
+  "weight_broadcast": {
+    "type": "filesystem"
+  },
+  "rollout_transport": {
+    "type": "filesystem"
+  },
+  "output_dir": "/data/outputs/siddarth-rg-sc-s11-k128-b0-perf-smoke2/run_default",
+  "tasks_per_minute": null,
+  "batch_size": 256,
+  "token_batch_size": null,
+  "oversampling_factor": null,
+  "max_inflight_rollouts": 512,
+  "group_size": 8,
+  "seq_len": 8192,
+  "num_train_workers": 16,
+  "max_steps": 5,
+  "max_async_batches": 8,
+  "max_off_policy_steps": 20,
+  "bench": false,
+  "heartbeat": null
+}

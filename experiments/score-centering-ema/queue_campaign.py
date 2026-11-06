@@ -1,4 +1,4 @@
-"""Maintain six admitted research jobs using the Mac's existing official login.
+"""Maintain a bounded research queue using the Mac's existing official login.
 
 Never copies credentials. API failures leave the waiting jobs unsubmitted.
 Run detached under caffeinate; state and receipts are written atomically.
@@ -15,6 +15,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--clusterctl", type=Path, required=True)
 parser.add_argument("--state-dir", type=Path, required=True)
 parser.add_argument("--once", action="store_true")
+parser.add_argument("--manifest", type=Path)
+parser.add_argument("--max-runs", type=int, default=6)
 args = parser.parse_args()
 prepared = Path(__file__).parent / "prepared"
 campaign = "siddarth-sc-ema-20261106"
@@ -25,6 +27,13 @@ pending = [
     "siddarth-rg-ema-s22-k128-b0p01",
     "siddarth-rg-ema-s22-k128-b0p03",
 ]
+if args.manifest:
+    manifest = json.loads(args.manifest.read_text())
+    campaign = manifest["campaign"]
+    expanded = args.manifest.parent
+    pending = manifest["runs"]
+assert args.max_runs > 0
+gpu_limit = 32 * args.max_runs
 args.state_dir.mkdir(parents=True, exist_ok=True)
 state_path = args.state_dir / "state.json"
 state = json.loads(state_path.read_text()) if state_path.exists() else {"submitted": [], "terminal": {}, "created": time.time()}
@@ -75,10 +84,10 @@ def tick():
                                         for c in status.get("containerStatuses", [])]})
     now = time.time()
     state.update({"last_success": now, "live_jobs": sorted(live), "live_pod_requested_gpus": gpu_count,
-                  "limit_jobs": 6, "limit_gpus": 192, "last_error": None})
+                  "limit_jobs": args.max_runs, "limit_gpus": gpu_limit, "last_error": None})
     with (args.state_dir / "resource-receipts.jsonl").open("a") as f:
         f.write(json.dumps({"observed_at": now, "pods": receipts}) + "\n")
-    if len(live) < 6 and gpu_count + 32 <= 192:
+    if len(live) < args.max_runs and gpu_count + 32 <= gpu_limit:
         name = next((n for n in pending if n not in state["submitted"]), None)
         if name:
             kubectl("apply", "-f", str(expanded / f"{name}.yaml"))

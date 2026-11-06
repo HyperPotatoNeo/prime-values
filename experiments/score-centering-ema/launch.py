@@ -7,7 +7,7 @@ import subprocess
 import time
 from pathlib import Path
 
-root = Path("/data/siddarth-sc-ema")
+root = Path(__file__).resolve().parents[2]
 run_name = os.environ["RESEARCH_RUN_NAME"]
 seed = int(os.environ["RESEARCH_SEED"])
 output = Path("/data/outputs") / run_name
@@ -18,6 +18,11 @@ logs.mkdir(parents=True, exist_ok=True)
 os.environ["PRIME_RL_RUN_DONE_FILE"] = str(output / "policy.done")
 children = {}
 handles = []
+
+
+def config_path(component):
+    path = config / f"{component}.json"
+    return str(path if path.exists() else config / f"{component}.toml")
 
 
 def spawn(name, args, extra=None):
@@ -59,7 +64,7 @@ try:
                 [
                     "inference",
                     "@",
-                    str(config / "inference.toml"),
+                    config_path("inference"),
                     "--seed",
                     str(seed * 100 + role * 8 + gpu),
                     "--server.host",
@@ -94,11 +99,11 @@ try:
                 "-m",
                 "prime_rl.trainer.rl.train",
                 "@",
-                str(config / "trainer.toml"),
+                config_path("trainer"),
             ],
         )
         if rank == 0:
-            spawn("orchestrator", ["orchestrator", "@", str(config / "orchestrator.toml")])
+            spawn("orchestrator", ["orchestrator", "@", config_path("orchestrator")])
     else:
         raise ValueError(role)
     finished = set()

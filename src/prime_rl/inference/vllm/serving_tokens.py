@@ -27,6 +27,7 @@ delegates to upstream so we track future vLLM changes for free.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, AsyncIterable
+from contextvars import ContextVar
 from functools import cached_property
 from typing import Any
 
@@ -48,6 +49,16 @@ from vllm.outputs import RequestOutput
 from vllm.sampling_params import RequestOutputKind, SamplingParams
 
 from prime_rl.inference.vllm.routed_experts import RoutedExpertsCapture
+
+_compact_sampler_head: ContextVar[bool] = ContextVar("compact_sampler_head", default=False)
+
+
+def _configure_token_output(sampling_params: SamplingParams, *, stream: bool, force_no_detokenize: bool) -> None:
+    # Nonstreaming token responses expose IDs, not decoded candidate strings.
+    # String stopping and prompt-logprob text still require detokenization.
+    if force_no_detokenize or (not stream and not sampling_params.stop and sampling_params.prompt_logprobs is None):
+        sampling_params.detokenize = False
+    sampling_params.output_kind = RequestOutputKind.DELTA if stream else RequestOutputKind.FINAL_ONLY
 
 
 class PrimeRlGenerateResponseChoice(GenerateResponseChoice):
@@ -150,6 +161,13 @@ async def _client_set_max_tokens(raw_request: Request | None) -> bool:
 
 class PrimeRlServingTokens(ServingTokens):
     """ServingTokens + DP-rank routing + compact routed experts + max_tokens defaulting."""
+
+    def _create_tokens_logprobs(self, token_ids, top_logprobs, num_output_top_logprobs=None):
+        # The compact wire payload retains the raw sampler head. Avoid building
+        # its duplicate OpenAI objects, without changing engine sampling params.
+        if _compact_sampler_head.get():
+            num_output_top_logprobs = None
+        return super()._create_tokens_logprobs(token_ids, top_logprobs, num_output_top_logprobs)
 
     @cached_property
     def _max_tokens_defaults(self) -> tuple[dict, int | None]:
@@ -264,10 +282,9 @@ class PrimeRlServingTokens(ServingTokens):
                 override_max_tokens=override,
             )
 
-        if self.force_no_detokenize:
-            sampling_params.detokenize = False
-        if request.stream:
-            sampling_params.output_kind = RequestOutputKind.DELTA
+        _configure_token_output(
+            sampling_params, stream=bool(request.stream), force_no_detokenize=self.force_no_detokenize
+        )
 
         self._log_inputs(
             request_id,
@@ -331,9 +348,14 @@ class PrimeRlServingTokens(ServingTokens):
         final_capture = _FinalOutputCapture(result_generator)
         result_generator = final_capture
 
-        response = await super().serve_tokens_full_generator(
-            request, result_generator, request_id, model_name, request_metadata
-        )
+        compact = bool((request.sampling_params.extra_args or {}).get("score_centering_top_k", 0))
+        context_token = _compact_sampler_head.set(compact)
+        try:
+            response = await super().serve_tokens_full_generator(
+                request, result_generator, request_id, model_name, request_metadata
+            )
+        finally:
+            _compact_sampler_head.reset(context_token)
 
         if not isinstance(response, GenerateResponse):
             return response

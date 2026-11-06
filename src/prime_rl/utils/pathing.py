@@ -1,4 +1,5 @@
 import asyncio
+import os
 import shutil
 import time
 from pathlib import Path
@@ -172,12 +173,33 @@ def clean_future_steps(output_dir: Path, resume_step: int) -> None:
             shutil.rmtree(get_step_path(directory, step))
 
 
+def path_exists_fresh(path: Path) -> bool:
+    """Check a producer path without waiting for NFS negative-cache expiry.
+
+    Opening the parent directory revalidates its attributes. Refresh missing
+    ancestors first because a producer may atomically publish into a new step.
+    Only missing paths require directory reads; completed files keep the fast path.
+    """
+    if path.exists():
+        return True
+    parent = path.parent
+    if parent == path:
+        return False
+    if not parent.exists() and not path_exists_fresh(parent):
+        return False
+    try:
+        os.listdir(parent)
+    except FileNotFoundError:
+        return False
+    return path.exists()
+
+
 def sync_wait_for_path(path: Path, interval: int = 1, log_interval: int = 10) -> None:
     logger = get_logger()
     wait_time = 0
     logger.debug(f"Waiting for path `{path}`")
     while True:
-        if path.exists():
+        if path_exists_fresh(path):
             logger.debug(f"Found path `{path}`")
             break
         if wait_time % log_interval == 0 and wait_time > 0:  # Every log_interval seconds
@@ -191,7 +213,7 @@ async def wait_for_path(path: Path, interval: int = 1, log_interval: int = 10) -
     wait_time = 0
     logger.debug(f"Waiting for path `{path}`")
     while True:
-        if path.exists():
+        if path_exists_fresh(path):
             logger.debug(f"Found path `{path}`")
             break
         if wait_time % log_interval == 0 and wait_time > 0:  # Every log_interval seconds

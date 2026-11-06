@@ -1,0 +1,32 @@
+{
+  "status": "PREPARED_NOT_LAUNCHED",
+  "runs": [
+    "siddarth-rg-base-s11-k128-b0-fast1",
+    "siddarth-rg-base-s22-k128-b0-fast1",
+    "siddarth-rg-sc-s11-k128-b0-fast1",
+    "siddarth-rg-sc-s22-k128-b0-fast1",
+    "siddarth-rg-ema-s11-k128-b0p003-fast1",
+    "siddarth-rg-ema-s11-k128-b0p01-fast1",
+    "siddarth-rg-ema-s11-k128-b0p03-fast1",
+    "siddarth-rg-ema-s22-k128-b0p003-fast1",
+    "siddarth-rg-ema-s22-k128-b0p01-fast1",
+    "siddarth-rg-ema-s22-k128-b0p03-fast1"
+  ],
+  "campaign": "siddarth-sc-ema-fast1",
+  "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+  "simultaneous_run_limit": 7,
+  "gpus_per_run": 32,
+  "source_root": "/data/siddarth-sc-ema-fast",
+  "attempt_mapping": {
+    "siddarth-rg-base-s11-k128-b0": "siddarth-rg-base-s11-k128-b0-fast1",
+    "siddarth-rg-base-s22-k128-b0": "siddarth-rg-base-s22-k128-b0-fast1",
+    "siddarth-rg-sc-s11-k128-b0": "siddarth-rg-sc-s11-k128-b0-fast1",
+    "siddarth-rg-sc-s22-k128-b0": "siddarth-rg-sc-s22-k128-b0-fast1",
+    "siddarth-rg-ema-s11-k128-b0p003": "siddarth-rg-ema-s11-k128-b0p003-fast1",
+    "siddarth-rg-ema-s22-k128-b0p003": "siddarth-rg-ema-s22-k128-b0p003-fast1",
+    "siddarth-rg-ema-s11-k128-b0p01": "siddarth-rg-ema-s11-k128-b0p01-fast1",
+    "siddarth-rg-ema-s22-k128-b0p01": "siddarth-rg-ema-s22-k128-b0p01-fast1",
+    "siddarth-rg-ema-s11-k128-b0p03": "siddarth-rg-ema-s11-k128-b0p03-fast1",
+    "siddarth-rg-ema-s22-k128-b0p03": "siddarth-rg-ema-s22-k128-b0p03-fast1"
+  }
+}

@@ -11,6 +11,7 @@ deltas here:
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import numpy as np
 import pybase64
@@ -24,9 +25,79 @@ from prime_rl.inference.vllm.serving_tokens import (
     PrimeRlServingTokens,
     _build_usage,
     _client_set_max_tokens,
+    _compact_sampler_head,
+    _configure_token_output,
     _FinalOutputCapture,
     _GenerateRoutedExpertsCapture,
 )
+
+
+def test_token_output_bookkeeping_preserves_sampling_and_text_stops():
+    from vllm.sampling_params import RequestOutputKind, SamplingParams
+
+    for kwargs, stream, expected_detokenize in [
+        ({}, False, False),
+        ({"stop": ["END"]}, False, True),
+        ({"prompt_logprobs": 1}, False, True),
+        ({}, True, True),
+    ]:
+        params = SamplingParams(seed=42, temperature=1, logprobs=128, max_tokens=8192, **kwargs)
+        before = (params.seed, params.temperature, params.logprobs, params.max_tokens, params.stop)
+        _configure_token_output(params, stream=stream, force_no_detokenize=False)
+        assert params.detokenize is expected_detokenize
+        assert params.output_kind == (RequestOutputKind.DELTA if stream else RequestOutputKind.FINAL_ONLY)
+        assert before == (params.seed, params.temperature, params.logprobs, params.max_tokens, params.stop)
+
+
+def test_compact_head_preserves_sampler_and_isolates_concurrent_requests():
+    from vllm.entrypoints.openai.engine.protocol import RequestResponseMetadata
+    from vllm.entrypoints.serve.disagg.protocol import GenerateRequest
+    from vllm.logprobs import Logprob
+    from vllm.outputs import CompletionOutput, RequestOutput
+    from vllm.sampling_params import SamplingParams
+
+    from prime_rl.inference.vllm.score_centering import encode_sampler_head
+
+    server = object.__new__(PrimeRlServingTokens)
+    server.model_config = SimpleNamespace(enable_return_routed_experts=False)
+    server.enable_prompt_tokens_details = False
+    server.enable_log_outputs = False
+    row = {i: Logprob(logprob=-5.0 - i / 100, rank=i + 1) for i in range(128)}
+    row[999] = Logprob(logprob=-12.0, rank=1000)
+    output = CompletionOutput(
+        index=0, text="", token_ids=[0, 999], cumulative_logprob=-17.0, logprobs=[row, row], finish_reason="length"
+    )
+    final = RequestOutput(
+        request_id="test", prompt=None, prompt_token_ids=[1], prompt_logprobs=None, outputs=[output], finished=True
+    )
+
+    async def respond(compact):
+        params = SamplingParams(logprobs=128, extra_args={"score_centering_top_k": 128} if compact else None)
+        request = GenerateRequest(token_ids=[1], sampling_params=params)
+
+        async def source():
+            await asyncio.sleep(0)
+            assert params.logprobs == 128
+            yield final
+
+        result = await server.serve_tokens_full_generator(
+            request, source(), "test", "model", RequestResponseMetadata(request_id="test")
+        )
+        assert not _compact_sampler_head.get()
+        assert params.logprobs == 128
+        return result
+
+    async def both():
+        return await asyncio.gather(respond(True), respond(False), respond(True))
+
+    compact, regular, compact2 = asyncio.run(both())
+    assert compact.model_dump(exclude={"request_id"}) == compact2.model_dump(exclude={"request_id"})
+    assert compact.choices[0].sampler_head == encode_sampler_head(output, 128)
+    assert regular.choices[0].sampler_head is None
+    for small, full in zip(compact.choices[0].logprobs.content, regular.choices[0].logprobs.content):
+        assert small.token == full.token and small.logprob == full.logprob
+        assert small.top_logprobs == [] and len(full.top_logprobs) == 128
+    assert compact.choices[0].logprobs.content[1].logprob == -12.0
 
 
 def _decode_routed_experts(encoded: dict) -> np.ndarray:

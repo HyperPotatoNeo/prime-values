@@ -215,3 +215,22 @@ For the authorized score-centering/EMA sweep, use the generated campaign `lane*.
 The November6 score-centering campaign was expanded after its initial launch: consult `prepared/siddarth-sc-ema-20261106/expanded/schedule.json`. Seven runs moved to independent Jobs while the original three continue unchanged. Reserved output directories make the original lane no-overwrite guards retire them after their current experiment, producing an expected lane-level Failed status; distinguish this from an experiment failure and check per-run policy.done/metrics. Never reapply the original sequential schedule or clear reassignment guards.
 
 Final user constraint for this campaign is six concurrent runs (192 GPUs). `queue_campaign.py` manages four remaining runs from the Mac using the official helper; preserve `results/queue-192/state.json` on restart, check process and last_success, and never run two supervisors concurrently. API failures fail closed. No namespace RBAC modification is available; do not imply the local queue survives Mac sleep/shutdown or unrefreshable auth.
+
+Performance checks for this deployment: NFS negative directory caching can hide
+new per-step batch files for about a minute across trainer nodes. Readiness polling
+uses `path_exists_fresh`, which refreshes parent directory entries only after a
+missing-path result. Test on two nodes; do not remount shared storage globally.
+For token-only nonstreaming inference, avoid unused candidate detokenization and
+intermediate cumulative responses, while retaining string-stop and prompt-logprob
+text behavior. Compact score-centering heads must keep actual full-normalized
+sampler probabilities; never lower the engine's requested logprob count to save
+response formatting work.
+
+The performance relaunch uses `prepared-fast1/manifest.json`, fresh `-fast1` attempt
+names, and `queue_campaign.py --manifest ... --max-runs 7` (224 GPUs), as authorized
+by Siddarth. Original attempts remain archived. JSON component configs preserve
+explicit null activation-offload settings; `preflight_fast.py` compares all 30
+child CLI configs against the original algorithm configuration. Retain eight
+shards per trainer replica and activation checkpointing; disable activation CPU
+offloading. Keep output/config paths and runtime source forks separate from live
+attempts. Count validation allocations before starting the seven-run queue.
