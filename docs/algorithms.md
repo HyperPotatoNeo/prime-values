@@ -177,35 +177,39 @@ The orchestrator stamps each sample's component membership as per-token weight s
 
 ### Default RL Loss
 
-The default RL loss is a DPPO policy-gradient term combined with a KL regularizer similar to Kimi-K2.5. For each prompt $x_j$ we sample a group of $G$ rollouts $\{y_i\}_{i=1}^G$, score them to get $s_i$, then optimize:
+The default RL loss combines a DPPO policy-gradient term with a squared-log-ratio KL regularizer. Let $M$ contain the RL member tokens: tokens selected by `loss_mask` whose RL weight $w_t$ is nonzero. An absent weight stream means $w_t=1$. Define $N_{rl}=\max(1, |M|_{\mathrm{global}})$, the all-reduced member count, and
 
 $$
-\mathcal{L}(\theta) = -\,\mathcal{J}_{\text{PG}}(\theta) \;+\; \tau_{KL}\,\mathcal{L}_{KL}(\theta)
+\ell_t=\log\pi_t-\log\mu_t, \qquad \Delta p_t=\pi_t-\mu_t,
 $$
 
-where the policy-gradient term is
+where $\mu_t$ is the recorded sampling probability and $\pi_t$ is the current trainer probability of the same token. The advantage-sign-dependent gate is
 
 $$
-\mathcal{J}_{\text{PG}}(\theta)
-= \frac{1}{\sum_{j,i} |y_i^{(j)}|}
-\sum_{j,i,t}
-\min\!\left(\frac{\pi(y_{i,t}^{(j)}\mid x_j, y_{i,<t}^{(j)})}{\mu(y_{i,t}^{(j)}\mid x_j, y_{i,<t}^{(j)})}, \delta\right) \hat{A}^{(j)}_{i,t}
+k_t=1-\mathbf{1}\!\left[
+(\hat A_t>0\ \land\ \Delta p_t>h)
+\ \lor\ (\hat A_t\leq0\ \land\ \Delta p_t<-l)
+\right],
 $$
 
-and the KL regularizer penalizes drift between trainer and inference policies via the squared log importance ratio:
+with $h=\texttt{dppo\_mask\_high}$ and $l=\texttt{dppo\_mask\_low}$. The RL component is
 
 $$
-\mathcal{L}_{KL}(\theta) = \frac{1}{\sum_{j,i} |y_i^{(j)}|}
-\sum_{j,i,t} \log^2\!\left(\frac{\pi(y_{i,t}^{(j)}\mid x_j, y_{i,<t}^{(j)})}{\mu(y_{i,t}^{(j)}\mid x_j, y_{i,<t}^{(j)})}\right).
+\mathcal{L}_{rl}(\theta)
+=\frac{1}{N_{rl}}\sum_{t\in M}w_t\left[
+-\tau_A k_t\hat A_t\exp(\ell_t)+\tau_{KL}\ell_t^2
+\right].
 $$
 
-$\mu$ is the policy that generated the rollout (inference), $\pi$ is the current policy (trainer), $\hat{A}_{i,t}$ is the token-level advantage, $\delta$ is the importance-sampling clipping ratio, and $\tau_{KL}$ is the KL temperature. The `min` clamps the importance ratio from above so a stale rollout assigning very low probability to a high-reward token doesn't produce a runaway gradient.
+Here $\tau_A$ is `adv_tau` and $\tau_{KL}$ is `kl_tau`. The gate uses strict probability-difference thresholds and applies only to the policy-gradient term. The KL term includes every RL member token, including tokens excluded by the gate. The denominator counts all RL members; it is neither the sum of their weights nor the number that pass the gate. Zero advantages contribute no policy-gradient term. Disabled terms and excluded policy-gradient entries are skipped before exponentiation; multiplying a masked infinite value by zero is not used.
+
+The accepted policy-gradient importance ratio $\exp(\ell_t)$ is uncapped. Bounds used for reported mismatch or importance-ratio diagnostics do not cap the optimization objective.
 
 The knobs (under `[trainer.loss]` with `type = "default"`):
 
 | Knob | Default | What it does |
 |---|---|---|
-| `dppo_mask_low` / `dppo_mask_high` | 0.2 / 0.2 | Lower / upper thresholds for DPPO-style token-level masking. |
+| `dppo_mask_low` / `dppo_mask_high` | 0.2 / 0.2 | Lower / upper probability-difference thresholds for the advantage-sign gate. |
 | `adv_tau` | 1.0 | Temperature on the advantage term. Set to 0 to drop the policy-gradient term, leaving only the KL regularizer. |
 | `kl_tau` | 1e-3 | Temperature on the KL regularizer. Set to 0 to disable. |
 

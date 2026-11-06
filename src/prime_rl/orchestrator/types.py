@@ -77,8 +77,8 @@ class Rollout(vf.Trace[DataT], Generic[DataT]):
     """A completed rollout: the env's typed ``vf.Trace`` *is* the rollout — prime-rl's
     orchestration metadata lives on it directly (set by the dispatcher once the rollout
     returns), so there's no wrapper. Train vs eval is the ``kind`` discriminator. All metadata
-    fields are ``exclude=True``, so dumping a Rollout yields a plain trace — the on-disk
-    ``results.jsonl`` is unchanged.
+    fields are ``exclude=True``, so dumping a Rollout yields the canonical trace
+    with preserved episode provenance in ``info``; orchestration-only fields are excluded.
 
     It is also the single currency the scoring hooks receive: a hook reads the trace
     directly (``rollout.reward``, ``rollout.nodes``, ``rollout.num_turns``) and writes
