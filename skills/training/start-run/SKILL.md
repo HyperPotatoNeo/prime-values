@@ -26,8 +26,7 @@ All entrypoints run via `uv run <command>` and accept TOML configs via `@ path/t
 Launches inference server, orchestrator, and trainer as subprocesses. This branch
 currently supports the native RG/reverse-text producer profile; historical legacy
 examples require revision `1801d112` and its lock. Start from `configs/native/README.md` and its authored policy/value examples,
-not an automatic alias of an old `id`/`args` config. Group-eight examples have
-CPU config/child-CLI acceptance; the earlier GPU lifecycle fixture used group two.
+not an automatic alias of an old `id`/`args` config. Group-eight H200 lifecycle acceptance covers the small-model policy/value fixture and 4B RG/value fresh/resume; see `experiments/public-release/README.md` for exact settings and limits.
 
 ```bash
 uv run rl @ configs/native/reverse_text_value.toml

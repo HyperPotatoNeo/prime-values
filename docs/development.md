@@ -45,9 +45,9 @@ Use the manual, pinned workflow for preserved scenario tests; a broad integratio
 
 The GPU workflow requires configured self-hosted runners labeled `vm` and `4xa6000`. Enable automatic execution with repository variable `ENABLE_GPU_CI=true`, or launch it manually with `workflow_dispatch`; automatic PR runs still skip drafts. Without runners, run `uv run pytest tests/integration/test_native_profile.py -vvs` on an appropriately provisioned local machine. A skipped job is not acceptance. External H200 validation is separate evidence and does not establish A6000 memory fit. RG's external artifact is not provisioned by Actions. The recorded [acceptance index](../experiments/README.md) distinguishes completed runtime evidence from pending workflow execution.
 
-### Markers
-
 The native lifecycle test uses Qwen3-0.6B with its explicit non-thinking prompt mode and a 64-token answer budget. This keeps the small fixture focused on training and resume; it retains the normal reward, filtering, group size and ancestral sampling settings.
+
+### Markers
 
 Two pytest markers are declared in `pyproject.toml` (`addopts = "--strict-markers"`):
 
