@@ -1,0 +1,32 @@
+[
+  {
+    "name": "control",
+    "exit_code": 0,
+    "tests": 15,
+    "errors": 0,
+    "skips": 0,
+    "failures": 0,
+    "assertion_failures": 0,
+    "status": "passed"
+  },
+  {
+    "name": "shared_lambdas",
+    "exit_code": 1,
+    "tests": 15,
+    "errors": 0,
+    "skips": 0,
+    "failures": 8,
+    "assertion_failures": 8,
+    "status": "killed"
+  },
+  {
+    "name": "context_as_action",
+    "exit_code": 1,
+    "tests": 15,
+    "errors": 0,
+    "skips": 0,
+    "failures": 15,
+    "assertion_failures": 15,
+    "status": "killed"
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "files_verified": 2312,
+  "renderer_wheel_python_files_verified": 24,
+  "modules": {
+    "prime_rl.orchestrator.episodes": "/data/episode-sync-001/source/src/prime_rl/orchestrator/episodes.py",
+    "prime_rl.value.credit": "/data/episode-sync-001/source/src/prime_rl/value/credit.py",
+    "prime_rl.configs.rl": "/data/episode-sync-001/source/packages/prime-rl-configs/src/prime_rl/configs/rl.py",
+    "verifiers.v1": "/data/episode-sync-001/source/deps/verifiers/verifiers/v1/__init__.py",
+    "pydantic_config": "/data/episode-sync-001/source/deps/pydantic-config/src/pydantic_config/__init__.py",
+    "reverse_text_v1": "/data/episode-sync-001/source/deps/verifiers/environments/reverse_text_v1/reverse_text_v1/__init__.py"
+  },
+  "versions": {
+    "torch": "2.11.0+cu128",
+    "transformers": "5.6.2",
+    "vllm": "0.24.0+cu129",
+    "verifiers": "0.2.2.dev7",
+    "renderers": "0.1.9.dev1",
+    "prime-pydantic-config": "0.4.2",
+    "prime-sandboxes": "0.2.31",
+    "prime": "0.6.10",
+    "wandb": "0.27.0",
+    "flash-attn": "2.8.3+cu128torch2.11",
+    "liger-kernel": "0.8.0",
+    "nvidia-cudnn-cu12": "9.22.0.52"
+  }
+}

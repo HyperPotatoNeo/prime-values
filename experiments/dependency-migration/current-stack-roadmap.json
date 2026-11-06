@@ -1,0 +1,63 @@
+{
+  "recommendation": "Close the current-stack synchronization milestone after unit7 resume correctness and unit8 packer parity; next substantive work belongs in a separately planned producer/dependency branch. This is a scoped feature milestone, not parity with latest upstream.",
+  "completed_or_current": [
+    {
+      "unit": 6,
+      "upstream": "53aecbf10ed0be79555c26a7a66f5c56218f0fa8",
+      "benefit": "Dynamic parameter-storage exclusion prevents copying expert weight views during activation offload; actual expert lifecycle and compiled critic parity passed per runtime receipts."
+    },
+    {
+      "unit": 7,
+      "upstream": "91dce1f3",
+      "benefit": "Restore optimizer group scalar metadata after in-place CPU DCP loading, including Muon counters and learning rates. Shared AppState covers actor/SFT/value. Frozen/candidate real DCP acceptance in progress."
+    },
+    {
+      "unit": 8,
+      "upstream": "87ddbcf08179a113e76cd8650511f40e2a6a0e15",
+      "benefit": "Substantially reduces pure CPU partition-refinement time with exact ordered partitions and arbitrary-integer fallback; CPU acceptance passed, integration pending."
+    }
+  ],
+  "deferred_current_stack": [
+    {
+      "upstream": "92425ace653722eb5d7c6c8753bdd5d50b278905",
+      "paths": [
+        "src/prime_rl/orchestrator/orchestrator.py:finalize_eval_batch"
+      ],
+      "applicability": "Current eval record construction and RolloutPool metric graph traversal still execute on the event loop; persistence already uses to_thread. New upstream standalone eval runner is absent here.",
+      "benefit": "Responsiveness during large agentic evaluation epoch finalization, not learning dynamics.",
+      "reason_to_defer": "Needs owned immutable/finalized cohort boundary and verified monitor thread affinity/cancellation; use actual representative large-eval workload to establish applicability rather than port more minor changes in this milestone.",
+      "gate": "Identical persisted records/metrics/attempt accounting and event-loop ticker through real completed EvalBatch; monitors remain on loop, worker exceptions propagate."
+    },
+    {
+      "upstream": "1882f7b98d0ecb87f09e8caa80c476240863ba8e",
+      "paths": [
+        "src/prime_rl/orchestrator/dispatcher.py",
+        "src/prime_rl/orchestrator/orchestrator.py",
+        "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py"
+      ],
+      "applicability": "Current orchestrator has no scheduled-full-GC controller; dispatcher task.result error handling can create traceback cycles.",
+      "benefit": "Potentially large responsiveness gain only with thousands of long in-flight traces.",
+      "reason_to_defer": "Upstream changes default process-wide GC thresholds and freezes startup heap; constructor/start/teardown and Python-version behavior need deliberate lifecycle design. Existing UnsupportedEpisodeError must remain fatal, unlike ordinary env failures. No observed corresponding large-heap bottleneck established in current bounded pipelines.",
+      "gate": "Real long-trace replay with cyclic error paths, identical cancellation/permit/value publication; measured GC pauses/RSS and explicit restoration of thresholds/callbacks on teardown."
+    }
+  ],
+  "next_substantive_dependency_branch": {
+    "feature": "Exact per-token sampler policy provenance and staleness observability",
+    "upstream": [
+      "a22eeb329d29ba68996fe2be173417b168093bcd",
+      "b2df580d19957e74580ca3d352d76d433cbd5e74"
+    ],
+    "blockers": [
+      "Current vLLM0.24 lacks v0.32 update_weight_version and generated weight_versions spans",
+      "Renderer0526944665ac9f00e8d56e110babe97a2c174fa4 must preserve spans through parsing",
+      "Verifier3f142cc61adb4b0168d925fb44e76370d6299a37 is414 commits beyond currentb13 with renderer/Harbor metadata/API changes; cannot blindly move pin"
+    ],
+    "gates": [
+      "Real mixed-version generation through canonical Episode wire with independent token alignment oracle",
+      "Coverage explicitly distinguishes unavailable labels; never infer token age from group dispatch",
+      "Unchanged value-owned prompts, sample accounting, full gradients/updates and legacy joint-group bridge",
+      "Keep stale-token masking/objective/admission changes out of observability unit"
+    ]
+  },
+  "separate_objective_owner": "The score-centering/EMA branch starts from f6 and is owned by a separate chat; do not duplicate algorithm work. Later reconciliation must preserve its candidate payload arrays through the canonical Episode/task ownership boundaries."
+}

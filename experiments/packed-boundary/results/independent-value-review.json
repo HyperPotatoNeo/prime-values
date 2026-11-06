@@ -1,0 +1,57 @@
+{
+  "status": "Source review and CPU verification complete; real GPU numerical/profiling probes staged but not run",
+  "candidate": "work/packed-boundary-candidate",
+  "production_review": {
+    "blockers_found": [],
+    "coverage": [
+      "CPU metadata positivity/plain-int/total/int32 validation and owned tuple lengths",
+      "CPU interval intersections and device offset upload; no device-derived scalar reads in new preparation helper",
+      "Global CP metadata publication followed by local model metadata",
+      "Complete optional parameter propagation through seven common custom FlashAttention outer models/backbones",
+      "Routed expert arguments and existing positional parameter order preserved",
+      "Value wrapper capability follows original custom conversion class; both value training and shared inference use existing CPU lengths",
+      "Ordinary HF/hybrid/non-Flash fallback remains on prior boundary discovery path",
+      "No model precision, objective, normalization, padding, SFT or value CP capability changes"
+    ],
+    "limitations": [
+      "The new host-to-device copy requests nonblocking transfer, but actual host/runtime synchronization must be profiled; no automatic throughput improvement claim.",
+      "Hybrid packed CP has pre-existing limitations in Nemotron and Qwen3.5 MoE; dense Qwen CP success must not be generalized to those unchanged paths.",
+      "Metadata is an internal owned contract, not a universal externally validated immutable tensor protocol."
+    ]
+  },
+  "completed_tests": {
+    "result": "16 passed",
+    "files": ["tests/unit/utils/test_packed_sequence_metadata.py", "tests/unit/utils/test_sequence.py"],
+    "independent_oracle": "Every partition of token streams of lengths 1 through 9, checked by document-label slicing and run-length encoding for every divisible CP shard; implementation uses interval intersections instead.",
+    "other_contracts": "Separate padding segment, one-token dummy, caller-list mutation, malformed metadata before allocation, invalid CP ranks/divisibility and mismatched tensor shapes/devices.",
+    "source_change_recheck": "Repeated after final CPU tensor plus nonblocking upload implementation; still 16 passed.",
+    "static_checks": "Owned Python files pass Ruff; model and CP probes compile without execution."
+  },
+  "staged_gpu_oracles": [
+    {
+      "file": "tests/integration/value_baseline_probe.py",
+      "new_optional_mode": "--compiled --source-root CHECKOUT; default remains uncompiled. --compare-compiled FROZEN CANDIDATE compares two fresh two-rank runs without requiring resumes.",
+      "scope": "Reuse the real ValueTrainerRuntime, FSDP, FP32 master parameters/reduction and AdamW state for exactly two fresh updates with unequal supervision and a dummy rank. CompileConfig() uses the normal fullgraph=False block compilation, with the metadata object prepared outside compiled blocks.",
+      "checks": "Both actual model blocks have compiled callables, Dynamo captured graphs during updates, model parameters and Adam moments remain FP32, import sources are under the requested checkout, same harness bytes/config/layouts, exact initial/step1/step2 model and optimizer moments plus update comparison.",
+      "status": "Ruff and syntax compilation pass; no GPU run by this subagent. Independent review accepted after adding fresh-output rejection and custom Llama source hash guard. Frozen harness SHA256 99f2a94c1a6b1dbcfb5b1f8847329fbec4fb8f977bf8ccad8427e8e18ee2a02c. No rank grid, resume grid or full pipeline expansion."
+    },
+    {
+      "file": "experiments/packed-boundary/model_oracle.py",
+      "claims_if_passed": "Real Qwen actor and categorical critic packed-versus-independent outputs, full parameter gradients and a real optimizer update; prefix/context masks; separate actor padding; value dummy ranks and output reassembly; actor and critic cross-document isolation with positive controls; routed Qwen MoE argument propagation and complete gradients; real HF SDPA critic fallback.",
+      "precision_limit": "BF16 model and gradient storage with SGD, matching existing serving-style parity fixtures. This does not prove production FSDP FP32 optimizer/reduction behavior.",
+      "frozen_comparison": "Same harness runs against frozen source in position mode first; fixed numerical tolerances must pass there. Candidate explicit mode then compares all saved same-layout outputs/gradients/update tensors exactly."
+    },
+    {
+      "file": "experiments/packed-boundary/cp_oracle.py",
+      "claims_if_passed": "Real two-rank dense Qwen ring and Ulysses separately versus unsharded reference, with crossing documents and a nonzero first local position, complete summed parameter gradients and update.",
+      "determinism": "Probe binds deterministic=True to the actual kernel captured by the CP closure, after verifying that kernel signature supports it. A frozen repeat control is required before interpreting any exact-comparison failure as a candidate regression."
+    },
+    {
+      "file": "experiments/packed-boundary/profile_boundaries.py",
+      "claims_if_passed": "Exact offset/max equivalence and removal of nonzero/local-scalar/item events from the boundary-preparation scope; old path has positive-control discovery events. All copy/sync events remain reported.",
+      "limitation": "No whole-model synchronization-free or end-to-end throughput claim."
+    }
+  ],
+  "adversarial_review": "Pipeline agent independently reviewed model/CP/profiler probes. CP deterministic-closure gap was identified and fixed before execution. No other blocker found. Exact MoE/CP repeatability remains unproven until the frozen runtime run.",
+  "execution_boundary": "Parent released the next phase after TaskData completion/source verification. Runtime agent owns execution in the existing reservation using frozen=/data/task-ownership-001/source, candidate=/data/packed-boundary-001/candidate, shared harness=/data/packed-boundary-001/harness. Exact commands in adjacent unit4_commands.sh, syntax checked but not launched by this subagent. All frozen runs precede candidates, with source guards, harness hashes, fresh outputs and UTC phase receipts. No tolerance relaxation after candidate failures; investigate a frozen repeat first."
+}

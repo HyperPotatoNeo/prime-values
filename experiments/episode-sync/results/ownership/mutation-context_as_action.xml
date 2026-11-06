@@ -1,0 +1,752 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="15" skipped="0" tests="15" time="1.641" timestamp="2026-11-05T16:37:34.520661-08:00" hostname="Siddarths-MacBook-Pro.local"><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.0-1.0-0.0]" time="0.046"><failure message="assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 0.6&#10;  Max relative difference: 2.4&#10;  Index | Obtained | Expected       &#10;  3     | -0.25    | -0.85 ± 8.5e-07">gamma = 0.0, policy_lambda = 0.0, target_lambda = 1.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 0.6
+E             Max relative difference: 2.4
+E             Index | Obtained | Expected       
+E             3     | -0.25    | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.0-1.0-0.73]" time="0.002"><failure message="assert [-0.441999999...7175, -730.25] == approx([-0.44...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 729.4&#10;  Max relative difference: 0.9988360150633344&#10;  Index | Obtained | Expected       &#10;  3     | -730.25  | -0.85 ± 8.5e-07">gamma = 0.73, policy_lambda = 0.0, target_lambda = 1.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.441999999...7175, -730.25] == approx([-0.44...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 729.4
+E             Max relative difference: 0.9988360150633344
+E             Index | Obtained | Expected       
+E             3     | -730.25  | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.0-1.0-1.0]" time="0.002"><failure message="assert [-0.55, 1.3, -0.65, -1000.25] == approx([-0.55...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 999.4&#10;  Max relative difference: 0.9991502124468883&#10;  Index | Obtained | Expected       &#10;  3     | -1000.25 | -0.85 ± 8.5e-07">gamma = 1.0, policy_lambda = 0.0, target_lambda = 1.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.55, 1.3, -0.65, -1000.25] == approx([-0.55...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 999.4
+E             Max relative difference: 0.9991502124468883
+E             Index | Obtained | Expected       
+E             3     | -1000.25 | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[1.0-0.0-0.0]" time="0.002"><failure message="assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 0.6&#10;  Max relative difference: 2.4&#10;  Index | Obtained | Expected       &#10;  3     | -0.25    | -0.85 ± 8.5e-07">gamma = 0.0, policy_lambda = 1.0, target_lambda = 0.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 0.6
+E             Max relative difference: 2.4
+E             Index | Obtained | Expected       
+E             3     | -0.25    | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[1.0-0.0-0.73]" time="0.002"><failure message="assert [-0.274384295...7400000000243] == approx([-0.38...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 4 / 4:&#10;  Max absolute difference: 0.28025999999997564&#10;  Max relative difference: 0.6504516077252936&#10;  Index | Obtained             | Expected                     &#10;  0     | -0.27438429558000954 | -0.3834101999999999 ± 3.8e-07&#10;  1     | 0.22961055399998687  | 0.08026000000000005 ± 8.0e-08&#10;  2     | -1.133410200000018   | -1.338 ± 1.3e-06             &#10;  3     | -0.5697400000000243  | -0.85 ± 8.5e-07">gamma = 0.73, policy_lambda = 1.0, target_lambda = 0.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.274384295...7400000000243] == approx([-0.38...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 4 / 4:
+E             Max absolute difference: 0.28025999999997564
+E             Max relative difference: 0.6504516077252936
+E             Index | Obtained             | Expected                     
+E             0     | -0.27438429558000954 | -0.3834101999999999 ± 3.8e-07
+E             1     | 0.22961055399998687  | 0.08026000000000005 ± 8.0e-08
+E             2     | -1.133410200000018   | -1.338 ± 1.3e-06             
+E             3     | -0.5697400000000243  | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[1.0-0.0-1.0]" time="0.002"><failure message="assert [-0.4, 0.9, 0.25, -1000.0] == approx([-0.4 ....6 ± 6.0e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 999.4&#10;  Max relative difference: 0.9994&#10;  Index | Obtained | Expected      &#10;  3     | -1000.0  | -0.6 ± 6.0e-07">gamma = 1.0, policy_lambda = 1.0, target_lambda = 0.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+            assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+&gt;           assert [q for q, active in zip(targets, mask, strict=True) if active] == pytest.approx(expected_targets)
+E           assert [-0.4, 0.9, 0.25, -1000.0] == approx([-0.4 ....6 ± 6.0e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 999.4
+E             Max relative difference: 0.9994
+E             Index | Obtained | Expected      
+E             3     | -1000.0  | -0.6 ± 6.0e-07
+
+tests/unit/orchestrator/test_advantage.py:104: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.2-0.8-0.0]" time="0.002"><failure message="assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 0.6&#10;  Max relative difference: 2.4&#10;  Index | Obtained | Expected       &#10;  3     | -0.25    | -0.85 ± 8.5e-07">gamma = 0.0, policy_lambda = 0.2, target_lambda = 0.8
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 0.6
+E             Max relative difference: 2.4
+E             Index | Obtained | Expected       
+E             3     | -0.25    | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.2-0.8-0.73]" time="0.002"><failure message="assert [-1.856189680...8405360000006] == approx([-0.30...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 4 / 4:&#10;  Max absolute difference: 498.23405360000004&#10;  Max relative difference: 1.096438586920947&#10;  Index | Obtained            | Expected               &#10;  0     | -1.8561896802344895 | -0.3056175456 ± 3.1e-07&#10;  1     | -9.6862306865376    | 0.9341264 ± 9.3e-07    &#10;  2     | -73.58377182560001  | -0.8416 ± 8.4e-07      &#10;  3     | -499.08405360000006 | -0.85 ± 8.5e-07">gamma = 0.73, policy_lambda = 0.2, target_lambda = 0.8
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-1.856189680...8405360000006] == approx([-0.30...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 4 / 4:
+E             Max absolute difference: 498.23405360000004
+E             Max relative difference: 1.096438586920947
+E             Index | Obtained            | Expected               
+E             0     | -1.8561896802344895 | -0.3056175456 ± 3.1e-07
+E             1     | -9.6862306865376    | 0.9341264 ± 9.3e-07    
+E             2     | -73.58377182560001  | -0.8416 ± 8.4e-07      
+E             3     | -499.08405360000006 | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.2-0.8-1.0]" time="0.002"><failure message="assert [-5.439472000...002, -640.434] == approx([-0.32...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 4 / 4:&#10;  Max absolute difference: 639.584&#10;  Max relative difference: 1.046467185004843&#10;  Index | Obtained            | Expected                     &#10;  0     | -5.439472000000001  | -0.3228 ± 3.2e-07            &#10;  1     | -24.447360000000003 | 1.1360000000000001 ± 1.1e-06 &#10;  2     | -128.73680000000002 | -0.8200000000000001 ± 8.2e-07&#10;  3     | -640.434            | -0.85 ± 8.5e-07">gamma = 1.0, policy_lambda = 0.2, target_lambda = 0.8
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-5.439472000...002, -640.434] == approx([-0.32...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 4 / 4:
+E             Max absolute difference: 639.584
+E             Max relative difference: 1.046467185004843
+E             Index | Obtained            | Expected                     
+E             0     | -5.439472000000001  | -0.3228 ± 3.2e-07            
+E             1     | -24.447360000000003 | 1.1360000000000001 ± 1.1e-06 
+E             2     | -128.73680000000002 | -0.8200000000000001 ± 8.2e-07
+E             3     | -640.434            | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.8-0.2-0.0]" time="0.002"><failure message="assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 0.6&#10;  Max relative difference: 2.4&#10;  Index | Obtained | Expected       &#10;  3     | -0.25    | -0.85 ± 8.5e-07">gamma = 0.0, policy_lambda = 0.8, target_lambda = 0.2
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 0.6
+E             Max relative difference: 2.4
+E             Index | Obtained | Expected       
+E             3     | -0.25    | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.8-0.2-0.73]" time="0.002"><failure message="assert [-12.27415099...7589760000001] == approx([-0.23...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 4 / 4:&#10;  Max absolute difference: 60.425897600000006&#10;  Max relative difference: 1.0171803184073538&#10;  Index | Obtained            | Expected                      &#10;  0     | -12.274150998609512 | -0.23871987839999997 ± 2.4e-07&#10;  1     | -20.260532531865604 | 0.34808239999999996 ± 3.5e-07 &#10;  2     | -36.50262419840001  | -1.2139 ± 1.2e-06             &#10;  3     | -61.27589760000001  | -0.85 ± 8.5e-07">gamma = 0.73, policy_lambda = 0.8, target_lambda = 0.2
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-12.27415099...7589760000001] == approx([-0.23...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 4 / 4:
+E             Max absolute difference: 60.425897600000006
+E             Max relative difference: 1.0171803184073538
+E             Index | Obtained            | Expected                      
+E             0     | -12.274150998609512 | -0.23871987839999997 ± 2.4e-07
+E             1     | -20.260532531865604 | 0.34808239999999996 ± 3.5e-07 
+E             2     | -36.50262419840001  | -1.2139 ± 1.2e-06             
+E             3     | -61.27589760000001  | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[0.8-0.2-1.0]" time="0.002"><failure message="assert [-20.81252799...9399999999998] == approx([-0.36...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 4 / 4:&#10;  Max absolute difference: 39.94399999999998&#10;  Max relative difference: 1.0093176922445215&#10;  Index | Obtained            | Expected                     &#10;  0     | -20.812527999999997 | -0.3612000000000001 ± 3.6e-07&#10;  1     | -25.328159999999993 | 0.23599999999999993 ± 2.4e-07&#10;  2     | -33.28519999999999  | -1.33 ± 1.3e-06              &#10;  3     | -40.79399999999998  | -0.85 ± 8.5e-07">gamma = 1.0, policy_lambda = 0.8, target_lambda = 0.2
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-20.81252799...9399999999998] == approx([-0.36...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 4 / 4:
+E             Max absolute difference: 39.94399999999998
+E             Max relative difference: 1.0093176922445215
+E             Index | Obtained            | Expected                     
+E             0     | -20.812527999999997 | -0.3612000000000001 ± 3.6e-07
+E             1     | -25.328159999999993 | 0.23599999999999993 ± 2.4e-07
+E             2     | -33.28519999999999  | -1.33 ± 1.3e-06              
+E             3     | -40.79399999999998  | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[1.0-1.0-0.0]" time="0.002"><failure message="assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 1 / 4:&#10;  Max absolute difference: 0.6&#10;  Max relative difference: 2.4&#10;  Index | Obtained | Expected       &#10;  3     | -0.25    | -0.85 ± 8.5e-07">gamma = 0.0, policy_lambda = 1.0, target_lambda = 1.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.15, 0.4, -0.9, -0.25] == approx([-0.15...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 1 / 4:
+E             Max absolute difference: 0.6
+E             Max relative difference: 2.4
+E             Index | Obtained | Expected       
+E             3     | -0.25    | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[1.0-1.0-0.73]" time="0.002"><failure message="assert [-0.274384295...7400000000243] == approx([-0.38...85 ± 8.5e-07])&#10;  &#10;  comparison failed. Mismatched elements: 4 / 4:&#10;  Max absolute difference: 0.28025999999997564&#10;  Max relative difference: 0.6504516077252936&#10;  Index | Obtained             | Expected                     &#10;  0     | -0.27438429558000954 | -0.3834101999999999 ± 3.8e-07&#10;  1     | 0.22961055399998687  | 0.08026000000000005 ± 8.0e-08&#10;  2     | -1.133410200000018   | -1.338 ± 1.3e-06             &#10;  3     | -0.5697400000000243  | -0.85 ± 8.5e-07">gamma = 0.73, policy_lambda = 1.0, target_lambda = 1.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+&gt;           assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+E           assert [-0.274384295...7400000000243] == approx([-0.38...85 ± 8.5e-07])
+E             
+E             comparison failed. Mismatched elements: 4 / 4:
+E             Max absolute difference: 0.28025999999997564
+E             Max relative difference: 0.6504516077252936
+E             Index | Obtained             | Expected                     
+E             0     | -0.27438429558000954 | -0.3834101999999999 ± 3.8e-07
+E             1     | 0.22961055399998687  | 0.08026000000000005 ± 8.0e-08
+E             2     | -1.133410200000018   | -1.338 ± 1.3e-06             
+E             3     | -0.5697400000000243  | -0.85 ± 8.5e-07
+
+tests/unit/orchestrator/test_advantage.py:103: AssertionError</failure></testcase><testcase classname="tests.unit.orchestrator.test_advantage" name="test_gae_matches_finite_horizon_return_mixture_with_context_gaps[1.0-1.0-1.0]" time="0.002"><failure message="assert False&#10; +  where False = all(&lt;generator object test_gae_matches_finite_horizon_return_mixture_with_context_gaps.&lt;locals&gt;.&lt;genexpr&gt; at 0x120038e40&gt;)">gamma = 1.0, policy_lambda = 1.0, target_lambda = 1.0
+
+    @pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+    @pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+    def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+        """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+        action_values = [0.15, -0.4, 0.9, 0.25]
+        reward = -0.6
+    
+        def lambda_returns(lam):
+            result = []
+            for start in range(len(action_values)):
+                remaining = len(action_values) - start
+                bootstraps = [
+                    (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                    for horizon in range(1, remaining)
+                ]
+                terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+                result.append(math.fsum([*bootstraps, terminal]))
+            return result
+    
+        expected_targets = lambda_returns(target_lambda)
+        expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+        for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+            values, mask = [], []
+            for gap, value in zip(gaps, action_values, strict=True):
+                values.extend([1000.0] * gap + [value])
+                mask.extend([False] * gap + [True])
+            values.extend([-1000.0, 999.0])
+            mask.extend([False, False])
+    
+            advantages, targets = compute_gae(
+                reward=reward,
+                values=values,
+                mask=mask,
+                gamma=gamma,
+                gae_lambda=policy_lambda,
+                value_target_lambda=target_lambda,
+            )
+    
+            assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+            assert [q for q, active in zip(targets, mask, strict=True) if active] == pytest.approx(expected_targets)
+&gt;           assert all(a == q == 0.0 for a, q, active in zip(advantages, targets, mask, strict=True) if not active)
+E           assert False
+E            +  where False = all(&lt;generator object test_gae_matches_finite_horizon_return_mixture_with_context_gaps.&lt;locals&gt;.&lt;genexpr&gt; at 0x120038e40&gt;)
+
+tests/unit/orchestrator/test_advantage.py:105: AssertionError</failure></testcase></testsuite></testsuites>

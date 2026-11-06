@@ -1,6 +1,68 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
+from itertools import accumulate
+
 import torch
+
+
+@dataclass(frozen=True, eq=False)
+class PackedSequenceMetadata:
+    lengths: tuple[int, ...]
+    offsets: tuple[int, ...]
+    max_seqlen: int
+    cu_seqlens: torch.Tensor
+
+    @property
+    def total_tokens(self) -> int:
+        return self.offsets[-1]
+
+    def validate_shape(self, batch_size: int, sequence_length: int, device: torch.device) -> None:
+        if batch_size != 1 or sequence_length != self.total_tokens:
+            raise ValueError(
+                f"Packing metadata requires shape (1, {self.total_tokens}), got ({batch_size}, {sequence_length})"
+            )
+        if self.cu_seqlens.device != device:
+            raise ValueError(f"Packing metadata device {self.cu_seqlens.device} does not match inputs {device}")
+
+    def for_cp(self, cp_rank: int, cp_world_size: int) -> PackedSequenceMetadata:
+        if type(cp_world_size) is not int or cp_world_size < 1:
+            raise ValueError("Context parallel world size must be a positive integer")
+        if type(cp_rank) is not int or not 0 <= cp_rank < cp_world_size:
+            raise ValueError("Context parallel rank is outside the world size")
+        if self.total_tokens % cp_world_size:
+            raise ValueError("Packed token count must be divisible by context parallel world size")
+        if cp_world_size == 1:
+            return self
+        chunk = self.total_tokens // cp_world_size
+        start, end = cp_rank * chunk, (cp_rank + 1) * chunk
+        lengths = [min(right, end) - max(left, start) for left, right in zip(self.offsets, self.offsets[1:])]
+        return prepare_packed_sequence_metadata(
+            [length for length in lengths if length > 0], total_tokens=chunk, device=self.cu_seqlens.device
+        )
+
+
+def prepare_packed_sequence_metadata(
+    lengths: Sequence[int], *, total_tokens: int, device: torch.device | str
+) -> PackedSequenceMetadata:
+    """Prepare varlen boundaries from CPU packing lengths without reading device tensors."""
+    if isinstance(lengths, torch.Tensor):
+        raise TypeError("Packing lengths must be CPU integer metadata, not a tensor")
+    lengths = tuple(lengths)
+    if not lengths or any(type(length) is not int or length <= 0 for length in lengths):
+        raise ValueError("Packing lengths must be nonempty positive integers")
+    if type(total_tokens) is not int or total_tokens <= 0 or sum(lengths) != total_tokens:
+        raise ValueError("Packing lengths must sum to the positive input token count")
+    if total_tokens > torch.iinfo(torch.int32).max:
+        raise ValueError("Packed token count exceeds int32 cumulative-offset capacity")
+    offsets = tuple(accumulate(lengths, initial=0))
+    return PackedSequenceMetadata(
+        lengths=lengths,
+        offsets=offsets,
+        max_seqlen=max(lengths),
+        cu_seqlens=torch.tensor(offsets, dtype=torch.int32, device="cpu").to(device, non_blocking=True),
+    )
 
 
 def get_cu_seqlens_from_position_ids(position_ids: torch.Tensor) -> tuple[torch.Tensor, int]:

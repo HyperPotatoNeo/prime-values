@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "scope": "Independent source review plus bounded pure/config/ownership controls; actual producer/TrainSink parity execution belongs to runtime agent.",
+  "source_root": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/sequence-boundary-candidate",
+  "import_guards": {
+    "prime_rl.orchestrator.episodes": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/sequence-boundary-candidate/src/prime_rl/orchestrator/episodes.py",
+    "prime_rl.configs.orchestrator": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/sequence-boundary-candidate/packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py"
+  },
+  "sha256": {
+    "src/prime_rl/orchestrator/episodes.py": "73c3361690f1d93ea81e681cd58f0fc871607fcce9b54736e02b8b7ed3626abf",
+    "src/prime_rl/orchestrator/envs.py": "720dd98c910b7f19a624f1b788ac68df4fde84b3acb64b54efb66bcd335b166e",
+    "src/prime_rl/orchestrator/types.py": "dc2534cb4ee3b7a93b5ce5276d1153b98ef7d886929de4dc6b1280eecf997ddd",
+    "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py": "4d12ca50a59250cf2bb856c87014b34ff6225f1dc99d258a92ff290f76fe20a7",
+    "tests/unit/orchestrator/test_training_projection.py": "dbf53233751167789a03fc225fefdd31e71478a30fa25f0f97c76d2fa0ab8ec7"
+  },
+  "validation": {
+    "focused_passed": 37,
+    "new_projection_config_cases": 25,
+    "existing_episode_sink_cases": 12,
+    "junit": "pure-controls-final.xml",
+    "junit_sha256": "a201baba71db654544148960d57d53193287fab3f2d56fa9760da066ee5c0194",
+    "ruff": "check and format passed"
+  },
+  "controls": [
+    "exact/within/overflow cap; prompt==cap and prompt>cap yield zero actions",
+    "all aligned node arrays independent; raw Episode bytes unchanged; excluded physical trace retained",
+    "destructive projected/sample cleanup preserves source and owned critic trajectory",
+    "raw full message/reward/call finish/Usage counts retained",
+    "tail-only gibberish/repetition removed; retained offending prefix still detected",
+    "mask holes preserve sampled-logprob mapping by retained True count",
+    "malformed arrays; prompt actions; disconnected/extra sampled/postresponse nodes; missing/multiple/failed/wrongly linked calls rejected",
+    "MM/routing/kept/tool sidecars rejected",
+    "failed/empty/frozen traces preserve baseline handling",
+    "native train-only config; positive strict integers; inherited and explicit cap; JSON roundtrip"
+  ],
+  "limitations": [
+    "No prompt_overflow diagnostic: clipped only labels actual token-prefix reduction, avoiding unsupported boundary inference from arbitrary masks.",
+    "Projection uses a distinct canonical stop marker; exact historical stop-name spelling is not claimed. Raw source stop/reasons remain recorded.",
+    "Input canonical objects are not made globally immutable; projection owns its deep copy and retains source without mutating it.",
+    "No model/GPU or whole-producer parity claimed by these local controls."
+  ],
+  "failed_attempt": "pure-controls.xml:21 passed/1 failed because the test model fixture lacked an explicit renderer; corrected fixture only, no production relaxation.",
+  "reviewer_production_edits": false
+}

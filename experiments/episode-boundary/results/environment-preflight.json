@@ -1,0 +1,7 @@
+{
+  "taskset": "reverse-text-v1",
+  "taskset_class": "ReverseTextTaskset",
+  "harness_config_class": "NullHarnessConfig",
+  "num_tasks": 1000,
+  "native_server_initialized": true
+}

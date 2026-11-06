@@ -21,12 +21,6 @@ from prime_rl.utils.config import BaseConfig
 AttnImplementation: TypeAlias = Literal["eager", "sdpa", "flash_attention_2", "flash_attention_3", "fa4"]
 EPCommBackend: TypeAlias = Literal["torch", "deepep"]
 
-# User-facing name -> internal name. Users set `flash_attention_4` in configs,
-# which gets rewritten to `fa4` before pydantic validation.
-# We use `fa4` internally because `flash_attention_*` triggers transformers
-# to attempt installing a kernel from hub.
-_ATTN_ALIASES = {"flash_attention_4": "fa4"}
-
 
 class GCConfig(BaseConfig):
     interval: int = Field(50, ge=1)
@@ -197,10 +191,13 @@ class ModelConfig(BaseModelConfig):
 
     @model_validator(mode="before")
     @classmethod
-    def _normalize_attn_alias(cls, data):
-        """Rewrite user-facing `flash_attention_4` to internal `fa4` before validation."""
-        if isinstance(data, dict) and data.get("attn") in _ATTN_ALIASES:
-            data["attn"] = _ATTN_ALIASES[data["attn"]]
+    def _reject_unavailable_fa4(cls, data):
+        """Reject the unavailable backend before model or device initialization."""
+        if isinstance(data, dict) and data.get("attn") in ("fa4", "flash_attention_4"):
+            raise ValueError(
+                "FlashAttention 4 is unavailable in this backend profile: its TVM-FFI requirement conflicts with "
+                "vLLM 0.32. Select flash_attention_2 or flash_attention_3, or use the preceding backend branch."
+            )
         return data
 
     @model_validator(mode="after")

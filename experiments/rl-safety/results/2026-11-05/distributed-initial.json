@@ -1,0 +1,27 @@
+[
+  {
+    "name": "baseline-fatal",
+    "returncode": 124,
+    "elapsed_seconds": 45.7118994880002
+  },
+  {
+    "name": "fixed-fatal",
+    "returncode": 1,
+    "elapsed_seconds": 7.931001434015343
+  },
+  {
+    "name": "normal-shutdown",
+    "returncode": 0,
+    "elapsed_seconds": 8.901690480997786
+  },
+  {
+    "name": "policy-normalization-1",
+    "returncode": 0,
+    "elapsed_seconds": 11.424488838005345
+  },
+  {
+    "name": "policy-normalization-2",
+    "returncode": 0,
+    "elapsed_seconds": 13.067007339996053
+  }
+]

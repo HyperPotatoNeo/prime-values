@@ -7,17 +7,15 @@ from prime_rl.configs.inference import InferenceConfig
 def setup_vllm_env(config: InferenceConfig):
     """Set vLLM environment variables based on config. Must be called before importing vLLM."""
 
+    if int(os.environ.get("VLLM_SERVER_DEV_MODE", "0")):
+        raise ValueError("VLLM_SERVER_DEV_MODE conflicts with PrimeRL's weight-update admin routes; leave it disabled")
+
     # spawn is more robust in vLLM nightlies and Qwen3-VL (fork can deadlock with multithreaded processes)
     os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
 
-    # Force the V1 GPU model runner. vLLM 0.24.0 routes Llama/Mistral/Qwen3 plus MoE archs
-    # (DeepseekV2, Qwen2Moe, GraniteMoe; the 0.23 MoE/quantized guard was removed) to the
-    # V2 runner, which has no `_preprocess` hook for our padded-input scrub (see
-    # inference/vllm/padded_input_scrub.py) and doesn't zero the padded decode tail
-    # itself; that stale tail poisons CUDA-graph replay as NaN logits (reproduced on
-    # Nemotron-Nano SWE, PR #2506; upstream fix vllm#42779 is still unmerged). V1 keeps
-    # the scrub effective for every model and is also required for routed-experts capture
-    # (the NIXL PD path rejects V2). setdefault so it stays overridable.
+    # Preserve the dense V1 execution path and its padded-input scrub. vLLM0.32
+    # still exposes the same _preprocess boundary; V2 aux-output/router-replay
+    # combinations need separate acceptance and must not silently replace it.
     os.environ.setdefault("VLLM_USE_V2_MODEL_RUNNER", "0")
 
     # vLLM 0.24.0 flipped VLLM_ENFORCE_STRICT_TOOL_CALLING's default to True, which

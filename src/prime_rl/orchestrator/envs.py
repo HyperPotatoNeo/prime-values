@@ -1,17 +1,8 @@
-"""Env wrappers over a v1 env server.
+"""Client-owned native tasksets with server-owned agent execution.
 
-Each ``Env`` owns a v1 ``EnvServer`` (spawned as a child process, or an
-external one given by ``config.address``) and an ``EnvClient`` to drive it. The
-orchestrator never *runs* an environment: it asks the server for ``info``
-(``num_tasks`` + whether group scoring is needed), then runs rollouts purely by
-**task index**. The server returns a ``Trace`` (a plain ``model_dump`` — derived values are
-properties, not serialized) which we validate into a ``Trace[WireTask]`` — a real ``vf.Trace``
-(never a loose dict) whose task keeps the env's
-task-specific fields as extras (``WireTask`` allows them). The orchestrator never imports the
-env package: the env's *type* and *runtime* both live only in the server, and the orchestrator
-drives it purely by task index. This wrapper treats env-specific extras as opaque; downstream
-rollout consumers may read an explicit wire contract such as the optional
-``value_function_prompt`` while remaining independent of the env's Python types.
+Workers reconstruct each selected task from its serialized data and return a
+completed canonical Episode through the single-trace adapter; task
+data remains opaque to policy and value consumers.
 """
 
 from __future__ import annotations
@@ -23,6 +14,7 @@ import os
 import queue
 import sys
 from collections.abc import Iterator, Sequence
+from itertools import islice
 from multiprocessing.process import BaseProcess
 from pathlib import Path
 from typing import TYPE_CHECKING, Generic, TypeVar
@@ -32,6 +24,7 @@ from verifiers.v1.serve import EnvClient
 
 from prime_rl.configs.orchestrator import EnvConfig, EvalEnvConfig, TrainEnvConfig
 from prime_rl.orchestrator.algo import Algorithm, build_algorithm
+from prime_rl.orchestrator.episodes import from_episode
 from prime_rl.orchestrator.sampler import Sampler
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.utils.logger import get_logger
@@ -39,13 +32,7 @@ from prime_rl.utils.logger import get_logger
 if TYPE_CHECKING:
     from prime_rl.configs.value import ValueFunctionConfig
 
-# Every wire trace validates into this type. WireTask (extra="allow") preserves task fields
-# without importing the env package; consumers access only explicit wire-level contracts.
-ROLLOUT_TYPE = Rollout[vf.WireTask]
-
-# Max wait for a spawned env server to bind and report its address. The child
-# loads the taskset (possibly downloading a dataset) before reporting, so this
-# is generous.
+# Worker startup can include environment resource initialization.
 ENV_SERVER_SPAWN_TIMEOUT = 600.0
 
 
@@ -54,7 +41,6 @@ def _run_env_server(
     log_file: str,
     log_level: str,
     json_logging: bool,
-    legacy: bool = False,
     **kwargs,
 ) -> None:
     """Spawned-process entry point: redirect this process's output to ``log_file`` (the
@@ -63,7 +49,7 @@ def _run_env_server(
     from the env's ``pool``). ``serve_env`` applies ``log_setup`` here and in every spawned
     worker; a worker inherits this process's redirected stdout/stderr, so its per-rollout
     logs reach ``log_file`` too. Top-level so it stays picklable for the ``spawn`` start
-    method. ``legacy`` picks the v0 bridge."""
+    method."""
     from functools import partial
 
     from verifiers.v1.serve import serve_env
@@ -74,19 +60,20 @@ def _run_env_server(
     os.dup2(fh.fileno(), sys.stdout.fileno())
     os.dup2(fh.fileno(), sys.stderr.fileno())
     serve_env(
-        legacy=legacy,
         log_setup=partial(setup_env_server_logging, log_level, json_logging),
         **kwargs,
     )
 
 
 class Env:
-    """Wraps a v1 env server + client. The orchestrator never loads the env."""
+    """Owns native task selection; workers own agent/harness execution."""
 
     def __init__(self, config: EnvConfig):
         self.config = config
         self.sampling_args: dict = {}
-        self.num_tasks: int = 0
+        self.num_tasks: int | None = 0
+        self.tasks: Iterator[vf.Task] | None = None
+        self._task_class: type[vf.Task] | None = None
         self.requires_group_scoring: bool = False
         self._env_client: EnvClient | None = None
         self._env_server_process: BaseProcess | None = None
@@ -102,25 +89,78 @@ class Env:
         return self._env_client
 
     async def start(self, log_dir: Path, log_level: str | None = None, json_logging: bool = False) -> None:
-        """Spawn the env server (if needed), connect, and cache its ``info``."""
+        """Load native tasks once, then connect to their execution worker."""
+        taskset = vf.load_taskset(self.config.env.taskset)
+        self._task_class = type(taskset).task_type()
+        if self.config.address is not None:
+            from verifiers.v1.tasksets.harbor import HarborTask
+
+            if issubclass(self._task_class, HarborTask):
+                raise ValueError(
+                    f"Env {self.name}: external Harbor workers require verified shared grading-artifact paths; "
+                    "this launcher supports spawned local Harbor workers only"
+                )
+        if taskset.transform is not None:
+            raise ValueError(
+                "Taskset views are not supported by this sampler; configure dataset selection in the taskset"
+            )
+
+        def selected_tasks():
+            # Preserve caller-supplied identities; new native loaders may leave idx unset.
+            # This deliberately does not use Taskset.__iter__, which overwrites every idx.
+            for position, task in enumerate(taskset.load()):
+                update = {} if taskset.system_prompt is None else {"system_prompt": taskset.system_prompt}
+                if task.data.idx is None:
+                    update["idx"] = position
+                yield self.validate_task(task.with_data(**update) if update else task)
+
+        if type(taskset).INFINITE:
+            if isinstance(self.config, EvalEnvConfig) and self.config.num_examples < 0:
+                raise ValueError(f"Eval env {self.name} has an infinite taskset; set num_examples to bound it")
+            self.tasks = selected_tasks()
+            self.num_tasks = None
+        else:
+            tasks = await asyncio.to_thread(lambda: list(selected_tasks()))
+            self.tasks = iter(tasks)
+            self.num_tasks = len(tasks)
         external = self.config.address is not None
         address = self.config.address or await self._spawn(log_dir, log_level or "INFO", json_logging)
         get_logger().debug(f"Connecting {self.name} to env server {address}")
         self._env_client = EnvClient(address=address)
-        # A spawned server already reported its address *after* binding + loading,
-        # so it's up — the untimed ``info`` below is enough. An external server has
-        # no such handshake, so poll until it answers before we block on ``info``.
+        # Spawned workers report after binding. External workers need a health handshake.
         if external:
             await self.env_client.wait_for_server_startup()
-        info = await self.env_client.info()
-        self.num_tasks = info.num_tasks
-        self.requires_group_scoring = info.requires_group_scoring
         get_logger().info(
             f"Env {self.name} ready: num_tasks={self.num_tasks} group_scoring={self.requires_group_scoring}"
         )
 
+    def validate_task(self, task: vf.Task) -> vf.Task:
+        """Reject task behavior or data that the stateless worker cannot reconstruct."""
+        if self._task_class is None:
+            raise RuntimeError(f"Native task type for {self.name} has not been loaded")
+        if type(task) is not self._task_class:
+            raise ValueError(
+                f"Env {self.name} yielded {type(task).__name__}; worker reconstructs {self._task_class.__name__}"
+            )
+        if task.config != self.config.env.taskset.task:
+            raise ValueError(f"Env {self.name} yielded per-row task config that differs from its worker config")
+        if type(task.data.idx) is not int:
+            raise ValueError(f"Env {self.name} requires an integer task.data.idx for rollout records")
+        data_class = self._task_class.data_type()
+        if any(field.exclude for field in data_class.model_fields.values()):
+            raise ValueError(f"Env {self.name} task data contains excluded fields that cannot survive dispatch")
+        payload = task.data.model_dump(mode="json")
+        rebuilt = data_class.model_validate(payload)
+        if rebuilt != task.data or rebuilt.model_dump(mode="json") != payload:
+            raise ValueError(f"Env {self.name} task data changes when reconstructed by its worker")
+        from verifiers.v1.tasksets.harbor import HarborTask
+
+        if isinstance(task, HarborTask) and not (Path(task.data.task_dir) / "tests").is_dir():
+            raise ValueError(f"Env {self.name}: Harbor grading artifacts are missing at {task.data.task_dir!r}/tests")
+        return task
+
     async def _spawn(self, log_dir: Path, log_level: str, json_logging: bool) -> str:
-        """Spawn a v1 EnvServer child process (it loads the env; we never do).
+        """Spawn a worker for agent execution; tasksets remain client-owned.
         The server binds an OS-assigned port (``:0``) and reports the concrete
         address back over a queue — no free-port guess, no TOCTOU race. Its output
         goes to ``<log_dir>/<name>.log`` (``log_dir`` is already the train/eval-split
@@ -130,15 +170,8 @@ class Env:
         log_file = log_dir / f"{self.name}.log"
         log_file.parent.mkdir(parents=True, exist_ok=True)
         get_logger().debug(f"Spawning env server {self.name} (id={self.config.env_id}, log={log_file})")
-        server_kwargs = (
-            dict(
-                legacy=True,
-                env_id=self.config.env_id,
-                env_args=self.config.args,
-                extra_env_kwargs=self.config.extra_env_kwargs,
-            )
-            if self.config.is_legacy
-            else dict(legacy=False, config=self.config)
+        server_kwargs = dict(
+            config_data=self.config.env.model_dump(mode="json"), max_concurrent=self.config.max_concurrent
         )
         process = ctx.Process(
             target=_run_env_server,
@@ -168,33 +201,54 @@ class Env:
     def _sampling(self, cache_salt: str | None) -> vf.SamplingConfig:
         sampling = {**self.sampling_args}
         if cache_salt is not None:
-            sampling["extra_body"] = {**sampling.get("extra_body", {}), "cache_salt": cache_salt}
+            sampling["extra_body"] = {
+                **sampling.get("extra_body", {}),
+                "cache_salt": cache_salt,
+            }
         return vf.SamplingConfig(**sampling)
 
-    async def run_rollout(
-        self, client: vf.ClientConfig, task_idx: int, model_name: str, cache_salt: str | None
-    ) -> Rollout:
-        """Run a single rollout for ``task_idx``; return a typed Trace."""
-        wire = await self.env_client.run_rollout(
-            task_idx=task_idx,
+    async def run_episode(
+        self,
+        client: vf.ClientConfig,
+        task_idx: int,
+        model_name: str,
+        cache_salt: str | None,
+        task_data: dict | None = None,
+    ) -> vf.WireEpisode:
+        """Await the upstream client's complete assembled episode, never partial deltas."""
+        if task_data is None:
+            raise ValueError("Native requests require the selected owned task_data")
+        return await self.env_client.run(
+            task_data=task_data,
             client=client,
             model=model_name,
             sampling=self._sampling(cache_salt),
         )
-        return ROLLOUT_TYPE.model_construct(**dict(wire))
+
+    async def run_rollout(
+        self,
+        client: vf.ClientConfig,
+        task_idx: int,
+        model_name: str,
+        cache_salt: str | None,
+        task_data: dict | None = None,
+    ) -> Rollout:
+        """Project a canonical single-trace episode onto the rollout consumer boundary."""
+        return from_episode(
+            await self.run_episode(client, task_idx, model_name, cache_salt, task_data=task_data),
+            task_idx=task_idx,
+            training_projection=self.config.training_projection if isinstance(self.config, TrainEnvConfig) else None,
+        )
 
     async def run_group(
-        self, client: vf.ClientConfig, task_idx: int, model_name: str, group_size: int, cache_salt: str | None
+        self,
+        client: vf.ClientConfig,
+        task_idx: int,
+        model_name: str,
+        group_size: int,
+        cache_salt: str | None,
     ) -> list[Rollout]:
-        """Run a group of rollouts for ``task_idx`` (group-scoring envs); return typed Traces."""
-        wires = await self.env_client.run_group(
-            task_idx=task_idx,
-            n=group_size,
-            client=client,
-            model=model_name,
-            sampling=self._sampling(cache_salt),
-        )
-        return [ROLLOUT_TYPE.model_construct(**dict(wire)) for wire in wires]
+        raise ValueError("Joint legacy group scoring requires the frozen current-stack producer")
 
     def shutdown(self) -> None:
         if self._env_server_process is None:
@@ -223,8 +277,15 @@ class EvalEnv(Env):
 
     async def start(self, log_dir: Path, log_level: str | None = None, json_logging: bool = False) -> None:
         await super().start(log_dir=log_dir, log_level=log_level, json_logging=json_logging)
-        n = self.num_tasks if self.config.num_examples < 0 else min(self.config.num_examples, self.num_tasks)
-        self.examples = [{"task_idx": i} for i in range(n)]
+        n = self.config.num_examples
+        if self.tasks is None:
+            count = self.num_tasks if n < 0 else min(n, self.num_tasks)
+            self.examples = [{"task_idx": i} for i in range(count)]
+            return
+        if self.num_tasks is None and n < 0:
+            raise ValueError(f"Eval env {self.name} has an infinite taskset; set num_examples to bound it")
+        tasks = list(self.tasks) if n < 0 else list(islice(self.tasks, n))
+        self.examples = [{"task_idx": task.data.idx, "task": task} for task in tasks]
 
 
 EnvT = TypeVar("EnvT", bound=Env)

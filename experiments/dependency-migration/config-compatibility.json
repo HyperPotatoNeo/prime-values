@@ -1,0 +1,1744 @@
+{
+  "profile": "native RG/reverse text; other native plugins require separate compatibility review",
+  "historical_reference": "1801d112",
+  "historical_reference_scope": "Last full legacy producer API branch before native-only verifier migration; earlier frozen current-stack8474e835 retains prior dependency stack. Runtime validation is scoped in linked experiment records, not guaranteed for every catalog entry.",
+  "entries": [
+    {
+      "path": "configs/alphabet_sort/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "alphabet-sort",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "alphabet-sort",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/alphabet_sort.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "alphabet-sort",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text/resume.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text/start.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_lora/resume.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_lora/start.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_moe/start.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_multi_run/inference.toml",
+      "entrypoint": "InferenceConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_multi_run/orchestrator.toml",
+      "entrypoint": "OrchestratorConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_multi_run/trainer.toml",
+      "entrypoint": "TrainerConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_rl_opd/start.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_rl_sft/start.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_sft/resume.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_sft/start.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_sft_lora/resume.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/ci/integration/reverse_text_sft_lora/start.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/ci/nightly/multimodal_color_codeword.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "color-codeword-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "color-codeword-v1"
+    },
+    {
+      "path": "configs/debug/algorithms/echo.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "alphabet-sort",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/grpo.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/max_rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/mixed_grpo_opd.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            1
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/opd.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/opd_lora.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/self_distill.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/sft_distill.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/algorithms/sft_distill_lora.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/hendrycks_sanity/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "aime24-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "aime24-v1"
+    },
+    {
+      "path": "configs/debug/infer.toml",
+      "entrypoint": "InferenceConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/debug/moe/sft/train.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/debug/multi_env/reverse_text.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            1
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            1
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/debug/multimodal.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "color-codeword-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "color-codeword-v1"
+    },
+    {
+      "path": "configs/debug/orch.toml",
+      "entrypoint": "OrchestratorConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/debug/rl/train.toml",
+      "entrypoint": "TrainerConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/debug/sft/train.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/debug/v1/alphabet_sort.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "alphabet-sort-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "alphabet-sort-v1"
+    },
+    {
+      "path": "configs/debug/v1/general_agent.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "general-agent-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "general-agent-v1"
+    },
+    {
+      "path": "configs/debug/v1/gsm8k.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "gsm8k-v1",
+          "expect": "unavailable_native"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "gsm8k-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "gsm8k-v1"
+    },
+    {
+      "path": "configs/debug/v1/hendrycks_sanity.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "math-env-v1",
+          "expect": "unavailable_native"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "aime24-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "math-env-v1"
+    },
+    {
+      "path": "configs/debug/v1/r2e_gym.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "r2e-gym-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "r2e-gym-v1"
+    },
+    {
+      "path": "configs/debug/v1/reverse_text.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "reverse-text-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "reverse-text-v1"
+    },
+    {
+      "path": "configs/debug/v1/scaleswe.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "scaleswe-v1",
+          "expect": "unavailable_native"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "swebench-verified-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "scaleswe-v1"
+    },
+    {
+      "path": "configs/elastic/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "alphabet-sort",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/general_agent/rl_qwen3_0p6b.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "general-agent-solver-rlm",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/general_agent/rl_qwen3_30b_a3b.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "general-agent-solver-rlm",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/general_agent/rl_qwen3_4b.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "general-agent-solver-rlm",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/glm45air/swe.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "scaleswe-v1",
+          "expect": "unavailable_native"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "swebench-verified-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "scaleswe-v1"
+    },
+    {
+      "path": "configs/glm5.2_16node_llmd/inference.toml",
+      "entrypoint": "InferenceConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/glm5_disagg_inference/inference.toml",
+      "entrypoint": "InferenceConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "configs/gsm8k/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/hendrycks_math/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "math500-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "math500-v1"
+    },
+    {
+      "path": "configs/math_python/math_python.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-python",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/native/reverse_text_policy.toml",
+      "entrypoint": "RLConfig",
+      "profile": "native",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "reverse-text",
+          "expect": "accepted_native"
+        }
+      ],
+      "expect": "accepted_native"
+    },
+    {
+      "path": "configs/native/reverse_text_value.toml",
+      "entrypoint": "RLConfig",
+      "profile": "native",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "reverse-text",
+          "expect": "accepted_native"
+        }
+      ],
+      "expect": "accepted_native"
+    },
+    {
+      "path": "configs/native/rg_mix_policy.toml",
+      "entrypoint": "RLConfig",
+      "profile": "native",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "rg-mix-v1",
+          "expect": "accepted_native"
+        }
+      ],
+      "expect": "accepted_native"
+    },
+    {
+      "path": "configs/native/rg_mix_value.toml",
+      "entrypoint": "RLConfig",
+      "profile": "native",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "rg-mix-v1",
+          "expect": "accepted_native"
+        }
+      ],
+      "expect": "accepted_native"
+    },
+    {
+      "path": "configs/nemotron_4node/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "math500-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "math500-v1"
+    },
+    {
+      "path": "configs/nemotron_debug/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "math500-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "math500-v1"
+    },
+    {
+      "path": "configs/wiki_search/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "wiki-search",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "configs/wordle/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/wordle",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/Intellect-3.1/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "mini-swe-agent-plus",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            1
+          ],
+          "kind": "legacy",
+          "id": "deepdive",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            2
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            3
+          ],
+          "kind": "legacy",
+          "id": "logic-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            4
+          ],
+          "kind": "legacy",
+          "id": "code-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "mini-swe-agent-plus",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            1
+          ],
+          "kind": "legacy",
+          "id": "aime2025",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/alphabet_sort/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/alphabet-sort",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/alphabet_sort/slurm_rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "base_config": "examples/alphabet_sort/rl.toml",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/alphabet-sort",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/glm5_llmd/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "native",
+          "id": "r2e-gym-v1",
+          "expect": "unavailable_native"
+        }
+      ],
+      "expect": "unavailable_native",
+      "missing_taskset": "r2e-gym-v1"
+    },
+    {
+      "path": "examples/glm5_pd_disag/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "mini-swe-agent-plus",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/hendrycks_sanity/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/aime2024",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/hendrycks_sanity/slurm_rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "base_config": "examples/hendrycks_sanity/rl.toml",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/aime2024",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/minimax_m2.5_swe/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "mini-swe-agent-plus",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "mini-swe-agent-plus",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/multinode/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/multinode/sft.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "examples/qwen30b_math/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "math-env",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "aime2025",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/qwen30b_swe/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "mini-swe-agent-plus",
+          "expect": "rejected_legacy"
+        },
+        {
+          "path": [
+            "orchestrator",
+            "eval",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "mini-swe-agent-plus",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/reverse_text/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/reverse_text/sft.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "examples/reverse_text/slurm_rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "base_config": "examples/reverse_text/rl.toml",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/reverse_text/slurm_sft.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "base_config": "examples/reverse_text/sft.toml",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "examples/value_function/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "reverse-text",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/wiki_search/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/wiki-search",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/wiki_search/slurm_rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "base_config": "examples/wiki_search/rl.toml",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/wiki-search",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/wordle/rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/wordle",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/wordle/sft.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "environments": [],
+      "expect": "schema_only"
+    },
+    {
+      "path": "examples/wordle/slurm_rl.toml",
+      "entrypoint": "RLConfig",
+      "profile": "historical",
+      "base_config": "examples/wordle/rl.toml",
+      "environments": [
+        {
+          "path": [
+            "orchestrator",
+            "train",
+            "env",
+            0
+          ],
+          "kind": "legacy",
+          "id": "primeintellect/wordle",
+          "expect": "rejected_legacy"
+        }
+      ],
+      "expect": "rejected_legacy"
+    },
+    {
+      "path": "examples/wordle/slurm_sft.toml",
+      "entrypoint": "SFTConfig",
+      "profile": "historical",
+      "base_config": "examples/wordle/sft.toml",
+      "environments": [],
+      "expect": "schema_only"
+    }
+  ]
+}

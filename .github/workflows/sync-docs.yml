@@ -10,6 +10,7 @@ on:
 
 jobs:
   trigger-docs-sync:
+    if: github.repository == 'PrimeIntellect-ai/prime-rl'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,37 @@
+{
+  "status": "design_accepted_with_explicit_numeric_protocol",
+  "plan_sha256": "9ee2b0f803c0393bc642b63607bced2a2ae5c93662ce142862b766ada0230aba",
+  "raw_vs_diagnostic_contract": "Exact opaque strings stay in canonical Trace/audit. Appended int64 carrier denotes comparable LIVE-policy step IDs only; strict canonical decimal 0 or[1-9][0-9]* bounded byint64; all other labels unknown-1, no dispatch fallback. This avoids duplicate opaque-string transport and does not claim lossless generic provenance in trainer packets.",
+  "independent_findings": [
+    "WeightVersionSpan endpoints are completion ordinals, graph.commit prepends unsampled generation prefix; expansion must enumerate original True mask positions, not suffix offsets or dedup training mask.",
+    "Known labels survive shared-prefix context copies even when only first branch trains those actions. Newly rerendered unsampled prompt nodes stay unknown regardless of equal messages/token IDs.",
+    "Projection uses count of retained original sampled positions, clipping half-open spans without modifying source trace. Fully clipped suffix spans drop; zero-length in-bounds intervals are legal and contribute no labels.",
+    "Malformed bounds, negative endpoints, out-of-order or overlapping intervals reject instead of downgrading to unknown; default/opaque/out-of-range numeric labels are valid noncomparable labels.",
+    "Sink sampler.samples_from_live_policy is existing producer-origin authority. Frozen generator labels remain audit-only; do not infer live identity from numerical appearance.",
+    "Trainer CP gathers logprobs/entropy before shifting back to input-token coordinates. CPU carrier remains full physical input-token axis with no shift/CP rescale and never enters model/loss/value kwargs.",
+    "Optional field must append after existing array-like struct fields. Actually verify old omitted packet decode and None encoding rather than assume backward/rolling compatibility.",
+    "Mixed known/unknown packing needs unknown fill, truncation slices exactly, padding and dummy batches carry unknown. Decoder rejects wrongdtype/shape/bytecount and invalid negativevalues.",
+    "None/allunknown must count as unknown for any future diagnostic denominator, never silentlyfresh or excluded; age computation deferred until realbackend version publication and mixedreload proof."
+  ],
+  "concrete_files": [
+    "src/prime_rl/orchestrator/provenance.py (small validation/expand/clip helpers)",
+    "src/prime_rl/orchestrator/episodes.py",
+    "src/prime_rl/orchestrator/trajectories.py",
+    "src/prime_rl/orchestrator/train_sink.py",
+    "src/prime_rl/transport/types.py",
+    "src/prime_rl/trainer/batch.py",
+    "src/prime_rl/trainer/rl/data.py",
+    "src/prime_rl/transport/provenance.py"
+  ],
+  "bounded_acceptance": [
+    "Literal ordinal oracle with non-suffix mask, sparse/opaque/default spans, clip crossing interval, sharedprefix dedup and frozen origin; malformedgeometry rejection/no mutation.",
+    "Actual response\u2192canonical completeEpisode/msgpack\u2192TrainSink/materializer\u2192packer/CPU packet with deterministic labels; every preexisting numeric policy/value/credit field exactly unchanged.",
+    "Actual old/new codec compatibility, mixed absence, truncation/padding/dummy and unchanged full coordinate axis. No GPU/model rerun for observation-only metadata."
+  ],
+  "limits": [
+    "Cannot establish engine attribution truth or reload correctness using synthetic response labels.",
+    "Live-policy source gate is only as authoritative as configured producer; generic custom cross-model programs need explicit identity contract before staleness comparisons.",
+    "Optional sampling-mask replay remains rejected; this carrier does not alter sampling distribution/objective/admission cohorts."
+  ],
+  "next": "Parent authorized isolated candidate after unit11 commit; independent helper tests owned here, production safe_loss, actual pipeline runtime_reliability."
+}

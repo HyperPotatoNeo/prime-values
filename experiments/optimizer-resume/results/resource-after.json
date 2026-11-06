@@ -1,0 +1,6 @@
+{
+  "observed_at": "2026-11-06T02:57:23.138407+00:00",
+  "selected_stage_devices_not_utilization": true,
+  "gpu_processes": "",
+  "processes": "    PID ELAPSED COMMAND\n      1    7546 bash -lc set -eu; mkdir -p /data/episode-sync-001; touch /data/episode-sync-001/ready; while [ ! -e /data/episode-sync-001/done ]; do sleep 5; done\n  16887     101 bash /data/optimizer-resume-001/launch.sh\n  16909      82 uv run --no-sync python /data/optimizer-resume-001/monitor.py\n  16921      82 /app/.venv/bin/python /data/optimizer-resume-001/monitor.py\n  17334       4 sleep 5\n  17335       2 uv run --no-sync python /data/optimizer-resume-001/finalize.py\n  17338       2 /app/.venv/bin/python /data/optimizer-resume-001/finalize.py\n  17342       0 ps -eo pid,etimes,args\n"
+}

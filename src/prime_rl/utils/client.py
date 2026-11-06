@@ -13,7 +13,7 @@ from httpx import AsyncClient
 from openai import AsyncOpenAI, NotFoundError
 from renderers import RendererConfig
 from tenacity import AsyncRetrying, retry, retry_if_exception, stop_after_attempt, stop_after_delay, wait_exponential
-from verifiers.v1.clients.config import EvalClientConfig, TrainClientConfig
+from verifiers.v1.configs.client import EvalClientConfig, TrainClientConfig
 
 from prime_rl.configs.shared import ClientConfig
 from prime_rl.utils.logger import get_logger
@@ -226,13 +226,17 @@ def setup_clients(
     ``renderer`` → token-in/out (``TrainClientConfig``, with the renderer the env
     server should use forwarded as a serialized config so it doesn't fall back to the
     default renderer); otherwise plain chat-completions (``EvalClientConfig``)."""
+    if pool_size is not None:
+        raise ValueError(
+            "pool_size is obsolete in the native producer: renderers now use an elastic multiplexed pool; "
+            "a fixed pool size cannot be translated to multiplex. Remove pool_size."
+        )
     is_renderer = client_type == "renderer"
     config_cls = TrainClientConfig if is_renderer else EvalClientConfig
     renderer_extra: dict = {}
     if is_renderer:
         renderer_extra = {
             "renderer": renderer_config,
-            "pool_size": pool_size or 1,
             "renderer_model_name": renderer_model_name,
         }
     env_headers = {
@@ -354,14 +358,16 @@ ADMIN_TIMEOUT_S = 300.0
 UPDATE_WEIGHTS_TIMEOUT_S = 720.0
 
 
-async def _admin_post(client: AsyncClient, path: str, *, timeout_s: float = ADMIN_TIMEOUT_S, **kwargs) -> None:
+async def _admin_post(
+    client: AsyncClient, path: str, *, timeout_s: float = ADMIN_TIMEOUT_S, retry_transient: bool = True, **kwargs
+) -> None:
     """POST an admin op with a bounded per-attempt timeout, retrying transient errors.
 
     The total wall-clock budget across all retries is twice the per-attempt timeout.
     """
     async for attempt in AsyncRetrying(
         retry=retry_if_exception(_is_retryable_admin_error),
-        stop=stop_after_delay(2 * timeout_s) | stop_after_attempt(10),
+        stop=stop_after_delay(2 * timeout_s) | stop_after_attempt(10 if retry_transient else 1),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         reraise=True,
     ):
@@ -403,13 +409,13 @@ async def update_weights(
 ) -> None:
     """Update weights on static inference servers.
 
-    Pauses all engines first to drain in-flight requests, then performs the
-    weight update, then resumes. This ensures all DP workers are idle and can
-    participate in the collective weight transfer.
+    Pauses generation while retaining in-flight requests, performs the weight
+    update and label publication, then resumes only after every server succeeds.
+    All DP workers must be idle to participate in the collective transfer.
 
-    Note: the prefix cache is intentionally not reset on weight update. The orchestrator
-    salts the prefix cache per weight version (``cache_salt`` in the sampling request, see
-    ``orchestrator/envs.py``), so KV computed under old weights is never reused.
+    New rollout groups use version-specific cache salts. Existing requests retain
+    their context and KV cache across keep-mode updates; a sampled-token version
+    does not imply that all of its cached context was computed by that version.
     """
     logger = get_logger()
 
@@ -421,27 +427,30 @@ async def update_weights(
         # Pause engines so all DP workers drain in-flight work and can join the NCCL broadcast
         await _pause_engines(admin_clients, step=step)
 
-        try:
-            # Create ready marker before servers enter receive path (used by NCCL broadcast)
-            if weight_dir is not None:
-                nccl_ready_file = weight_dir / NCCL_READY_MARKER
-                nccl_ready_file.parent.mkdir(parents=True, exist_ok=True)
-                nccl_ready_file.touch()
-                logger.debug(f"Created NCCL_READY marker at {nccl_ready_file}")
+        # Create ready marker before servers enter receive path (used by NCCL broadcast)
+        if weight_dir is not None:
+            nccl_ready_file = weight_dir / NCCL_READY_MARKER
+            nccl_ready_file.parent.mkdir(parents=True, exist_ok=True)
+            nccl_ready_file.touch()
+            logger.debug(f"Created NCCL_READY marker at {nccl_ready_file}")
 
-            await asyncio.gather(
-                *[
-                    _admin_post(
-                        admin_client,
-                        "/update_weights",
-                        json={"weight_dir": weight_dir_posix},
-                        timeout_s=UPDATE_WEIGHTS_TIMEOUT_S,
-                    )
-                    for admin_client in admin_clients
-                ]
-            )
-        finally:
-            await _resume_engines(admin_clients)
+        await asyncio.gather(
+            *[
+                _admin_post(
+                    admin_client,
+                    "/update_weights",
+                    json={"weight_dir": weight_dir_posix, "weight_version": step},
+                    timeout_s=UPDATE_WEIGHTS_TIMEOUT_S,
+                    # A lost response can follow a completed collective. Repeating
+                    # it could start another NCCL receive with no broadcaster.
+                    retry_transient=False,
+                )
+                for admin_client in admin_clients
+            ]
+        )
+        # A failed/partial adoption or label publication leaves engines paused.
+        # Resuming with an old label would misrepresent the active weights.
+        await _resume_engines(admin_clients)
 
 
 def _is_retryable_lora_error(exception: BaseException) -> bool:
@@ -573,7 +582,7 @@ async def prefill_logprobs(openai: AsyncOpenAI, model: str, token_ids: list[int]
     + ``prompt_logprobs`` (the prime-rl server-side extension in
     ``inference/vllm/serving_tokens.py``). Returns one logprob per token (0.0 for
     the leading token, which has no preceding context)."""
-    from vllm.entrypoints.serve.disagg.protocol import GenerateResponse
+    from prime_rl.inference.vllm.serving_tokens import PrimeRlGenerateResponse
 
     # `/inference/v1/generate` is mounted at server root, not under `/v1`: pass an
     # absolute URL so the SDK skips the base-url merge. vLLM's `GenerateResponse`
@@ -590,7 +599,7 @@ async def prefill_logprobs(openai: AsyncOpenAI, model: str, token_ids: list[int]
             "sampling_params": {"max_tokens": 1, "temperature": 1.0, "top_p": 1.0, "prompt_logprobs": 1},
         },
     )
-    response = GenerateResponse.model_validate_json(http_response.content)
+    response = PrimeRlGenerateResponse.model_validate_json(http_response.content)
     # `prompt_logprobs[i]` is a `{token_id: Logprob}` dict, or `None` for the
     # leading token (no preceding context). Flatten to `list[float]`.
     flat: list[float] = []

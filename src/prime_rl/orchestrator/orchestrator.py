@@ -364,11 +364,13 @@ class Orchestrator:
             # trainer even when ``ckpt.skip_progress`` left the counter unrestored.
             self.progress.step = self.resume_step + 1
             get_logger().info(f"Resuming orchestrator from checkpoint step {self.resume_step}")
-            check_exists = config.weight_broadcast.type != "nccl"
-            wait_timeout = config.ckpt.wait_for_weights_timeout if config.ckpt else None
-            weights_path = get_weight_dir(
-                config.output_dir, self.resume_step, check_exists=check_exists, wait_timeout=wait_timeout
-            )
+            if config.weight_broadcast.type == "nccl":
+                # The restored trainer is the live sender; no filesystem weights
+                # or previous run's readiness markers identify this transfer.
+                weights_path = None
+            else:
+                wait_timeout = config.ckpt.wait_for_weights_timeout if config.ckpt else None
+                weights_path = get_weight_dir(config.output_dir, self.resume_step, wait_timeout=wait_timeout)
             await self.policy_inference.update_weights(weights_path, lora_name=self.lora_name, step=self.resume_step)
             if self.lora_name is not None:
                 self.policy_inference.update_model_name(self.lora_name)
@@ -459,6 +461,15 @@ class Orchestrator:
         start_time = time.perf_counter()
         clean_exit = False
         loop_started = False
+        main_task = asyncio.current_task()
+        supervising = True
+
+        def on_component_done(task: asyncio.Task) -> None:
+            if not supervising or task.cancelled() or task.exception() is None or main_task.done():
+                return
+            get_logger().opt(exception=task.exception()).error(f"Orchestrator component {task.get_name()} failed")
+            main_task.cancel()
+
         try:
             await self.setup()
             get_logger().info(f"Starting orchestrator loop (max_steps={config.max_steps or 'infinite'})")
@@ -474,6 +485,9 @@ class Orchestrator:
                 asyncio.create_task(self.watcher.start(), name="watcher"),
             ]
 
+            for task in self.component_tasks:
+                task.add_done_callback(on_component_done)
+
             # Base-model eval (policy v0) — fires before any train rollouts, logged at the first
             # step, unless ``eval.skip_first_step=True`` (or this is a resume)
             self.maybe_trigger_eval(self.progress.step)
@@ -482,8 +496,15 @@ class Orchestrator:
             self.last_batch_at = time.perf_counter()
             loop_started = True
             await self.main_loop()
+            self._raise_if_component_failed()
             clean_exit = True
+        except asyncio.CancelledError:
+            self._raise_if_component_failed()
+            raise
         finally:
+            supervising = False
+            for task in self.component_tasks:
+                task.remove_done_callback(on_component_done)
             cleanup_errors: list[Exception] = []
             elapsed = format_time(time.perf_counter() - start_time)
             if clean_exit:
@@ -524,12 +545,17 @@ class Orchestrator:
                 get_logger().warning("Orchestrator cleanup complete (forced).")
             trim_process_memory()
 
+    def _raise_if_component_failed(self) -> None:
+        for task in self.component_tasks:
+            if task.done() and not task.cancelled() and task.exception() is not None:
+                raise task.exception()
+
     async def main_loop(self) -> None:
         """Consume ``Rollout``\\ s from the dispatcher and route them
         to the train / eval sink. Both sinks return a finalized batch (or
         ``None``) from ``add()``; we just dispatch on the result."""
         while not self.stopped.is_set():
-            if self.draining and self.dispatcher.is_idle:
+            if self.draining and self.dispatcher.is_idle and self._required_broadcasts_adopted():
                 get_logger().info("Pipeline drained, exiting main loop")
                 self.stopped.set()
                 break
@@ -594,13 +620,7 @@ class Orchestrator:
         self.last_batch_at = now
 
         if config.max_steps is not None and step > config.max_steps:
-            self.draining = True
-            self.dispatcher.disable_train_scheduling()
-            n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
-            get_logger().info(
-                f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); "
-                f"any in-flight evals will complete)"
-            )
+            await self._drain_training()
             return
 
         if not batch.samples:
@@ -757,6 +777,25 @@ class Orchestrator:
         self.train_sink.reset_pre_filter_stats()
         self.maybe_trigger_eval(self.progress.step)
         trim_process_memory()
+        if config.max_steps is not None and step >= config.max_steps:
+            # The final shipment can close the policy-lag gate permanently;
+            # shutdown must not depend on collecting one more train batch.
+            await self._drain_training()
+
+    def _required_broadcasts_adopted(self) -> bool:
+        if self.config.weight_broadcast.type != "nccl" or self.config.max_steps is None:
+            return True
+        # The trainer omits NCCL broadcasts at steps >= max_steps - 1.
+        # Keep its receivers alive until every earlier broadcast has completed.
+        return self.policy.version >= max(0, self.config.max_steps - 2)
+
+    async def _drain_training(self) -> None:
+        self.draining = True
+        self.dispatcher.disable_train_scheduling()
+        n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
+        get_logger().info(
+            f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); any in-flight evals will complete)"
+        )
 
     def maybe_trigger_eval(self, step: int) -> None:
         """Fire eligible eval epochs and flip to ``PREFER_EVAL`` if anything

@@ -48,13 +48,12 @@ from prime_rl.trainer.models.layers.lm_head import inject_prime_lm_head
 from prime_rl.trainer.models.layers.moe import LatentMoE, MoE, TokenChoiceTopKRouter
 from prime_rl.trainer.parallel_dims import ParallelDims
 from prime_rl.trainer.weights import (
-    load_state_dict,
+    ensure_converted_weights,
     load_state_dict_keys,
-    save_state_dict,
 )
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
-from prime_rl.utils.sequence import get_cu_seqlens_from_position_ids
+from prime_rl.utils.sequence import PackedSequenceMetadata, get_cu_seqlens_from_position_ids
 from prime_rl.utils.utils import format_time
 from prime_rl.utils.vlm import get_language_model, get_vision_encoder, is_vlm_architecture
 
@@ -499,6 +498,10 @@ class ValueFunctionModel(nn.Module):
             "fa4",
         }
 
+    @property
+    def supports_packed_sequence_metadata(self) -> bool:
+        return bool(getattr(self._prime_conversion_cls, "supports_packed_sequence_metadata", False))
+
     def init_buffers_post_meta(self) -> None:
         if self._prime_conversion_cls is not None:
             self._prime_conversion_cls.init_buffers_post_meta(self)
@@ -509,8 +512,14 @@ class ValueFunctionModel(nn.Module):
         self,
         input_ids: Int[Tensor, "batch seq"],
         position_ids: Int[Tensor, "batch seq"],
+        packing_metadata: PackedSequenceMetadata | None = None,
     ) -> Float[Tensor, "batch seq output"]:
-        outputs = self.model(input_ids=input_ids, position_ids=position_ids)
+        kwargs = {}
+        if packing_metadata is not None:
+            if not model_supports_packed_sequence_metadata(self):
+                raise ValueError("This value backbone does not support explicit packing metadata")
+            kwargs["packing_metadata"] = packing_metadata
+        outputs = self.model(input_ids=input_ids, position_ids=position_ids, **kwargs)
         hidden_states = outputs.last_hidden_state if hasattr(outputs, "last_hidden_state") else outputs[0]
         return self.value_head(hidden_states).float()
 
@@ -912,7 +921,9 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
 
     if prime_conversion_cls is not None:
         snapshot_keys = dict.fromkeys(load_state_dict_keys(snapshot_path))
-        model_keys = dict.fromkeys(key for key in model.state_dict() if not key.startswith("value_head."))
+        model_keys = dict.fromkeys(
+            key for key in strip_lora_from_state_dict(model.state_dict()) if not key.startswith("value_head.")
+        )
 
         if prime_conversion_cls.is_hf_state_dict(snapshot_keys) and prime_conversion_cls.is_prime_state_dict(
             model_keys
@@ -920,15 +931,16 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
             logger.warning(
                 "Found HF weight format in snapshot state dict and PrimeRL weight format in model state dict. Trying to auto-convert..."
             )
+            required_keys = set(model_keys)
+            if "lm_head.weight" in snapshot_keys:
+                # The critic shares the policy's base cache even though it
+                # replaces the language-model head with its own value head.
+                required_keys.add("lm_head.weight")
+            elif model.config.tie_word_embeddings:
+                required_keys.discard("lm_head.weight")
+            if get_world().is_master:
+                ensure_converted_weights(snapshot_path, "prime", prime_conversion_cls.convert_to_prime, required_keys)
             snapshot_path = snapshot_path / "prime"
-            if not snapshot_path.exists() and get_world().is_master:
-                logger.debug(
-                    f"Converting snapshot state dict to PrimeRL format and saving to {snapshot_path} on master rank. This is a one-time operation."
-                )
-                snapshot_state_dict = load_state_dict(snapshot_path.parent)
-                prime_conversion_cls.convert_to_prime(snapshot_state_dict)
-                save_state_dict(snapshot_state_dict, snapshot_path)
-                del snapshot_state_dict
 
         elif prime_conversion_cls.is_prime_state_dict(snapshot_keys) and prime_conversion_cls.is_hf_state_dict(
             model_keys
@@ -936,15 +948,16 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
             logger.warning(
                 "Found PrimeRL weight format in snapshot state dict and HF weight format in model state dict. Trying to auto-convert..."
             )
+            required_keys = set(model_keys)
+            if "lm_head.weight" in snapshot_keys:
+                # The critic shares the policy's base cache even though it
+                # replaces the language-model head with its own value head.
+                required_keys.add("lm_head.weight")
+            elif model.config.tie_word_embeddings:
+                required_keys.discard("lm_head.weight")
+            if get_world().is_master:
+                ensure_converted_weights(snapshot_path, "hf", prime_conversion_cls.convert_to_hf, required_keys)
             snapshot_path = snapshot_path / "hf"
-            if not snapshot_path.exists() and get_world().is_master:
-                logger.debug(
-                    f"Converting snapshot state dict to HF format and saving to {snapshot_path} on master rank. This is a one-time operation."
-                )
-                snapshot_state_dict = load_state_dict(snapshot_path.parent)
-                prime_conversion_cls.convert_to_hf(snapshot_state_dict)
-                save_state_dict(snapshot_state_dict, snapshot_path)
-                del snapshot_state_dict
 
     # All ranks wait for master rank to finish conversion
     torch.distributed.barrier()
@@ -1323,10 +1336,17 @@ def predict_value(
     model: nn.Module,
     input_ids: Int[Tensor, "batch seq"],
     position_ids: Int[Tensor, "batch seq"],
+    packing_metadata: PackedSequenceMetadata | None = None,
 ) -> Float[Tensor, "batch seq output"]:
     if not isinstance(model, ValueFunctionModel):
         raise TypeError(f"expected ValueFunctionModel, got {type(model).__name__}")
-    return model(input_ids=input_ids, position_ids=position_ids)
+    return model(input_ids=input_ids, position_ids=position_ids, packing_metadata=packing_metadata)
+
+
+def model_supports_packed_sequence_metadata(model: nn.Module) -> bool:
+    return bool(getattr(model, "supports_packed_sequence_metadata", False)) and getattr(
+        model.config, "_attn_implementation", None
+    ) in {"flash_attention_2", "flash_attention_3", "fa4"}
 
 
 def value_model_supports_packing(model: nn.Module) -> bool:
@@ -1350,6 +1370,7 @@ def forward(
     # not a renderer/processor output.
     mm_kwargs: dict[str, Tensor] | None = None,
     mm_token_type_ids: Int[Tensor, "batch seq"] | None = None,
+    packing_metadata: PackedSequenceMetadata | None = None,
 ) -> PrimeLmOutput:
     # Build kwargs for model forward
     kwargs = {
@@ -1376,6 +1397,11 @@ def forward(
 
     if routed_experts is not None:
         kwargs["routed_experts"] = routed_experts
+
+    if packing_metadata is not None:
+        if not model_supports_packed_sequence_metadata(model):
+            raise ValueError("This policy backbone does not support explicit packing metadata")
+        kwargs["packing_metadata"] = packing_metadata
 
     out = model(**kwargs)
 

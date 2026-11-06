@@ -1,106 +1,79 @@
-name: Nightly Tests
+name: Historical Runtime Tests (manual, frozen source)
 
+# The native branch's automatic lifecycle gate lives in gpu_tests.yaml.
+# These preserved legacy/SFT/benchmark/MM tests execute the historical runtime;
+# success here is never evidence about the current branch's implementation.
 on:
-    # Allow to manually trigger the workflow
-    workflow_dispatch:
-        inputs:
-            test_file:
-                description: "Single nightly test file to run (e.g. tests/nightly/test_my_exp.py). Leave empty to run all."
-                required: false
-                default: ""
-
-    # Scheduled run at 3AM PST (11AM UTC)
-    schedule:
-        - cron: "0 11 * * *"
+  workflow_dispatch:
+    inputs:
+      test_file:
+        description: "Historical test on fixed source 1801d112; no universal compatibility guarantee"
+        required: true
+        type: choice
+        default: tests/integration/test_reverse_text.py
+        options:
+          - tests/integration/test_reverse_text.py
+          - tests/integration/test_reverse_text_sft.py
+          - tests/integration/test_reverse_text_sft_lora.py
+          - tests/integration/test_reverse_text_rl_opd.py
+          - tests/integration/test_reverse_text_rl_sft.py
+          - tests/integration/test_alphabet_sort.py
+          - tests/integration/test_reverse_text_lora.py
+          - tests/integration/test_reverse_text_moe.py
+          - tests/integration/test_reverse_text_multi_run.py
+          - tests/integration/test_benchmark_regression.py
+          - tests/nightly/test_hendrycks_sanity.py
+          - tests/nightly/test_wordle.py
+          - tests/nightly/test_wiki_search.py
+          - tests/nightly/test_multimodal_color_codeword.py
+          - tests/nightly/test_reverse_text.py
+          - tests/nightly/test_alphabet_sort.py
+          - tests/unit
 
 jobs:
-    discover-experiments:
-        name: Discover experiments
-        runs-on: ubuntu-latest
-
-        outputs:
-            matrix: ${{ steps.build-matrix.outputs.matrix }}
-
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-              with:
-                  submodules: false
-
-            - name: Build matrix from nightly test files
-              id: build-matrix
-              run: |
-                  # Find all nightly test files
-                  files=$(ls tests/nightly/test_*.py)
-
-                  # Filter to specific test file if provided in workflow_dispatch
-                  if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.test_file }}" ]; then
-                      # Filter to only the specified test file
-                      filtered=$(echo "$files" | grep -F "${{ github.event.inputs.test_file }}" || true)
-                      if [ -z "$filtered" ]; then
-                          echo "Error: Test file '${{ github.event.inputs.test_file }}' not found"
-                          exit 1
-                      fi
-                      files="$filtered"
-                  fi
-
-                  echo "Discovered nightly tests:"
-                  echo "$files"
-
-                  # Build JSON of the form: { "test_file": ["tests/nightly/test_a.py", ...] }
-                  json=$(printf '%s\n' "$files" | jq -R . | jq -sc '{test_file: .}')
-
-                  echo "matrix=$json" >> "$GITHUB_OUTPUT"
-    run-experiment:
-        name: Run experiment
-        needs: discover-experiments
-        runs-on: research-cluster
-        container:
-            image: pytorch/pytorch:2.10.0-cuda13.0-cudnn9-devel
-            # --shm-size: vLLM V1's DP engine/API-server IPC uses POSIX shm-backed
-            # MessageQueue (~160MB per queue); Docker's default 64MB /dev/shm triggers
-            # SIGBUS in DP engine cores on VLM runs (mm data overflows tmpfs).
-            options: --gpus all --shm-size=16g
-        timeout-minutes: 1440 # 24 hours
-        strategy:
-            fail-fast: false
-            matrix: ${{ fromJSON(needs.discover-experiments.outputs.matrix) }}
-
-        steps:
-            - name: Install Git
-              run: |
-                  apt-get update
-                  apt-get install -y git
-                  git config --global --add safe.directory "$GITHUB_WORKSPACE"
-            - name: Checkout repository
-              uses: actions/checkout@v4
-              with:
-                  submodules: false
-            - name: Init public submodules
-              run: |
-                  git config --global url."https://github.com/".insteadOf "git@github.com:"
-                  git submodule update --init --recursive -- deps/verifiers deps/renderers deps/research-environments deps/pydantic-config
-            - name: Install uv
-              uses: astral-sh/setup-uv@v5
-              with:
-                  enable-cache: true
-                  cache-dependency-glob: "uv.lock"
-            - name: Install dependencies
-              run: uv sync --all-extras --locked
-            - name: Run experiment
-              env:
-                  USERNAME_CI: CI_RUNNER
-                  WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
-                  # Set WANDB_MODE to online only if WANDB_API_KEY is available, otherwise set to offline
-                  # This is to allow running tests on forks without WANDB_API_KEY
-                  WANDB_MODE: ${{ secrets.WANDB_API_KEY && 'online' || 'offline' }}
-                  HF_TOKEN: ${{ secrets.HF_TOKEN }}
-                  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-                  PRIME_API_KEY: ${{ secrets.PRIME_API_KEY }}
-                  PRIME_BASE_URL: ${{ secrets.PRIME_BASE_URL }}
-                  PRIME_TEAM_ID: ${{ secrets.PRIME_TEAM_ID }}
-                  GITHUB_REF_NAME: ${{ github.ref_name }}
-                  GITHUB_HEAD_REF: ${{ github.head_ref }}
-              run: |
-                  echo "Running test file: ${{ matrix.test_file }}"
-                  uv run pytest "${{ matrix.test_file }}"
+  historical-test:
+    name: Historical 1801d112 (${{ inputs.test_file }})
+    runs-on: ${{ inputs.test_file == 'tests/unit' && 'vm' || startsWith(inputs.test_file, 'tests/nightly/') && 'research-cluster' || '4xa6000' }}
+    container:
+      image: pytorch/pytorch:2.10.0-cuda13.0-cudnn9-devel
+      options: --gpus all --shm-size=16g
+    timeout-minutes: 1440
+    steps:
+      - name: Install Git
+        run: |
+          apt-get update
+          apt-get install -y git
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Checkout the explicitly frozen historical runtime
+        uses: actions/checkout@v4
+        with:
+          ref: 1801d1129f1adeeed6dcfabb0295451e4b5cb4b8
+          submodules: false
+      - name: Verify historical source and initialize its own dependencies
+        run: |
+          test "$(git rev-parse HEAD)" = 1801d1129f1adeeed6dcfabb0295451e4b5cb4b8
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git submodule update --init --recursive -- deps/verifiers deps/renderers deps/research-environments deps/pydantic-config
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install the historical lock
+        run: uv sync --all-extras --locked
+      - name: Execute the preserved historical assertions
+        env:
+          HISTORICAL_TEST_FILE: ${{ inputs.test_file }}
+          USERNAME_CI: CI_RUNNER
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+          WANDB_MODE: ${{ secrets.WANDB_API_KEY && 'online' || 'offline' }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          PRIME_API_KEY: ${{ secrets.PRIME_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PRIME_BASE_URL: ${{ secrets.PRIME_BASE_URL }}
+          PRIME_TEAM_ID: ${{ secrets.PRIME_TEAM_ID }}
+          PYTEST_OUTPUT_DIR: /tmp/outputs
+          VLLM_WORKER_MULTIPROC_METHOD: spawn
+        run: |
+          if [ "$HISTORICAL_TEST_FILE" = tests/unit ]; then
+            uv run pytest tests/unit -m gpu
+          else
+            uv run pytest -vvs "$HISTORICAL_TEST_FILE"
+          fi

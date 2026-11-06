@@ -1,6 +1,7 @@
 name: GPU Tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -16,9 +17,9 @@ jobs:
     runs-on: vm
     container:
       image: pytorch/pytorch:2.10.0-cuda13.0-cudnn9-devel
-      options: --gpus all
+      options: --gpus all --shm-size=16g
     timeout-minutes: 45
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: (vars.ENABLE_GPU_CI == 'true' || github.event_name == 'workflow_dispatch') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     steps:
       - name: Install Git
         run: |
@@ -53,43 +54,19 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container:
       image: pytorch/pytorch:2.10.0-cuda13.0-cudnn9-devel
-      options: --gpus all
+      options: --gpus all --shm-size=16g
     timeout-minutes: 60
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: (vars.ENABLE_GPU_CI == 'true' || github.event_name == 'workflow_dispatch') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     strategy:
       fail-fast: false
       matrix:
         include:
-          - test: reverse_text_sft
-            runner: vm
-            pytest_args: "tests/integration/test_reverse_text_sft.py"
-          - test: reverse_text_sft_lora
-            runner: vm
-            pytest_args: "tests/integration/test_reverse_text_sft_lora.py"
-          - test: reverse_text
-            runner: vm
-            pytest_args: "tests/integration/test_reverse_text.py"
-          - test: reverse_text_rl_opd
-            runner: vm
-            pytest_args: "tests/integration/test_reverse_text_rl_opd.py"
-          - test: reverse_text_rl_sft
-            runner: vm
-            pytest_args: "tests/integration/test_reverse_text_rl_sft.py"
-          - test: alphabet_sort
-            runner: vm
-            pytest_args: "tests/integration/test_alphabet_sort.py"
-          - test: reverse_text_lora
-            runner: vm
-            pytest_args: "tests/integration/test_reverse_text_lora.py"
-          - test: reverse_text_moe
-            runner: vm
-            pytest_args: "tests/integration/test_reverse_text_moe.py"
-          - test: reverse_text_multi_run
+          - test: native_policy_fresh_resume
             runner: 4xa6000
-            pytest_args: "tests/integration/test_reverse_text_multi_run.py"
-          - test: benchmark_regression
+            pytest_args: "tests/integration/test_native_profile.py::test_native_policy_fresh_resume"
+          - test: native_value_fresh_resume
             runner: 4xa6000
-            pytest_args: "tests/integration/test_benchmark_regression.py"
+            pytest_args: "tests/integration/test_native_profile.py::test_native_value_fresh_resume"
     steps:
       - name: Install Git
         run: |
@@ -120,4 +97,15 @@ jobs:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           PYTEST_OUTPUT_DIR: /tmp/outputs
           VLLM_WORKER_MULTIPROC_METHOD: spawn
-        run: uv run pytest -vvs ${{ matrix.pytest_args }}
+        # These are lifecycle checks, not historical convergence benchmarks.
+        # RG requires an externally pinned cache and is not claimed by this job.
+        run: uv run pytest -vvs --basetemp=/tmp/native-ci ${{ matrix.pytest_args }}
+      - name: Preserve native lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-lifecycle-${{ matrix.test }}
+          if-no-files-found: warn
+          path: |
+            /tmp/native-ci/**/fresh/**
+            /tmp/native-ci/**/resumed/**

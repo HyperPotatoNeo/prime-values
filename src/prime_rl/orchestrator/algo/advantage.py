@@ -4,36 +4,7 @@ from __future__ import annotations
 
 import math
 
-
-def compute_gae(
-    *,
-    reward: float,
-    values: list[float],
-    mask: list[bool],
-    gamma: float,
-    gae_lambda: float,
-    value_target_lambda: float,
-) -> tuple[list[float], list[float]]:
-    """Policy GAE and independently parameterized TD(lambda) value targets."""
-    if len(values) != len(mask):
-        raise ValueError(f"value/mask length mismatch: {len(values)} != {len(mask)}")
-    action_indices = [index for index, trainable in enumerate(mask) if trainable]
-    advantages = [0.0] * len(mask)
-    returns = [0.0] * len(mask)
-    next_policy_gae = 0.0
-    next_target_advantage = 0.0
-    for action_position in reversed(range(len(action_indices))):
-        index = action_indices[action_position]
-        has_next = action_position + 1 < len(action_indices)
-        next_value = values[action_indices[action_position + 1]] if has_next else 0.0
-        immediate_reward = reward if not has_next else 0.0
-        nonterminal = 1.0 if has_next else 0.0
-        delta = immediate_reward + gamma * next_value * nonterminal - values[index]
-        next_policy_gae = delta + gamma * gae_lambda * nonterminal * next_policy_gae
-        next_target_advantage = delta + gamma * value_target_lambda * nonterminal * next_target_advantage
-        advantages[index] = next_policy_gae
-        returns[index] = next_target_advantage + values[index]
-    return advantages, returns
+from prime_rl.value.credit import compute_gae as compute_gae
 
 
 def group_baselines(rewards: list[float], baseline: str) -> list[float]:

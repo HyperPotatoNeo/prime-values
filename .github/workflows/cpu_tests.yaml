@@ -44,29 +44,49 @@ jobs:
         run: rm -rf /tmp/outputs
 
   slim-configs-install:
-    name: Slim install (prime-rl-configs only)
+    name: Slim install (pinned native config profile)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Init pinned public config dependencies
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git submodule update --init deps/verifiers deps/renderers deps/pydantic-config
+          for dep in deps/verifiers deps/renderers deps/pydantic-config; do
+            if [ "$(git -C "$dep" rev-parse --is-shallow-repository)" = true ]; then
+              git -C "$dep" fetch --unshallow --tags
+            else
+              git -C "$dep" fetch --tags
+            fi
+          done
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
-      - name: Build the slim wheel
-        run: uv build --wheel ./packages/prime-rl-configs --out-dir /tmp/slim-wheel
+      - name: Build genuine pinned config and native-plugin wheels
+        run: |
+          for package in packages/prime-rl-configs deps/verifiers deps/renderers deps/pydantic-config deps/verifiers/environments/reverse_text; do
+            uv build --wheel "$package" --out-dir /tmp/slim-wheel
+          done
       - name: Install slim wheel from a directory with no workspace context
-        # Build the wheel and install it from /tmp so uv can't discover the
-        # repo's root pyproject.toml [tool.uv.sources] and silently apply
-        # them. This mirrors what an external pip-only user gets.
+        # Install from /tmp without root source overrides or the training wheel.
+        # This tests the exact pinned native profile, not minimum/PyPI-latest deps.
         run: |
           uv venv --python 3.12 /tmp/slim
           cd /tmp && uv pip install --python /tmp/slim/bin/python /tmp/slim-wheel/*.whl
       - name: Verify configs import without heavy deps
         run: |
+          cd /tmp
           /tmp/slim/bin/python - <<'PY'
           import sys
+          from importlib.metadata import version
+          assert version("verifiers") == "0.4.1.dev39"
+          assert version("renderers") == "0.1.13.dev6"
+          assert version("prime-pydantic-config") == "0.4.3"
 
           from prime_rl.configs.rl import RLConfig
           from prime_rl.configs.sft import SFTConfig
@@ -92,12 +112,20 @@ jobs:
           PY
       - name: Verify a real config (with [slurm]) parses on slim install
         run: |
+          cd /tmp
           /tmp/slim/bin/python - <<'PY'
+          import os
+          from pathlib import Path
           from pydantic_config import cli
           from prime_rl.configs.rl import RLConfig
-          rl = cli(RLConfig, args=["@", "examples/Intellect-3.1/rl.toml"])
+          rl = cli(RLConfig, args=["@", str(Path(os.environ["GITHUB_WORKSPACE"]) / "configs/native/reverse_text_policy.toml"), "--slurm.job-name", "native-slim-check"])
+          assert rl.slurm.job_name == "native-slim-check"
           assert rl.slurm is not None, "expected [slurm] in example config"
           # On slim, template_path can't be auto-resolved (heavy wheel absent) — must stay None.
           assert rl.slurm.template_path is None, f"unexpected template_path on slim: {rl.slurm.template_path}"
-          print("slim parse OK")
+          import sys
+          forbidden = ["torch", "transformers", "vllm", "wandb", "ring_flash_attn",
+                       "prime", "liger_kernel", "loguru"]
+          assert not [name for name in forbidden if name in sys.modules]
+          print("pinned native slim parse OK")
           PY

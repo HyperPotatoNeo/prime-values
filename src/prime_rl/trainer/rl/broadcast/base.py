@@ -16,3 +16,9 @@ class WeightBroadcast(ABC):
     @abstractmethod
     def broadcast_weights(self, model: nn.Module, step: int):
         pass
+
+    def synchronize_restored_weights(self, model: nn.Module, step: int) -> None:
+        """Synchronize a restored checkpoint when the transport needs a live sender.
+
+        Filesystem receivers load the existing checkpoint artifacts themselves.
+        """

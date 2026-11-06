@@ -1,0 +1,23 @@
+{
+  "world_size": 2,
+  "layouts": [
+    [
+      [
+        0
+      ],
+      [
+        2
+      ]
+    ],
+    [
+      [
+        1
+      ],
+      [
+        -1
+      ]
+    ]
+  ],
+  "total_tokens": 20,
+  "total_samples": 6
+}

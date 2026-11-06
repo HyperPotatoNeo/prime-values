@@ -3,14 +3,14 @@ from argparse import Namespace
 from typing import Any
 
 import uvloop
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.datastructures import State
 from vllm.engine.protocol import EngineClient
-from vllm.entrypoints.openai.api_server import init_app_state
-from vllm.entrypoints.openai.cli_args import make_arg_parser, validate_parsed_serve_args
-from vllm.entrypoints.openai.engine.protocol import ErrorResponse
+from vllm.entrypoints.launchers.api_server.app_state import init_app_state
+from vllm.entrypoints.launchers.cli_args import make_arg_parser, validate_parsed_serve_args
 from vllm.entrypoints.openai.models.serving import OpenAIServingModels
+from vllm.entrypoints.serve.engine.protocol import ErrorResponse
 from vllm.entrypoints.serve.lora.protocol import LoadLoRAAdapterRequest
 from vllm.logger import init_logger
 from vllm.utils.argparse_utils import FlexibleArgumentParser
@@ -21,19 +21,11 @@ from prime_rl.utils.logger import get_logger
 logger = get_logger()
 from prime_rl.inference.patches import (
     monkey_patch_dp_coordinator_startup_timeout,
-    monkey_patch_harmony_stop_token_propagation,
     monkey_patch_nano_v3_reasoning_parser,
     monkey_patch_strip_routed_experts_from_chat,
-    monkey_patch_tokenize_params_validation,
     monkey_patch_vllm_padded_input_scrub,
 )
 
-# NOTE: Fix harmony stop token propagation for GPT-OSS models
-# Upstream issue still open: https://github.com/vllm-project/vllm/issues/22519
-monkey_patch_harmony_stop_token_propagation()
-# NOTE: Monkeypatch TokenizeParams to fix overly conservative validation
-# Still needed in vLLM 0.20 — upstream rejects prompt_len > max_model_len - max_tokens
-monkey_patch_tokenize_params_validation()
 # NOTE: Register Nano V3 reasoning parser so configs can use
 # `reasoning_parser = "nano_v3"` without a vLLM plugin file.
 monkey_patch_nano_v3_reasoning_parser()
@@ -51,7 +43,7 @@ monkey_patch_strip_routed_experts_from_chat()
 # weights concurrently (multi-node disaggregated deployments).
 monkey_patch_dp_coordinator_startup_timeout()
 
-logger = init_logger("vllm.entrypoints.openai.api_server")
+logger = init_logger("vllm.entrypoints.launchers.api_server.entry")
 
 # Create our own router for custom endpoints
 router = APIRouter()
@@ -84,10 +76,28 @@ async def resume(request: Request):
     return {"status": "resumed"}
 
 
+@router.get("/is_paused")
+async def is_paused(request: Request):
+    return {"is_paused": await engine_client(request).is_paused()}
+
+
+@router.get("/weight_info")
+async def weight_info(request: Request):
+    return {"weight_version": await engine_client(request).get_weight_version()}
+
+
 @router.post("/update_weights")
 async def update_weights(request: Request):
+    """Adopt weights and publish their label; the admin caller must pause first."""
     data = await request.json()
-    await engine_client(request).collective_rpc("update_weights_from_path", args=(data.get("weight_dir"),))
+    step = data.get("weight_version")
+    if step is not None and (type(step) is not int or not 0 <= step <= 2**63 - 1):
+        raise HTTPException(status_code=400, detail="weight_version must be a nonnegative int64 policy step")
+    client = engine_client(request)
+    await client.collective_rpc("update_weights_from_path", args=(data.get("weight_dir"),))
+    # A label describes adopted weights, never the request's dispatch version.
+    # Unlabelled manual reloads invalidate any previous comparable observation.
+    await client.update_weight_version("default" if step is None else str(step))
     return {"status": "ok"}
 
 
@@ -180,9 +190,9 @@ async def custom_init_app_state(
         state.serving_tokens = prime_serving
 
 
-import vllm.entrypoints.openai.api_server
+import vllm.entrypoints.launchers.api_server.entry
 import vllm.v1.utils
-from vllm.entrypoints.openai.api_server import build_app as _original_build_app
+from vllm.entrypoints.launchers.app import build_app as _original_build_app
 from vllm.v1.utils import run_api_server_worker_proc as _original_run_api_server_worker_proc
 
 
@@ -190,6 +200,10 @@ def custom_build_app(args: Namespace, supported_tasks: tuple, model_config=None)
     """
     Wrap build_app to include our custom router.
     """
+    from vllm import envs
+
+    if envs.VLLM_SERVER_DEV_MODE:
+        raise ValueError("VLLM_SERVER_DEV_MODE conflicts with PrimeRL's weight-update admin routes; leave it disabled")
     app = _original_build_app(args, supported_tasks, model_config)
     app.include_router(router)
     return app
@@ -205,8 +219,8 @@ def custom_run_api_server_worker_proc(listen_address, sock, args, client_config=
     _original_run_api_server_worker_proc(listen_address, sock, args, client_config, **uvicorn_kwargs)
 
 
-vllm.entrypoints.openai.api_server.init_app_state = custom_init_app_state
-vllm.entrypoints.openai.api_server.build_app = custom_build_app
+vllm.entrypoints.launchers.api_server.entry.init_app_state = custom_init_app_state
+vllm.entrypoints.launchers.api_server.entry.build_app = custom_build_app
 vllm.v1.utils.run_api_server_worker_proc = custom_run_api_server_worker_proc
 
 
@@ -217,7 +231,7 @@ def server(config: InferenceConfig, vllm_extra: dict[str, Any] | None = None):
     import os
 
     from vllm.entrypoints.cli.serve import run_headless, run_multi_api_server
-    from vllm.entrypoints.openai.api_server import run_server
+    from vllm.entrypoints.launchers.api_server.entry import run_server
 
     # Signal worker processes to disable LoRA on MoE layers when LoRA targets don't include experts
     if config.lora_target_modules and not any("expert" in m for m in config.lora_target_modules):

@@ -11,7 +11,7 @@ import torch.distributed.nn as dist_nn
 import torch.nn as nn
 from ring_flash_attn import update_ring_flash_attn_params
 
-from prime_rl.utils.sequence import get_cu_seqlens_from_position_ids
+from prime_rl.utils.sequence import PackedSequenceMetadata, get_cu_seqlens_from_position_ids
 
 CPStyle = Literal["ring", "ulysses"]
 
@@ -162,6 +162,7 @@ def setup_cp_params(
     cp_world_size: int,
     cp_group: dist.ProcessGroup,
     cp_style: CPStyle = "ring",
+    packing_metadata: PackedSequenceMetadata | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Prepare the input for context parallelism and set required attention params.
@@ -174,7 +175,11 @@ def setup_cp_params(
     Returns the sequence-sharded input_ids and position_ids — the rest of the
     model still runs sequence-sharded; only attention sees the full sequence.
     """
-    cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+    if packing_metadata is None:
+        cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+    else:
+        packing_metadata.validate_shape(input_ids.shape[0], input_ids.shape[1], input_ids.device)
+        cu_seqlens, max_seqlen = packing_metadata.cu_seqlens, packing_metadata.max_seqlen
 
     if cp_style == "ring":
         update_ring_flash_attn_params(cu_seqlens, cp_group)

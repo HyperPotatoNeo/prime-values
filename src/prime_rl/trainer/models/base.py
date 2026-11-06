@@ -11,6 +11,8 @@ class PreTrainedModelPrimeRL(PreTrainedModel):
     after loading with meta device.
     """
 
+    supports_packed_sequence_metadata = False
+
     @classmethod
     def from_config(cls, config, **kwargs):
         """Public from_config that mirrors the Auto class API."""

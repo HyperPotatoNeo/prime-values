@@ -1,0 +1,38 @@
+{
+  "status": "independent source review passed; runtime acceptance pending",
+  "reviewer": "pipeline_validation",
+  "changed_production_files": {
+    "src/prime_rl/trainer/rl/metrics.py": "e6a2c960adbadd9c62f1946c3442252982ce88a8c2ee7475b0331c06374f3f36",
+    "src/prime_rl/trainer/rl/train.py": "7c1635277c12f37fcaf2275220a4461432dafe295fee1fa4e538ddf52c880434",
+    "src/prime_rl/trainer/utils.py": "a76db1a4aa903006ae553bd3ba20e2e95da0653984367c1338d3f9d01ba341c1"
+  },
+  "unchanged_other_python_sources": 196,
+  "reviewed_invariants": [
+    "Sample std correction1 including singleton NaN; global weighted mean and centered moments, not averages of rank means",
+    "Existing CP full-output gathering and duplicate observation populations unchanged, with full per-token env IDs",
+    "Original rl/ref_kl mismatch mask copied exactly; frozen CE and padding excluded before nonfinite arithmetic",
+    "Valid NaN extrema propagated explicitly in opt-in standard stream; default TensorSummaries four-field API and empty behavior retained",
+    "Global zero mismatch omits mismatch keys; entropy/all remains present/NaN when globally empty",
+    "Only detached no-grad telemetry consumes values; loss/normalization/backward/optimizer/value source files unchanged",
+    "Scalar/sample/custom Tensors median/std path retained; entropy/mismatch medians intentionally no longer collected, consistent with selected narrow scope",
+    "Lazy debug uses real Loguru sink filtering; no unnecessary debug host reads at INFO claimed beyond this formatting scope"
+  ],
+  "resolved_finding": "Distributed MIN/MAX could hide NaN; packed NaN-presence reduction fixes opt-in standard extrema without changing infinities or default diagnostic contract. Final rank-swapped and opposite-infinity controls verified.",
+  "evidence_reviewed": [
+    "tests/unit/train/test_tensor_summaries.py",
+    "tests/unit/train/rl/test_metrics.py",
+    "tests/integration/token_metrics_probe.py",
+    "../metric-streaming-results/cpu-distributed-final.json"
+  ],
+  "checks_performed_by_reviewer": [
+    "Read complete production diff and independent finite/empty/nonfinite/distributed test oracles",
+    "Verified final8-case Gloo receipt actual module hashes match candidate and checked NaN/Inf outcomes",
+    "Verified only3 production Python files differ; all other source Python files equal packed candidate; AST parses"
+  ],
+  "remaining_acceptance": [
+    "Actual trainer-loop one-update smoke at INFO, with produced finite metrics and successful real optimizer update",
+    "CUDA/NCCL telemetry probe confirms backend semantics; bounded profiler evidence before claiming host-transfer or throughput improvement",
+    "Parent integration and full applied-file byte manifest verification"
+  ],
+  "limits": "No claim of reward gain, end-to-end throughput improvement or new GPU evidence in this independent review. Existing full-gradient/Adam helper proof is complementary to actual-loop execution."
+}

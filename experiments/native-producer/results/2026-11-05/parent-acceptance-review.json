@@ -1,0 +1,132 @@
+{
+  "status": "passed",
+  "baseline_receipt": "e7e10ffc90b59649a95909cee52ffdf248c768e8f8f9e56c253a3cdbdc8e5d79",
+  "target_receipt": "163512f1ad519ea98ff0d87a8b474d1e207c44894b1b9425d4120f5e185d3604",
+  "harness_sha256": "e90cbaac4ba0f35492b78c2791389848ca0290c04eb6223dabf9c112fda1a97e",
+  "paired_cases": [
+    {
+      "env": "rg",
+      "case": "within",
+      "retained_actions": [
+        10,
+        10
+      ],
+      "credit_modes": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    },
+    {
+      "env": "rg",
+      "case": "clipped",
+      "retained_actions": [
+        3,
+        3
+      ],
+      "credit_modes": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    },
+    {
+      "env": "reverse",
+      "case": "within",
+      "retained_actions": [
+        25,
+        25
+      ],
+      "credit_modes": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    },
+    {
+      "env": "reverse",
+      "case": "clipped",
+      "retained_actions": [
+        3,
+        3
+      ],
+      "credit_modes": [
+        "task/value",
+        "group_leave_one_out/value",
+        "task/tether"
+      ]
+    }
+  ],
+  "actual_target_source_files": 18,
+  "numeric_full_records_unchanged": [
+    "dion",
+    "flash-attn",
+    "flash-attn-3",
+    "flash-attn-4",
+    "flash-linear-attention",
+    "liger-kernel",
+    "numpy",
+    "nvidia-cublas-cu12",
+    "nvidia-cuda-cccl-cu12",
+    "nvidia-cuda-crt",
+    "nvidia-cuda-cupti-cu12",
+    "nvidia-cuda-nvcc",
+    "nvidia-cuda-nvcc-cu12",
+    "nvidia-cuda-nvrtc-cu12",
+    "nvidia-cuda-runtime",
+    "nvidia-cuda-runtime-cu12",
+    "nvidia-cuda-tileiras",
+    "nvidia-cudnn-cu12",
+    "nvidia-cudnn-frontend",
+    "nvidia-cufft-cu12",
+    "nvidia-cufile-cu12",
+    "nvidia-curand-cu12",
+    "nvidia-cusolver-cu12",
+    "nvidia-cusparse-cu12",
+    "nvidia-cusparselt-cu12",
+    "nvidia-cutlass-dsl",
+    "nvidia-cutlass-dsl-libs-base",
+    "nvidia-ml-py",
+    "nvidia-nccl-cu12",
+    "nvidia-nvjitlink-cu12",
+    "nvidia-nvshmem-cu12",
+    "nvidia-nvtx-cu12",
+    "nvidia-nvvm",
+    "ring-flash-attn",
+    "tilelang",
+    "torch",
+    "torchaudio",
+    "torchtitan",
+    "torchvision",
+    "transformers",
+    "triton",
+    "vllm"
+  ],
+  "native_wire_controls": {
+    "rg": {
+      "cancelled": true,
+      "recovery_reward": 1.0,
+      "worker_pids": [
+        67950,
+        67958
+      ],
+      "delta_count": 47,
+      "partial_not_final": true
+    },
+    "reverse": {
+      "cancelled": true,
+      "recovery_reward": 1.0,
+      "worker_pids": [
+        68229,
+        68266
+      ],
+      "delta_count": 29,
+      "partial_not_final": true
+    }
+  },
+  "worker_counts": {
+    "baseline": 4,
+    "target": 4
+  },
+  "scope": "Exact saved arrays and actual TrainSink/evaluator fixture comparisons, source and lock review; deterministic model responses, no GPU inference claim."
+}

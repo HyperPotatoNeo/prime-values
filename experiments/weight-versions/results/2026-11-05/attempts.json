@@ -1,0 +1,22 @@
+{
+  "baseline001": {
+    "exit_code": 0,
+    "status": "setup pass before final full harness/dependency guard; not final paired evidence",
+    "tool_chunk": "bc7f28"
+  },
+  "candidate001": {
+    "exit_code": 1,
+    "status": "fixture FrozenModelConfig.base_url string rejected; fixed to required list, no production change",
+    "tool_chunk": "f77f4a"
+  },
+  "candidate002": {
+    "exit_code": 0,
+    "status": "final accepted candidate, unchanged start/end source+harness hashes",
+    "tool_chunk": "856578"
+  },
+  "baseline002": {
+    "exit_code": 0,
+    "status": "final accepted frozen19e0 baseline, identical candidate harness",
+    "tool_chunk": "14cfe1"
+  }
+}

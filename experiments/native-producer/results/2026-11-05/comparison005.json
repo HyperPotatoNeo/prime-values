@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "exact_comparisons": [
+    "reverse/clipped/records",
+    "reverse/clipped/credit",
+    "reverse/within/records",
+    "reverse/within/credit",
+    "rg/clipped/records",
+    "rg/clipped/credit",
+    "rg/within/records",
+    "rg/within/credit",
+    "literal policy request body sets (counts differ for target controls)"
+  ],
+  "difference_count": 0,
+  "differences": [],
+  "baseline_raw_sha256": "e7e10ffc90b59649a95909cee52ffdf248c768e8f8f9e56c253a3cdbdc8e5d79",
+  "candidate_raw_sha256": "163512f1ad519ea98ff0d87a8b474d1e207c44894b1b9425d4120f5e185d3604",
+  "harness_sha256": "e90cbaac4ba0f35492b78c2791389848ca0290c04eb6223dabf9c112fda1a97e",
+  "scope": "Actual value-owned geometry, sampled logprobs, task/peer credit and TETHER continuation; literal requests. Deterministic HTTP/evaluator fixtures, no model/GPU numerical inference claim."
+}

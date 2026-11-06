@@ -1,11 +1,16 @@
+import fcntl
 import json
+import os
+import shutil
+import tempfile
 import warnings
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, cast
 
 import torch
 from huggingface_hub import split_torch_state_dict_into_shards
-from safetensors import safe_open
+from safetensors import SafetensorError, safe_open
 from safetensors.torch import save_file
 from torch import Tensor, nn
 from torch.distributed.checkpoint.state_dict import _get_fqns as get_fqns
@@ -103,6 +108,79 @@ def save_state_dict(
             save_file(state_dict, save_dir / weights_name, metadata={"format": "pt"})
         else:
             torch.save(state_dict, save_dir / weights_name)
+
+
+def ensure_converted_weights(
+    source: Path,
+    target_format: Literal["prime", "hf"],
+    convert: Callable[[dict[str, Tensor]], None],
+    required_keys: set[str],
+) -> Path:
+    """Publish a complete derived cache, serializing independent trainer masters."""
+    destination = source / target_format
+
+    def complete(path: Path) -> bool:
+        try:
+            file_keys = {}
+            for shard in path.glob("*.safetensors"):
+                with safe_open(shard, framework="pt", device="cpu") as handle:
+                    file_keys[shard.name] = set(handle.keys())
+            keys = set().union(*file_keys.values()) if file_keys else set()
+            if not keys or not required_keys <= keys or sum(map(len, file_keys.values())) != len(keys):
+                return False
+            index_path = path / SAFE_WEIGHTS_INDEX_NAME
+            if not index_path.exists():
+                return set(file_keys) == {SAFE_WEIGHTS_NAME}
+            index = json.loads(index_path.read_text())
+            weight_map = index.get("weight_map") if isinstance(index, dict) else None
+            return (
+                isinstance(weight_map, dict)
+                and weight_map.keys() == keys
+                and all(
+                    isinstance(shard, str) and key in file_keys.get(shard, set()) for key, shard in weight_map.items()
+                )
+            )
+        except (OSError, SafetensorError, json.JSONDecodeError):
+            return False
+
+    # A valid cache also works on read-only snapshots. Recheck after locking
+    # because another trainer may finish conversion while we wait.
+    if complete(destination):
+        return destination
+    # Only generated children are replaced; a directly selected model directory
+    # is never repaired here. The lock also covers policy/value trainer races.
+    with (source / f".{target_format}-conversion.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if complete(destination):
+            return destination
+        if destination.is_symlink():
+            raise ValueError(f"Refusing to replace an incomplete symlinked conversion cache: {destination}")
+        if destination.exists() and not destination.is_dir():
+            raise ValueError(f"Conversion cache is not a directory: {destination}")
+        if destination.exists():
+            get_logger().warning(f"Rebuilding incomplete converted weight cache {destination}")
+        temporary = Path(tempfile.mkdtemp(dir=source, prefix=f".{target_format}-conversion-"))
+        obsolete = None
+        try:
+            state_dict = load_state_dict(source)
+            convert(state_dict)
+            missing = required_keys - state_dict.keys()
+            if missing:
+                raise ValueError(f"Converted weights are missing required model keys: {sorted(missing)}")
+            save_state_dict(state_dict, temporary)
+            if not complete(temporary):
+                raise RuntimeError(f"Converted weight cache failed validation: {temporary}")
+            if destination.exists():
+                obsolete = Path(tempfile.mkdtemp(dir=source, prefix=f".{target_format}-incomplete-"))
+                obsolete.rmdir()
+                os.replace(destination, obsolete)
+            os.replace(temporary, destination)
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
+        if obsolete is not None:
+            shutil.rmtree(obsolete)
+        return destination
 
 
 def gather_weights_on_master(

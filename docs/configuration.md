@@ -2,7 +2,7 @@
 
 Every `prime-rl` entrypoint uses [`pydantic-config`](https://github.com/PrimeIntellect-ai/pydantic-config): TOML files for reproducible base configs, CLI flags for one-off overrides.
 
-> **AI agents working in this repo:** the equivalent runbook is at [`skills/configs/SKILL.md`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/skills/configs/SKILL.md), with extra runtime hints (where config classes live, validator conventions, the trainer-side `enable_token_export` flag) that aren't surfaced here.
+> **AI agents working in this repo:** the equivalent runbook is at [`skills/configs/SKILL.md`](../skills/configs/SKILL.md), with extra runtime hints (where config classes live, validator conventions, the trainer-side `enable_token_export` flag) that aren't surfaced here.
 
 ## Table of Contents
 
@@ -34,7 +34,7 @@ Field values come from three sources — Pydantic defaults, TOML files (passed w
 The `@` token introduces a TOML file. Multiple `@` arguments compose left-to-right, deep-merged — unset fields in an overlay keep the base value:
 
 ```bash
-uv run rl @ examples/reverse_text/rl.toml                      # one file
+uv run rl @ configs/native/reverse_text_policy.toml                      # one file
 uv run rl @ base.toml @ overlay.toml                           # left to right
 uv run rl --trainer @ trainer.toml --orchestrator @ orch.toml  # per-section
 uv run rl @ base.toml --trainer @ trainer.toml                 # mixed
@@ -144,52 +144,21 @@ Omit `type` to keep the default variant.
 
 ### Environments (`[[orchestrator.train.env]]`)
 
-Training environments are an array of tables. Native Verifiers v1 environments
-declare a typed taskset and harness; taskset-specific fields are validated by
-the environment's `TasksetConfig`:
+Training environments are an array of tables. Each native entry owns a typed taskset and agent configuration:
 
 ```toml
 [[orchestrator.train.env]]
-name = "math-train"
-taskset = { id = "math500-v1" }
-harness = { id = "null" }
-ratio = 3
+name = "reverse_text"
+ratio = 1
+pool = { type = "static", num_workers = 1 }
+env.taskset = { id = "reverse-text" }
+env.agent.harness = { id = "null" }
+env.agent.runtime = { type = "subprocess" }
 ```
 
-Environment-owned experimental switches belong in that typed taskset table.
-For example, an environment may expose
-`include_value_function_prompt = true`; this is not a global prime-rl setting.
-See [Optional privileged value context](value-functions.md#optional-privileged-value-context)
-for the task contract.
+For cached RG, set `env.taskset.id = "rg-mix-v1"` and provide `dataset_path` in that same taskset table. The [native profile](../configs/native/README.md) supplies complete examples and the artifact contract. Taskset-specific fields are validated by the selected package. An optional private `value_function_prompt` must be declared by the task's own data type; it is not a global setting. See [privileged context](value-functions.md#optional-privileged-value-context).
 
-Legacy v0 environments instead use `id` and `args`:
-
-```toml
-[[orchestrator.train.env]]
-id = "math-env"
-name = "gsm8k"
-args = { dataset_name = "openai/gsm8k", dataset_subset = "main" }
-ratio = 3  # 75% of batches
-
-[[orchestrator.train.env]]
-id = "reverse-text"
-ratio = 1  # default — 25% of batches
-
-[[orchestrator.eval.env]]
-id = "math-env"
-name = "gsm8k-eval"
-args = { dataset_name = "openai/gsm8k", dataset_subset = "main" }
-```
-
-`ratio` defaults to `1` (equal weight per env); values are relative weights normalized to probabilities across envs.
-
-For v1 environments, fields in `taskset` and `harness` are resolved through the
-corresponding typed configs. For legacy environments, `args` is forwarded
-verbatim to `load_environment(**args)`.
-
-The same taskset or legacy environment can appear multiple times across train
-and eval with different settings. Set a distinct `name` on each entry; it
-defaults to the v1 taskset id or legacy id and must be unique within the group.
+`ratio` defaults to `1`; relative weights determine selection across environments. Give entries distinct names when reusing a taskset. Edit environment-list entries in TOML or replace the complete list; numeric indexed CLI overrides are not supported.
 
 ### Environment Variables
 
@@ -226,32 +195,15 @@ For standalone `sft` and `inference` configs, `[env_vars]` applies to that entry
 
 ## Examples
 
-The shipped end-to-end examples in [`examples/`](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples) are the canonical, kept-up-to-date references — the rest of the repo's TOMLs (under `configs/`) are CI- and debug-internal and may drift. Each example directory has its own README with the full launch story.
-
-**Basic** (1–8 GPUs):
-
-- [**Reverse Text**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/reverse_text) — `Qwen3-0.6B` reversing a chunk of text. Tiny single-turn SFT + RL; runs on a single consumer GPU in minutes.
-- [**Wordle**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/wordle) — `Qwen3-1.7B` playing Wordle. Multi-turn SFT + RL; 2–4 H100s.
-- [**Alphabet Sort**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/alphabet_sort) — `Qwen3-4B-Instruct-2507` sorting names alphabetically. Multi-turn LoRA RL without SFT warmup; one H100.
-- [**Wiki Search**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/wiki_search) — `Qwen3-4B-Instruct-2507` answering trivia by web-searching Wikipedia. Multi-turn with tool use.
-- [**Hendrycks Sanity**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/hendrycks_sanity) — `DeepSeek-R1-Distill-Qwen-1.5B` on a filtered MATH subset. Useful for algorithm ablations.
-- [**Async Value Function**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/value_function) — minimal Qwen3-0.6B example with an independently trained critic, dedicated or trainer-placed evaluation, and pure value advantages.
-
-**Advanced** (32–2048 GPUs, SLURM):
-
-- [**Qwen 3 30B – A3B Math**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/qwen30b_math) — `Qwen3-30B-A3B` on hard math.
-- [**Qwen 3 30B – A3B SWE**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/qwen30b_swe) — `Qwen3-30B-A3B` on hard SWE.
-- [**INTELLECT-3.1**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/Intellect-3.1) — reproduces our INTELLECT-3.1 training run.
-- [**MiniMax-M2.5 SWE**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/minimax_m2.5_swe) — `MiniMax-M2.5` on agentic SWE.
-- [**High-throughput GLM-5**](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/examples/glm5_pd_disag) — `GLM-5` with P/D disaggregation and FP8 inference.
+The current supported launch configurations are in [configs/native](../configs/native/README.md): reverse-text and cached RG, each with policy-only and independent-value variants. The [compatibility inventory](../experiments/dependency-migration/config-compatibility.json) records the status of the wider catalog; it is not an alternative install prerequisite.
 
 ### Worked Example: Compose, Override, Dry-Run
 
 Start from a shipped base config, override two fields on the CLI, and dry-run:
 
 ```bash
-uv run rl @ examples/reverse_text/rl.toml \
-  --wandb.name my-experiment \
+uv run rl @ configs/native/reverse_text_policy.toml \
+  --trainer.wandb.name my-experiment \
   --trainer.optim.lr 5e-6 \
   --output-dir /tmp/reverse-dry \
   --dry-run

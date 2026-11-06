@@ -1,0 +1,21 @@
+{
+  "baseline_revision": "f6b9a40c1abaea7077fcda54304a8f29cab10e25",
+  "test_counts": {
+    "baseline-core.xml": 157,
+    "ownership-final.xml": 182
+  },
+  "files": {
+    "README.md": "253ad2d0ebbd429acd1820aba8d8e58cd21e4c686423c5cadf8acbef49082dfc",
+    "baseline-core.xml": "55acf79d8f059fdff21813de77a850e16e129d3ae55bf3374ccd100a626d07f7",
+    "baseline.json": "e9e74c184acff63ea9f4553a791c4f5cf30e1b67616fb99862ff5c10c20e1e16",
+    "candidate.json": "8d136e34e4490ff4c54a7a8fd774b5bc50a5ea2823e42bd29443838694e22efd",
+    "comparison.json": "22632d639f5fb6f8490c439c2c77ce5e13e185a30e71fd2adeeae21c3ed988a2",
+    "cpu-pyproject.toml": "fe1c27aac4427e1cc31da7e32b16f899a34dc27861015e3c102832c6179fb7f6",
+    "cpu-uv.lock": "7346e3bfdb011be6f1f17c68d99c23457a764ad18ac020397990541202a4882f",
+    "mutation-context_as_action.xml": "12cb1ec33f9f2088d0d0e37757edac83970826d66a7d852773549e79e5c3ae41",
+    "mutation-control.xml": "7e3044101ae75e3d6c8c84a8ae4319bec859557aad779e47fb74a0e87e3902cd",
+    "mutation-shared_lambdas.xml": "15ead5eee02ff1397c7fb85e1e38912772d3304dd2ea0c96467efba44cf554ea",
+    "mutation-summary.json": "c48c3ccf875c31d9eba9e446a05f2f4789d3f71b13f8e8f2d60bcad3ed5c62c2",
+    "ownership-final.xml": "4a6b2d6a57cf72cef90b475088702dcc18d0381ce9cc1d960681f76984465c9c"
+  }
+}

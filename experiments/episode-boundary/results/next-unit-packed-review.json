@@ -1,0 +1,70 @@
+{
+  "kind": "read-only design review; no packed-sequence implementation or new numerical validation",
+  "upstream_commit": "8dcf55acbcc01b4792e86b61ce411d2d803e8a7c",
+  "recommendation": "Port an explicit CPU-owned packing-boundary contract through actor and critic together. Retain existing padding, SFT sampling/checkpoint behavior, attention backend capabilities, precision and objectives in this unit.",
+  "performance_finding": {
+    "upstream_is_not_sync_free": "RL uploads seq_lens to CUDA. get_cu_seqlens_from_seq_lens then uses .item() for positivity, total and maximum; CP local intersections also use dynamic boolean indexing. Threading the tensor alone does not eliminate GPU-to-host boundary discovery.",
+    "minimal_direction": "Use existing CPU sequence-length metadata to validate positive lengths and total, compute int32 cumulative offsets, Python maximum and contiguous CP intersections. Upload cumulative offsets once per batch/device and reuse across layers. Keep CPU offsets available where recurrent kernels currently call CUDA cu_seqlens.tolist(). Do not create a second packing/materialization algorithm.",
+    "measurement": "Profile the boundary-preparation scope after warmup. Demonstrate removal of CUDA nonzero/dynamic selection and local-scalar reads from that scope; measure end-to-end timing separately. Do not claim the entire model/trainer has no host synchronization."
+  },
+  "non_metadata_changes_to_defer": [
+    "Upstream extends the final attention segment and sequence_lengths with padding instead of retaining a separate masked padding segment. Valid causal attention outputs may agree, but this is an independent semantic change for other architectures and sample bookkeeping.",
+    "Upstream removes StackDataset/pack_function and changes CatDataset overflow retention and pending_sample checkpoint handling. This is SFT dataset/resume behavior, not necessary for explicit RL/critic boundaries.",
+    "Upstream removes SDPA/eager branches. Preserve supported fallback behavior and the existing critic one-sequence-per-forward fallback rather than silently narrowing capabilities."
+  ],
+  "value_invariants": [
+    "ValueFunctionModel.forward and predict_value currently accept only tokens/positions; direct adoption of new required backbone seq_lens would break the critic even if actor forward is updated.",
+    "Thread through value/trainer.py and value/inference.py; the latter serves both dedicated evaluator and trainer-colocated inference. Both value microbatch types already contain CPU sequence_lengths and sample_indices.",
+    "Keep align_value_logits shift-by-one and zero at every packed segment start. Preserve context-prefix projection, sampled-action masks, separate policy/target lambdas, categorical/MSE math, critic publication and original sample-order restoration.",
+    "Empty distributed value ranks use a positive-length one-token dummy segment with mask false and sample index -1. Preserve matched forward counts, zero supervised contribution and omission from evaluation results.",
+    "Current value configuration rejects CP, LoRA and VLM. This unit must not implicitly broaden these capabilities. Ordinary HF fallback backbones must not receive unsupported required kwargs.",
+    "Attention boundaries and sample/loss/reassembly lengths are distinct concepts. Do not merge real samples or treat padding as an action. Current packed value rows have batch dimension one; do not advertise arbitrary multidimensional packing."
+  ],
+  "actor_cp_invariants": [
+    "Publish full global cumulative boundaries to ring/Ulysses attention before token sharding, and pass correctly intersected local boundaries to the sequence-sharded model.",
+    "A local shard can begin midway through a document with nonzero position_id. Local offsets begin at zero; preserve original position_ids for rotary positions. Keep existing divisible-total padding and reject malformed zero/negative lengths."
+  ],
+  "model_scope": {
+    "dense_qwen_llama": "Direct candidates for explicit varlen boundaries, provided actor and value wrapper pathways both consume the contract.",
+    "hybrid_models": "Nemotron Mamba currently converts cu_seqlens to a Python list; Qwen3.5 also has recurrent state-reset paths. Attention-only tests cannot prove recurrent isolation. Keep boundaries available for both convolution and state-space resets.",
+    "gpt_oss_glm_dsa": "The upstream patch accepts seq_lens but these paths still derive masking/boundaries differently; accepting a parameter is not proof of using it or a speed improvement.",
+    "multimodal": "MRoPE/grid handling retains independent host reads. Value VLM remains unsupported; avoid a universal synchronization-removal claim."
+  },
+  "three_high_value_oracles": [
+    {
+      "name": "Actual Qwen actor and critic packed-versus-independent numerical contract",
+      "method": "Fixed identical weights, current precision/backend, unequal documents with privileged prefix, shared-branch materialized inputs and separate masked padding. Compare frozen/current and independent/packed valid-token actor logits, aligned critic values, complete parameter gradients and one optimizer update under the same global loss normalization. Perturb one document and require other-document outputs unchanged. Exercise existing shared inference and ordered output restoration plus a dummy rank.",
+      "protects": "Attention isolation, value state-to-action alignment, prefix exclusion, gradient/objective preservation and actual evaluation placement. Use explicit tolerances justified by fixed kernels; do not relax tolerances to hide a systematic shift."
+    },
+    {
+      "name": "Two-rank actor context-parallel equivalence",
+      "method": "Compare an unsharded reference with two contiguous CP shards where document boundaries cross ranks and the second rank starts at nonzero position_id. Compare gathered valid-token logits and correctly aggregated gradients. Cover each existing ring/Ulysses path that shares the changed boundary helper; retain critic CP rejection.",
+      "protects": "Global-versus-local offsets, continuation fragments and complete-document attention without conflating CP with critic support."
+    },
+    {
+      "name": "Actual hybrid recurrent isolation",
+      "method": "For a tiny supported Nemotron or Qwen3.5 configuration using real convolution/state-space layers, compare packed and independent outputs/gradients across unequal documents. Perturb the first document while holding the second fixed and require the second's outputs unchanged. Include explicit padding boundary. If this architecture is deferred, preserve its prior path and limit rollout/performance claims accordingly.",
+      "protects": "Convolution/SSM reset boundaries that an attention-only model or metadata-shape test would miss."
+    }
+  ],
+  "forbidden_hidden_changes": [
+    "optimization_dtype/reduce_dtype or their defaults",
+    "policy/critic loss formulas, normalization or sample weighting",
+    "GAE/target lambda coupling, masks, value warmup or replay behavior",
+    "new precision casts on model activations or weights under the guise of integer metadata",
+    "padding segmentation, SFT sampler/resume changes or backend removal without a separate stated unit"
+  ],
+  "source_paths": [
+    "src/prime_rl/utils/sequence.py",
+    "src/prime_rl/utils/cp.py",
+    "src/prime_rl/trainer/model.py",
+    "src/prime_rl/trainer/batch.py",
+    "src/prime_rl/trainer/models/nemotron_h/modeling_nemotron_h.py",
+    "src/prime_rl/trainer/models/qwen3_5_moe/mrope.py",
+    "src/prime_rl/value/batch.py",
+    "src/prime_rl/value/math.py",
+    "src/prime_rl/value/inference.py",
+    "src/prime_rl/value/trainer.py",
+    "packages/prime-rl-configs/src/prime_rl/configs/value.py"
+  ]
+}

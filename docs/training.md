@@ -2,7 +2,7 @@
 
 This page covers everything you need to launch, observe, checkpoint, and recover a `prime-rl` training run — the RL trainer (and the distillation algorithms that run through it) and the SFT trainer. For multi-node and cluster layouts, see [Scaling](scaling.md). For the loss math and algorithm knobs, see [Algorithms](algorithms.md). For an independently trained async critic, see [Value Functions](value-functions.md).
 
-> **AI agents working in this repo:** the equivalent runbooks are at [`skills/training/`](https://github.com/PrimeIntellect-ai/prime-rl/tree/main/skills/training) — top-level routing in [`skills/training/SKILL.md`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/skills/training/SKILL.md), launch details in [`skills/training/start-run/SKILL.md`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/skills/training/start-run/SKILL.md), and check-in / restart procedures in [`skills/training/monitor-run/SKILL.md`](https://github.com/PrimeIntellect-ai/prime-rl/blob/main/skills/training/monitor-run/SKILL.md).
+> **AI agents working in this repo:** the equivalent runbooks are at [`skills/training/`](../skills/training) — top-level routing in [`skills/training/SKILL.md`](../skills/training/SKILL.md), launch details in [`skills/training/start-run/SKILL.md`](../skills/training/start-run/SKILL.md), and check-in / restart procedures in [`skills/training/monitor-run/SKILL.md`](../skills/training/monitor-run/SKILL.md).
 
 ## Table of Contents
 
@@ -43,10 +43,10 @@ This page covers everything you need to launch, observe, checkpoint, and recover
 
 ### Launch
 
-The minimal RL run trains an SFT-warmed `Qwen3-0.6B` on the `reverse-text` task — the env is bundled with the [`verifiers`](https://github.com/PrimeIntellect-ai/verifiers) submodule, so nothing else needs to be installed:
+The supported native policy example runs three updates of public Qwen3-4B on reverse-text, with groups of eight and two GPU roles. Install the locked environment extras first; provision sufficient memory or select a smaller compatible model. See the [native profile](../configs/native/README.md) for value-enabled and cached RG examples:
 
 ```bash
-uv run rl @ examples/reverse_text/rl.toml
+WANDB_MODE=offline uv run rl @ configs/native/reverse_text_policy.toml
 ```
 
 ### Useful Knobs
@@ -124,6 +124,29 @@ Pulled from the console logs and mirrored to W&B.
 - `entropy/{all,env}/mean` — too low means mode-collapse; too high means the model isn't committing.
 - `masked_advantage_{positive,negative}/mean` — fraction of DPPO-masked tokens, split by sign.
 - `optim/grad_norm` — spikes precede divergence; check the loss config or lower the LR.
+
+Importance diagnostics use `importance_ratio/{all,accepted}` and
+`log_importance_ratio/{all,accepted}`, with `count`, `mean`, `min` and `max`.
+`all` means component-eligible tokens; `accepted` additionally applies the
+component's trust-region gate. The `/above_5/mean`, `/above_10/mean`,
+`/above_100/mean` and `/above_10000/mean` series are globally token-weighted
+fractions. Reference-KL diagnostics add the `ref_kl/` prefix.
+
+Ratio and mismatch diagnostics saturate at `1e30`; this does not cap the policy
+objective. Inspect ratio `/saturated/mean`, `/nonfinite/mean`, raw log ratios,
+`loss_mismatch_kl/{all,accepted}/saturated/mean`, and
+`mismatch_kl/all/saturated/mean` alongside their averages. Empty populations
+have count zero and undefined statistics. New importance diagnostics use
+streaming summaries, without per-token gathering or median/std estimates.
+
+Entropy and mismatch statistics use globally token-weighted means, sample
+standard deviations (Bessel correction), and extrema. They are accumulated as
+GPU summaries; entropy/mismatch medians are not collected. Scalar, per-sample
+and custom metric streams retain their existing median statistics. Frozen CE and padding observations excluded by the mismatch mask cannot
+introduce nonfinite mismatch values; included
+NaNs remain visible. A step without policy-sampled mismatch observations omits
+those keys. Scalar metric copies and other trainer paths can still synchronize;
+this collection method does not imply a full-step throughput improvement.
 
 **Performance** (trainer + orchestrator step independently):
 
@@ -207,9 +230,14 @@ Checkpointing is split across processes because the orchestrator and trainer can
 | Process | What's saved | Where |
 |---|---|---|
 | Trainer | FSDP-sharded model (DCP), optimizer, scheduler, progress | `<output_dir>/checkpoints/step_N/trainer/` |
-| Orchestrator | Step counter, total tokens / samples / problems | `<output_dir>/checkpoints/step_N/orchestrator/` |
+| Orchestrator | Step counter, total tokens / samples / problems, adaptive algorithm state | `<output_dir>/checkpoints/step_N/orchestrator/` |
 | Inference | _nothing_ — re-pushed from the latest checkpoint on restart | n/a |
 | Trainer (HF weights) | HF-compatible weight snapshot for serving | `<output_dir>/weights/step_N/` |
+
+RL trainer checkpoints include counters for the completed update: samples count
+packed microbatches and tokens count their padded lengths. Orchestrator progress
+and algorithm state are published together through atomic file replacement.
+Policy and critic checkpoint versions remain independent; see [Value Functions](value-functions.md).
 
 ### Enabling Checkpoints
 
@@ -310,6 +338,14 @@ uv run rl @ rl.toml --wandb \
 
 prime-rl deliberately logs a **large number of metrics** for maximum observability: every rollout metric is emitted per subset (`all`/`effective`), per statistic (`mean`/`max`/`min`/`p10`/`p90`), and per environment alongside a cross-env aggregate, so a multi-env run can emit thousands of series. To keep that navigable, W&B mode **auto-creates an `overview` saved view** on the first run into a project — curating the handful of metrics that matter into `train`, `eval`, `stability`, and `performance` sections (with per-env breakdowns). The view is created once per project and adapts to the run's environments; if a later run uses a different set of environments, a new versioned view (`overview-v2`, …) is created instead of overwriting the first.
 
+### Sampled policy diagnostics
+
+The trainer reports `observed_policy_version/` coverage over its RL/reference-KL token population. Missing or opaque labels remain unknown. For single-run training without LoRA, `sampled_weight_age/` compares known nonfuture labels with the policy version used for the forward pass, before its optimizer update. Future labels are reported separately. Context-parallel replicas contribute once to these token counts.
+
+`mismatch_kl_by_sampled_age/` reports count, mean, maximum and saturation fraction for age groups `0`, `1`, `2-3`, `4-7`, `8-15`, `16-31`, `32-63` and `64+`, plus separate unknown/future populations. These use the existing stable mismatch diagnostic and its numerical ceiling; the saturation fraction identifies values reaching that ceiling. Empty populations have counts but no mean or maximum. Valid NaNs remain visible. Without a comparable version namespace, numeric age groups are omitted.
+
+These metrics observe sampled weights. They do not describe critic versions or all weights that produced an in-flight request's cached context. They do not change training masks, losses, concurrency or sampling.
+
 ### Platform Monitoring
 
 Register a run on the Prime Intellect platform (Prime Lab) and stream training metrics, samples, and distributions to the platform dashboard. Bare flag uses defaults:
@@ -329,7 +365,7 @@ Requires `PRIME_API_KEY` (set via `prime login` or env var) and an allowlisted t
 
 ## Rules of Thumb
 
-- **Start small.** Run `examples/reverse_text/rl.toml` end-to-end on 2 GPUs before scaling. If the smoke run finishes cleanly, your install is good.
+- **Start small.** Run `configs/native/reverse_text_policy.toml` on adequately provisioned GPUs before scaling. If the smoke run finishes cleanly, your install is good.
 - **Batch size ≥ 64.** Smaller batches give noisy gradient estimates and the trainer's overhead-per-step dominates throughput. 64 is the practical floor; 128–512 is the range for quick ablations; production RL often runs at 1024+.
 - **Group size ≥ 8.** Bigger groups (`orchestrator.group_size`) make it more likely that a task produces a mix of high- and low-reward rollouts, which is what gives the trainer a usable signal — if all rollouts in a group succeed or all fail, the within-group advantage collapses to zero and the trainer learns nothing from that task. Bigger groups also tighten advantage normalization. 8 is the floor; 16–32 is common.
 - **Pin `output_dir` per run.** Sharing a directory across runs will mix rollouts and break resumes. `--output-dir outputs/<unique-name>` is the simplest discipline.

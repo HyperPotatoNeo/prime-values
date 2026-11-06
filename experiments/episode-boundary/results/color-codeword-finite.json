@@ -1,0 +1,12 @@
+{
+  "num_tasks": 1000,
+  "infinite": false,
+  "first_answer": "BAE",
+  "last_task_idx": 999,
+  "package_source": "verifiers@6c64ce6/environments/color_codeword_v1",
+  "core_module_paths": {
+    "verifiers": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/prime-values-analysis/deps/verifiers/verifiers/__init__.py",
+    "renderers": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/prime-values-analysis/deps/renderers/renderers/__init__.py",
+    "pydantic_config": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/prime-values-analysis/deps/pydantic-config/src/pydantic_config/__init__.py"
+  }
+}

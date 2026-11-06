@@ -1,0 +1,16 @@
+{
+  "status": "independently reviewed source and harness freeze; GPU acceptance pending",
+  "base": "exact packed-boundary candidate published as1708eb0c; no dependencies changed",
+  "patch_sha256": "85e0c6ecaf46a799fa09f991c314852e05293075538e2c5d6fdd5b51d490298a",
+  "changed_file_count": 8,
+  "protected_file_count": 198,
+  "roundtrip": "Applied to fresh temporary base tree and verified exact bytes for all8 outputs; no extra files",
+  "harnesses": {
+    "tests/integration/metric_trainer_smoke.py": "41bbdbfdc6fab46f4a37d8ccf5972f3c3cad28cc8b5738938f04de9616175f96",
+    "tests/integration/profile_token_metrics.py": "61921a92198f1217c3a904a4dda495dc5727379d1efdeaa8e3fdf87d5db14f75",
+    "tests/integration/token_metrics_probe.py": "0174dbff1b57e1940749de9d385b7b5e9faae5cb573d036ae6f062dd667d8db1"
+  },
+  "review": "Source review independent-review-final.json; actual-loop and profiler reviewed, source/config guards and scope limits retained; no GPU run claimed locally.",
+  "harness_review": "Final actual-loop smoke and accumulation profiler independently reviewed; no blocker. Profiler extracts actual old accumulation block, includes new env-ID upload and unchanged scalar-loss CPU copy, reports copy/sync evidence without whole-step claims. Smoke labels BF16 exports/FP32 optimizer, checks real nonzero update/exact weights/filtered metrics; no full Adam-state proof from weights-only exports.",
+  "documentation_overlay": "experiments/trainer-metrics/README.md authored after freeze; intentionally outside8file runtime patch, parent can integrate separately."
+}

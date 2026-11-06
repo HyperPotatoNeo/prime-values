@@ -1,0 +1,36 @@
+{
+  "status": "pass",
+  "archive_sha256": "d75d0f4d850c9c1934b5ce12bffec7d8fceb907b6080b2925f14d29416abe6cb",
+  "archive_bytes": 50050930,
+  "archive_files_verified": 120,
+  "active_runtime_code_config_test_hashes_verified": 329,
+  "all_changed_files_match_runtime": 23,
+  "exact_tensor_comparisons": {
+    "model": 220,
+    "repeat": 220,
+    "ring": 77,
+    "ulysses": 77,
+    "compiled/initial": 22,
+    "compiled/step1": 88,
+    "compiled/step2": 88
+  },
+  "compiled_frozen_reused": "output-attempt002/frozen-compiled; unchanged standalone harness and source guards",
+  "boundary_profile": {
+    "position": {
+      "nonzero": 10,
+      "item": 20,
+      "local_scalar_dense": 20
+    },
+    "explicit": {
+      "nonzero": 0,
+      "item": 0,
+      "local_scalar_dense": 0
+    }
+  },
+  "limitations": [
+    "Tiny-model, fixed-input evidence; no end-to-end throughput or reward claim.",
+    "External ring setup retains host scalar reads.",
+    "Failed namespace-provenance and uninitialized-MoE fixture attempts preserved; tolerances unchanged.",
+    "Final standalone patch corrected for XML no-newline encoding; executable source unchanged."
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "fresh": {
+    "placement": "trainer",
+    "policy_steps": [
+      1,
+      2,
+      3
+    ],
+    "policy_losses": [
+      0.0224,
+      -0.0156,
+      0.0326
+    ],
+    "policy_gradient_norms": [
+      3.455,
+      6.4207,
+      4.6104
+    ],
+    "value_versions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "value_losses": [
+      0.75769,
+      0.69263,
+      0.66177,
+      0.43817,
+      0.45763,
+      0.48478,
+      0.45445,
+      0.27316,
+      0.42607
+    ],
+    "max_observed_evaluator_version": 9,
+    "dedicated_adoptions": [],
+    "policy_checkpoint": 3,
+    "stable_value_checkpoints": [
+      9
+    ],
+    "resume_policy_step": null,
+    "resume_value_step": null,
+    "checkpoint_progress": {
+      "1": {
+        "step": 1,
+        "total_tokens": 930,
+        "total_samples": 2
+      },
+      "2": {
+        "step": 2,
+        "total_tokens": 1854,
+        "total_samples": 4
+      },
+      "3": {
+        "step": 3,
+        "total_tokens": 2870,
+        "total_samples": 6
+      }
+    },
+    "stage_exit": {
+      "natural_returncode": null,
+      "qualification": "Historical fresh-stage exit was not recorded; completion logs and checkpoints verified."
+    },
+    "log_classifications": {
+      "inference.log": "clear",
+      "orchestrator.log": "clear",
+      "trainer.log": "clear",
+      "value_trainer.log": "clear",
+      "envs/train/reverse-text-v1.log": "clear",
+      "trainer/torchrun/738b72e00f0b43e88b5dc01edfdaa699_3is_o972/attempt_0/0/stderr.log": "clear",
+      "trainer/torchrun/738b72e00f0b43e88b5dc01edfdaa699_3is_o972/attempt_0/0/stdout.log": "clear",
+      "value_trainer/torchrun/78de4e70f4d8495392ece952d3686f13_jy0er8w7/attempt_0/0/stderr.log": "clear",
+      "value_trainer/torchrun/78de4e70f4d8495392ece952d3686f13_jy0er8w7/attempt_0/0/stdout.log": "clear"
+    }
+  },
+  "resumed": {
+    "placement": "trainer",
+    "policy_steps": [
+      4
+    ],
+    "policy_losses": [
+      -0.0082
+    ],
+    "policy_gradient_norms": [
+      2.0658
+    ],
+    "value_versions": [
+      10,
+      11,
+      12
+    ],
+    "value_losses": [
+      0.30421,
+      0.30413,
+      0.21289
+    ],
+    "max_observed_evaluator_version": 11,
+    "dedicated_adoptions": [],
+    "policy_checkpoint": 4,
+    "stable_value_checkpoints": [
+      12
+    ],
+    "resume_policy_step": 3,
+    "resume_value_step": 9,
+    "checkpoint_progress": {
+      "3": {
+        "step": 3,
+        "total_tokens": 2870,
+        "total_samples": 6
+      },
+      "4": {
+        "step": 4,
+        "total_tokens": 3842,
+        "total_samples": 8
+      }
+    },
+    "stage_exit": {
+      "natural_returncode": 0,
+      "returncode_after_cleanup": 0
+    },
+    "log_classifications": {
+      "inference.log": "clear",
+      "orchestrator.log": "clear",
+      "trainer.log": "clear",
+      "value_trainer.log": "clear",
+      "envs/train/reverse-text-v1.log": "clear",
+      "trainer/torchrun/738b72e00f0b43e88b5dc01edfdaa699_3is_o972/attempt_0/0/stderr.log": "clear",
+      "trainer/torchrun/738b72e00f0b43e88b5dc01edfdaa699_3is_o972/attempt_0/0/stdout.log": "clear",
+      "trainer/torchrun/f24087abd20941438c57000c28ab66e3_xuozmg42/attempt_0/0/stderr.log": "clear",
+      "trainer/torchrun/f24087abd20941438c57000c28ab66e3_xuozmg42/attempt_0/0/stdout.log": "clear",
+      "value_trainer/torchrun/78de4e70f4d8495392ece952d3686f13_jy0er8w7/attempt_0/0/stderr.log": "clear",
+      "value_trainer/torchrun/78de4e70f4d8495392ece952d3686f13_jy0er8w7/attempt_0/0/stdout.log": "clear",
+      "value_trainer/torchrun/e98688ffc01a4595aafd7f07f1a58616_my_24y5t/attempt_0/0/stderr.log": "clear",
+      "value_trainer/torchrun/e98688ffc01a4595aafd7f07f1a58616_my_24y5t/attempt_0/0/stdout.log": "clear"
+    }
+  }
+}

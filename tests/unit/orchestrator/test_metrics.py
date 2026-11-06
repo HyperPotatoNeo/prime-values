@@ -2,6 +2,7 @@ import math
 from types import SimpleNamespace
 
 import pytest
+import verifiers.v1 as vf
 
 from prime_rl.orchestrator.metrics import EvalRollouts, Stat, TrainRollouts
 from prime_rl.orchestrator.utils import compute_pass_metrics
@@ -35,7 +36,7 @@ def mk(
     """Duck-typed stand-in for ``Rollout``, exposing only the Trace properties the metrics read."""
     return SimpleNamespace(
         reward=reward,
-        rewards=rewards or {},
+        rewards={name: vf.Reward(score=score) for name, score in (rewards or {}).items()},
         num_total_tokens=num_total_tokens,
         num_input_tokens=num_input_tokens,
         num_output_tokens=num_output_tokens,
@@ -54,7 +55,7 @@ def mk(
         filter_results=filter_results or {},
         timing=SimpleNamespace(
             setup=SimpleNamespace(duration=setup),
-            generation=SimpleNamespace(duration=generation),
+            agent=SimpleNamespace(duration=generation),
             finalize=SimpleNamespace(duration=finalize),
             scoring=SimpleNamespace(duration=scoring),
         ),

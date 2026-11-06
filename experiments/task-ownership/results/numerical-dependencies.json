@@ -1,0 +1,964 @@
+{
+  "equal_full_package_entries": true,
+  "count": 9,
+  "packages": [
+    {
+      "name": "flash-attn",
+      "version": "2.8.3+cu128torch2.11",
+      "source": {
+        "url": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu128torch2.11-cp312-cp312-linux_x86_64.whl"
+      },
+      "dependencies": [
+        {
+          "name": "einops"
+        },
+        {
+          "name": "torch"
+        }
+      ],
+      "wheels": [
+        {
+          "url": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu128torch2.11-cp312-cp312-linux_x86_64.whl",
+          "hash": "sha256:a16162f436286cc03ebbfb174c0853343ed98ae13c37abf1042947668ec40549"
+        }
+      ],
+      "metadata": {
+        "requires-dist": [
+          {
+            "name": "einops"
+          },
+          {
+            "name": "torch"
+          }
+        ]
+      }
+    },
+    {
+      "name": "flash-attn-3",
+      "version": "3.0.0",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/test/cu128"
+      },
+      "dependencies": [
+        {
+          "name": "einops"
+        },
+        {
+          "name": "ninja"
+        },
+        {
+          "name": "packaging"
+        },
+        {
+          "name": "torch"
+        }
+      ],
+      "wheels": [
+        {
+          "url": "https://download.pytorch.org/whl/test/cu128/flash_attn_3-3.0.0-cp39-abi3-manylinux_2_28_x86_64.whl",
+          "hash": "sha256:10a730d5e1a1c23afd930ce419ee425cd1925a16b7eac789dfe98c3ca39bc009",
+          "upload-time": "2026-02-14T04:28:12Z"
+        },
+        {
+          "url": "https://download.pytorch.org/whl/test/cu128/flash_attn_3-3.0.0-cp39-abi3-manylinux_2_34_aarch64.whl",
+          "hash": "sha256:bbb51d13d7aa1bfe04ef8875ed1bf630ebb116775084a5df612495e10609cd76",
+          "upload-time": "2026-02-14T04:28:05Z"
+        }
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "2.3.5",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "sdist": {
+        "url": "https://files.pythonhosted.org/packages/76/65/21b3bc86aac7b8f2862db1e808f1ea22b028e30a225a34a5ede9bf8678f2/numpy-2.3.5.tar.gz",
+        "hash": "sha256:784db1dcdab56bf0517743e746dfb0f885fc68d948aba86eeec2cba234bdf1c0",
+        "size": 20584950,
+        "upload-time": "2025-11-16T22:52:42.067Z"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/74/78/fcd41e5a0ce4f3f7b003da85825acddae6d7ecb60cf25194741b036ca7d6/numpy-2.3.5-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+          "hash": "sha256:8b973c57ff8e184109db042c842423ff4f60446239bd585a5131cc47f06f789d",
+          "size": 14250702,
+          "upload-time": "2025-11-16T22:49:59.632Z"
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/b6/23/2a1b231b8ff672b4c450dac27164a8b2ca7d9b7144f9c02d2396518352eb/numpy-2.3.5-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "hash": "sha256:0d8163f43acde9a73c2a33605353a4f1bc4798745a8b1d73183b28e5b435ae28",
+          "size": 16606086,
+          "upload-time": "2025-11-16T22:50:02.127Z"
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/a0/c5/5ad26fbfbe2012e190cc7d5003e4d874b88bb18861d0829edc140a713021/numpy-2.3.5-cp312-cp312-musllinux_1_2_aarch64.whl",
+          "hash": "sha256:51c1e14eb1e154ebd80e860722f9e6ed6ec89714ad2db2d3aa33c31d7c12179b",
+          "size": 16025985,
+          "upload-time": "2025-11-16T22:50:04.536Z"
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/d2/fa/dd48e225c46c819288148d9d060b047fd2a6fb1eb37eae25112ee4cb4453/numpy-2.3.5-cp312-cp312-musllinux_1_2_x86_64.whl",
+          "hash": "sha256:b46b4ec24f7293f23adcd2d146960559aaf8020213de8ad1909dba6c013bf89c",
+          "size": 18542976,
+          "upload-time": "2025-11-16T22:50:07.557Z"
+        }
+      ]
+    },
+    {
+      "name": "torch",
+      "version": "2.11.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      },
+      "dependencies": [
+        {
+          "name": "cuda-bindings"
+        },
+        {
+          "name": "cuda-toolkit",
+          "extra": [
+            "cublas",
+            "cudart",
+            "cufft",
+            "cufile",
+            "cupti",
+            "curand",
+            "cusolver",
+            "cusparse",
+            "nvjitlink",
+            "nvrtc",
+            "nvtx"
+          ]
+        },
+        {
+          "name": "filelock"
+        },
+        {
+          "name": "fsspec"
+        },
+        {
+          "name": "jinja2"
+        },
+        {
+          "name": "networkx"
+        },
+        {
+          "name": "nvidia-cudnn-cu12"
+        },
+        {
+          "name": "nvidia-cusparselt-cu12"
+        },
+        {
+          "name": "nvidia-nccl-cu12"
+        },
+        {
+          "name": "nvidia-nvshmem-cu12"
+        },
+        {
+          "name": "setuptools"
+        },
+        {
+          "name": "sympy"
+        },
+        {
+          "name": "triton"
+        },
+        {
+          "name": "typing-extensions"
+        }
+      ],
+      "wheels": [
+        {
+          "url": "https://download-r2.pytorch.org/whl/cu128/torch-2.11.0%2Bcu128-cp312-cp312-manylinux_2_28_aarch64.whl",
+          "hash": "sha256:9c8f38efee365cb9d334de8a83ce52fc7e5fc9e5a7b0853285efa1b69e00b0f2",
+          "upload-time": "2026-04-27T17:41:30Z"
+        },
+        {
+          "url": "https://download-r2.pytorch.org/whl/cu128/torch-2.11.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl",
+          "hash": "sha256:d252cf975fb18c94a85336323ad425f473df56dab35a44b00399bd70c7a3b997",
+          "upload-time": "2026-04-27T17:42:06Z"
+        }
+      ]
+    },
+    {
+      "name": "torchaudio",
+      "version": "2.11.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      },
+      "wheels": [
+        {
+          "url": "https://download-r2.pytorch.org/whl/cu128/torchaudio-2.11.0%2Bcu128-cp312-cp312-manylinux_2_28_aarch64.whl",
+          "hash": "sha256:d055c9ca9d4f0ffcbaa0fc22138bafd675256de392bdaadde00d797faa90ca56",
+          "upload-time": "2026-03-23T15:50:23Z"
+        },
+        {
+          "url": "https://download-r2.pytorch.org/whl/cu128/torchaudio-2.11.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl",
+          "hash": "sha256:78b86a17f164bdaabdcee93fdfde2587fc43b9ebf15cd61dcf730b4f8615176b",
+          "upload-time": "2026-03-23T15:50:23Z"
+        }
+      ]
+    },
+    {
+      "name": "torchvision",
+      "version": "0.26.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      },
+      "dependencies": [
+        {
+          "name": "numpy"
+        },
+        {
+          "name": "pillow"
+        },
+        {
+          "name": "torch"
+        }
+      ],
+      "wheels": [
+        {
+          "url": "https://download-r2.pytorch.org/whl/cu128/torchvision-0.26.0%2Bcu128-cp312-cp312-manylinux_2_28_aarch64.whl",
+          "hash": "sha256:63e35234aed13b6edda37056f417b5c281249669db631e706811917af36b21d7",
+          "upload-time": "2026-04-09T23:21:35Z"
+        },
+        {
+          "url": "https://download-r2.pytorch.org/whl/cu128/torchvision-0.26.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl",
+          "hash": "sha256:ccf26b4b659cfce6f2208cb8326071d51c70219a34856dfdf468d1e19af52c0d",
+          "upload-time": "2026-03-23T15:36:22Z"
+        }
+      ]
+    },
+    {
+      "name": "transformers",
+      "version": "5.6.2",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "dependencies": [
+        {
+          "name": "huggingface-hub"
+        },
+        {
+          "name": "numpy"
+        },
+        {
+          "name": "packaging"
+        },
+        {
+          "name": "pyyaml"
+        },
+        {
+          "name": "regex"
+        },
+        {
+          "name": "safetensors"
+        },
+        {
+          "name": "tokenizers"
+        },
+        {
+          "name": "tqdm"
+        },
+        {
+          "name": "typer"
+        }
+      ],
+      "sdist": {
+        "url": "https://files.pythonhosted.org/packages/a4/e9/c6c80a07690142a7d05444271f47b9f3c8aac7dea01d52e1137ee480ad78/transformers-5.6.2.tar.gz",
+        "hash": "sha256:e657134c3e5a6bc00a3c35f4e2674bb51adfcd89898495b788a18552bac2b91a",
+        "size": 8311867,
+        "upload-time": "2026-04-23T18:33:29.332Z"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/5d/95/0b0218149b0d6f14df35f5b8f676fa83df4f19ed253c3cc447107ef86eca/transformers-5.6.2-py3-none-any.whl",
+          "hash": "sha256:f8d3a1bb96778fed9b8aabfd0dd6e19843e4b0f2bb6b59f32b8a92051b0f348f",
+          "size": 10364898,
+          "upload-time": "2026-04-23T18:33:26.081Z"
+        }
+      ]
+    },
+    {
+      "name": "triton",
+      "version": "3.6.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "wheels": [
+        {
+          "url": "https://files.pythonhosted.org/packages/17/5d/08201db32823bdf77a0e2b9039540080b2e5c23a20706ddba942924ebcd6/triton-3.6.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+          "hash": "sha256:374f52c11a711fd062b4bfbb201fd9ac0a5febd28a96fb41b4a0f51dde3157f4",
+          "size": 176128243,
+          "upload-time": "2026-01-20T16:16:07.857Z"
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/ab/a8/cdf8b3e4c98132f965f88c2313a4b493266832ad47fb52f23d14d4f86bb5/triton-3.6.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "hash": "sha256:74caf5e34b66d9f3a429af689c1c7128daba1d8208df60e81106b115c00d6fca",
+          "size": 188266850,
+          "upload-time": "2026-01-20T16:00:43.041Z"
+        }
+      ]
+    },
+    {
+      "name": "vllm",
+      "version": "0.24.0+cu129",
+      "source": {
+        "url": "https://github.com/vllm-project/vllm/releases/download/v0.24.0/vllm-0.24.0+cu129-cp38-abi3-manylinux_2_28_x86_64.whl"
+      },
+      "resolution-markers": [
+        "platform_machine == 'x86_64' and sys_platform == 'linux'"
+      ],
+      "dependencies": [
+        {
+          "name": "aiohttp"
+        },
+        {
+          "name": "anthropic"
+        },
+        {
+          "name": "apache-tvm-ffi"
+        },
+        {
+          "name": "blake3"
+        },
+        {
+          "name": "cachetools"
+        },
+        {
+          "name": "cbor2"
+        },
+        {
+          "name": "cloudpickle"
+        },
+        {
+          "name": "compressed-tensors"
+        },
+        {
+          "name": "depyf"
+        },
+        {
+          "name": "diskcache"
+        },
+        {
+          "name": "einops"
+        },
+        {
+          "name": "fastapi",
+          "extra": [
+            "standard"
+          ]
+        },
+        {
+          "name": "fastsafetensors"
+        },
+        {
+          "name": "filelock"
+        },
+        {
+          "name": "flashinfer-cubin"
+        },
+        {
+          "name": "flashinfer-python"
+        },
+        {
+          "name": "humming-kernels",
+          "extra": [
+            "cu12"
+          ]
+        },
+        {
+          "name": "ijson"
+        },
+        {
+          "name": "jsonschema"
+        },
+        {
+          "name": "lark"
+        },
+        {
+          "name": "llguidance"
+        },
+        {
+          "name": "lm-format-enforcer"
+        },
+        {
+          "name": "mcp"
+        },
+        {
+          "name": "mistral-common",
+          "extra": [
+            "image"
+          ]
+        },
+        {
+          "name": "model-hosting-container-standards"
+        },
+        {
+          "name": "msgspec"
+        },
+        {
+          "name": "ninja"
+        },
+        {
+          "name": "numba"
+        },
+        {
+          "name": "numpy"
+        },
+        {
+          "name": "nvidia-cudnn-frontend"
+        },
+        {
+          "name": "nvidia-cutlass-dsl"
+        },
+        {
+          "name": "openai"
+        },
+        {
+          "name": "openai-harmony"
+        },
+        {
+          "name": "opencv-python-headless"
+        },
+        {
+          "name": "opentelemetry-api"
+        },
+        {
+          "name": "opentelemetry-exporter-otlp"
+        },
+        {
+          "name": "opentelemetry-sdk"
+        },
+        {
+          "name": "opentelemetry-semantic-conventions-ai"
+        },
+        {
+          "name": "outlines-core"
+        },
+        {
+          "name": "partial-json-parser"
+        },
+        {
+          "name": "pillow"
+        },
+        {
+          "name": "prometheus-client"
+        },
+        {
+          "name": "prometheus-fastapi-instrumentator"
+        },
+        {
+          "name": "protobuf"
+        },
+        {
+          "name": "psutil"
+        },
+        {
+          "name": "py-cpuinfo"
+        },
+        {
+          "name": "pybase64"
+        },
+        {
+          "name": "pydantic"
+        },
+        {
+          "name": "python-json-logger"
+        },
+        {
+          "name": "pyyaml"
+        },
+        {
+          "name": "pyzmq"
+        },
+        {
+          "name": "quack-kernels"
+        },
+        {
+          "name": "regex"
+        },
+        {
+          "name": "requests"
+        },
+        {
+          "name": "safetensors"
+        },
+        {
+          "name": "sentencepiece"
+        },
+        {
+          "name": "setproctitle"
+        },
+        {
+          "name": "setuptools"
+        },
+        {
+          "name": "six"
+        },
+        {
+          "name": "starlette"
+        },
+        {
+          "name": "tiktoken"
+        },
+        {
+          "name": "tilelang"
+        },
+        {
+          "name": "tokenizers"
+        },
+        {
+          "name": "tokenspeed-mla"
+        },
+        {
+          "name": "torch"
+        },
+        {
+          "name": "torchaudio"
+        },
+        {
+          "name": "torchvision"
+        },
+        {
+          "name": "tqdm"
+        },
+        {
+          "name": "transformers"
+        },
+        {
+          "name": "typing-extensions"
+        },
+        {
+          "name": "watchfiles"
+        },
+        {
+          "name": "xgrammar"
+        }
+      ],
+      "wheels": [
+        {
+          "url": "https://github.com/vllm-project/vllm/releases/download/v0.24.0/vllm-0.24.0+cu129-cp38-abi3-manylinux_2_28_x86_64.whl",
+          "hash": "sha256:597949743f2a00c0539d9e2ff0f67b32c608a378e973f99e7529fd6fa9445f70"
+        }
+      ],
+      "metadata": {
+        "requires-dist": [
+          {
+            "name": "aiohttp",
+            "specifier": ">=3.13.3"
+          },
+          {
+            "name": "anthropic",
+            "specifier": ">=0.71.0"
+          },
+          {
+            "name": "apache-tvm-ffi",
+            "specifier": "==0.1.9"
+          },
+          {
+            "name": "av",
+            "marker": "extra == 'audio'"
+          },
+          {
+            "name": "blake3"
+          },
+          {
+            "name": "cachetools"
+          },
+          {
+            "name": "cbor2"
+          },
+          {
+            "name": "cloudpickle"
+          },
+          {
+            "name": "compressed-tensors",
+            "specifier": "==0.17.0"
+          },
+          {
+            "name": "datasets",
+            "marker": "extra == 'bench'"
+          },
+          {
+            "name": "depyf",
+            "specifier": "==0.20.0"
+          },
+          {
+            "name": "diskcache",
+            "specifier": "==5.6.3"
+          },
+          {
+            "name": "einops"
+          },
+          {
+            "name": "fastapi",
+            "extras": [
+              "standard"
+            ],
+            "specifier": ">=0.133.0,<0.137.0"
+          },
+          {
+            "name": "fastsafetensors",
+            "specifier": ">=0.3.2"
+          },
+          {
+            "name": "fastsafetensors",
+            "marker": "extra == 'fastsafetensors'",
+            "specifier": ">=0.3.2"
+          },
+          {
+            "name": "filelock",
+            "specifier": ">=3.16.1"
+          },
+          {
+            "name": "flashinfer-cubin",
+            "specifier": "==0.6.12"
+          },
+          {
+            "name": "flashinfer-python",
+            "specifier": "==0.6.12"
+          },
+          {
+            "name": "helion",
+            "marker": "extra == 'helion'",
+            "specifier": "==1.1.0"
+          },
+          {
+            "name": "humming-kernels",
+            "extras": [
+              "cu12"
+            ],
+            "specifier": "==0.1.6"
+          },
+          {
+            "name": "ijson"
+          },
+          {
+            "name": "instanttensor",
+            "marker": "extra == 'instanttensor'",
+            "specifier": ">=0.1.5"
+          },
+          {
+            "name": "jsonschema",
+            "specifier": ">=4.23.0"
+          },
+          {
+            "name": "lark",
+            "specifier": "==1.2.2"
+          },
+          {
+            "name": "llguidance",
+            "marker": "platform_machine == 'aarch64' or platform_machine == 'arm64' or platform_machine == 'ppc64le' or platform_machine == 'x86_64'",
+            "specifier": ">=1.7.0,<1.8.0"
+          },
+          {
+            "name": "lm-format-enforcer",
+            "specifier": "==0.11.3"
+          },
+          {
+            "name": "matplotlib",
+            "marker": "extra == 'bench'"
+          },
+          {
+            "name": "mcp"
+          },
+          {
+            "name": "mistral-common",
+            "extras": [
+              "audio"
+            ],
+            "marker": "extra == 'audio'"
+          },
+          {
+            "name": "mistral-common",
+            "extras": [
+              "image"
+            ],
+            "specifier": ">=1.11.3"
+          },
+          {
+            "name": "model-hosting-container-standards",
+            "specifier": ">=0.1.14,<1.0.0"
+          },
+          {
+            "name": "msgspec"
+          },
+          {
+            "name": "ninja"
+          },
+          {
+            "name": "numba",
+            "specifier": "==0.65.0"
+          },
+          {
+            "name": "numpy"
+          },
+          {
+            "name": "nvidia-cudnn-frontend",
+            "specifier": ">=1.19.1"
+          },
+          {
+            "name": "nvidia-cutlass-dsl",
+            "specifier": "==4.5.2"
+          },
+          {
+            "name": "openai",
+            "specifier": ">=2.0.0"
+          },
+          {
+            "name": "openai-harmony",
+            "specifier": ">=0.0.3"
+          },
+          {
+            "name": "opencv-python-headless",
+            "specifier": ">=4.13.0"
+          },
+          {
+            "name": "opentelemetry-api",
+            "specifier": ">=1.27.0"
+          },
+          {
+            "name": "opentelemetry-api",
+            "marker": "extra == 'otel'",
+            "specifier": ">=1.26.0"
+          },
+          {
+            "name": "opentelemetry-exporter-otlp",
+            "specifier": ">=1.27.0"
+          },
+          {
+            "name": "opentelemetry-exporter-otlp",
+            "marker": "extra == 'otel'",
+            "specifier": ">=1.26.0"
+          },
+          {
+            "name": "opentelemetry-sdk",
+            "specifier": ">=1.27.0"
+          },
+          {
+            "name": "opentelemetry-sdk",
+            "marker": "extra == 'otel'",
+            "specifier": ">=1.26.0"
+          },
+          {
+            "name": "opentelemetry-semantic-conventions-ai",
+            "specifier": ">=0.4.1"
+          },
+          {
+            "name": "opentelemetry-semantic-conventions-ai",
+            "marker": "extra == 'otel'",
+            "specifier": ">=0.4.1"
+          },
+          {
+            "name": "outlines-core",
+            "specifier": "==0.2.14"
+          },
+          {
+            "name": "pandas",
+            "marker": "extra == 'bench'"
+          },
+          {
+            "name": "partial-json-parser"
+          },
+          {
+            "name": "pillow"
+          },
+          {
+            "name": "plotly",
+            "marker": "extra == 'bench'"
+          },
+          {
+            "name": "prometheus-client",
+            "specifier": ">=0.18.0"
+          },
+          {
+            "name": "prometheus-fastapi-instrumentator",
+            "specifier": ">=8.0.0"
+          },
+          {
+            "name": "protobuf",
+            "specifier": ">=5.29.6,!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*"
+          },
+          {
+            "name": "psutil"
+          },
+          {
+            "name": "py-cpuinfo"
+          },
+          {
+            "name": "pybase64"
+          },
+          {
+            "name": "pydantic",
+            "specifier": ">=2.12.0"
+          },
+          {
+            "name": "python-json-logger"
+          },
+          {
+            "name": "pyyaml"
+          },
+          {
+            "name": "pyzmq",
+            "specifier": ">=25.0.0"
+          },
+          {
+            "name": "quack-kernels",
+            "specifier": ">=0.3.3"
+          },
+          {
+            "name": "regex"
+          },
+          {
+            "name": "requests",
+            "specifier": ">=2.26.0"
+          },
+          {
+            "name": "runai-model-streamer",
+            "extras": [
+              "azure",
+              "gcs",
+              "s3"
+            ],
+            "marker": "extra == 'runai'",
+            "specifier": ">=0.15.7"
+          },
+          {
+            "name": "safetensors",
+            "specifier": ">=0.6.2"
+          },
+          {
+            "name": "scipy",
+            "marker": "extra == 'audio'"
+          },
+          {
+            "name": "scipy",
+            "marker": "extra == 'bench'"
+          },
+          {
+            "name": "seaborn",
+            "marker": "extra == 'bench'"
+          },
+          {
+            "name": "sentencepiece"
+          },
+          {
+            "name": "setproctitle"
+          },
+          {
+            "name": "setuptools",
+            "marker": "python_full_version >= '3.12'",
+            "specifier": ">=77.0.3,<81.0.0"
+          },
+          {
+            "name": "six",
+            "marker": "python_full_version >= '3.12'",
+            "specifier": ">=1.16.0"
+          },
+          {
+            "name": "smg-grpc-servicer",
+            "extras": [
+              "vllm"
+            ],
+            "marker": "extra == 'grpc'",
+            "specifier": ">=0.5.2"
+          },
+          {
+            "name": "soundfile",
+            "marker": "extra == 'audio'"
+          },
+          {
+            "name": "soxr",
+            "marker": "extra == 'audio'"
+          },
+          {
+            "name": "starlette",
+            "specifier": ">=1.0.1"
+          },
+          {
+            "name": "tensorizer",
+            "marker": "extra == 'tensorizer'",
+            "specifier": "==2.10.1"
+          },
+          {
+            "name": "tiktoken",
+            "specifier": ">=0.6.0"
+          },
+          {
+            "name": "tilelang",
+            "specifier": "==0.1.9"
+          },
+          {
+            "name": "tokenizers",
+            "specifier": ">=0.21.1"
+          },
+          {
+            "name": "tokenspeed-mla",
+            "specifier": "==0.1.2"
+          },
+          {
+            "name": "torch",
+            "specifier": "==2.11.0"
+          },
+          {
+            "name": "torchaudio",
+            "specifier": "==2.11.0"
+          },
+          {
+            "name": "torchvision",
+            "specifier": "==0.26.0"
+          },
+          {
+            "name": "tqdm"
+          },
+          {
+            "name": "transformers",
+            "specifier": ">=5.5.3"
+          },
+          {
+            "name": "typing-extensions",
+            "specifier": ">=4.10"
+          },
+          {
+            "name": "vllm-gguf-plugin",
+            "marker": "extra == 'extra-quant'",
+            "specifier": ">=0.0.2"
+          },
+          {
+            "name": "watchfiles"
+          },
+          {
+            "name": "xgrammar",
+            "marker": "platform_machine == 'aarch64' or platform_machine == 'arm64' or platform_machine == 'ppc64le' or platform_machine == 's390x' or platform_machine == 'x86_64'",
+            "specifier": ">=0.2.1,<1.0.0"
+          },
+          {
+            "name": "zentorch",
+            "marker": "extra == 'zen'",
+            "specifier": "==2.11.0.0"
+          }
+        ],
+        "provides-extras": [
+          "zen",
+          "bench",
+          "tensorizer",
+          "fastsafetensors",
+          "instanttensor",
+          "runai",
+          "audio",
+          "video",
+          "flashinfer",
+          "helion",
+          "grpc",
+          "otel",
+          "extra-quant"
+        ]
+      }
+    }
+  ],
+  "lock_delta": [],
+  "before_sha256": "a1caefe4206412ac649e55328eafd8c4671ae3b816d3a90f6482354c30159b5f",
+  "after_sha256": "a1caefe4206412ac649e55328eafd8c4671ae3b816d3a90f6482354c30159b5f"
+}

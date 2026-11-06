@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "cases": [
+    {
+      "case": "inherited",
+      "resolved_cap": 64,
+      "complete_orchestrator_equal": true,
+      "toml_sha256": "c5b7a57b384fbdcbba3cd6ea8a782619c8edcb5ade540366b0a827d3d155bf85"
+    },
+    {
+      "case": "explicit",
+      "resolved_cap": 32,
+      "complete_orchestrator_equal": true,
+      "toml_sha256": "4233a45a940647c7f7a061d055b2c8142a75b6afc78000a62ae5c9b121f7235e"
+    }
+  ],
+  "real_launcher_writer": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/sequence-boundary-candidate/src/prime_rl/entrypoints/rl.py",
+  "real_child_cli": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/prime-values-analysis/deps/pydantic-config/src/pydantic_config/cli.py",
+  "no_processes_launched": true,
+  "source_revision_supplement": {
+    "old_episodes_sha256": "73c3361690f1d93ea81e681cd58f0fc871607fcce9b54736e02b8b7ed3626abf",
+    "current_episodes_sha256": "b360e2c4c1fecd62cde87e620ac004726db60d8b440ac4a9acc7d686d07e6d94",
+    "only_two_docstring_lines_added": true,
+    "non_docstring_AST_identical": true
+  },
+  "source_sha256": {
+    "src/prime_rl/orchestrator/episodes.py": "b360e2c4c1fecd62cde87e620ac004726db60d8b440ac4a9acc7d686d07e6d94",
+    "src/prime_rl/orchestrator/envs.py": "720dd98c910b7f19a624f1b788ac68df4fde84b3acb64b54efb66bcd335b166e",
+    "src/prime_rl/orchestrator/types.py": "dc2534cb4ee3b7a93b5ce5276d1153b98ef7d886929de4dc6b1280eecf997ddd",
+    "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py": "4d12ca50a59250cf2bb856c87014b34ff6225f1dc99d258a92ff290f76fe20a7",
+    "tests/unit/orchestrator/test_training_projection.py": "dbf53233751167789a03fc225fefdd31e71478a30fa25f0f97c76d2fa0ab8ec7"
+  }
+}

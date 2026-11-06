@@ -1,0 +1,12 @@
+{
+  "driver_exit": 0,
+  "frozen_entries_verified": 2342,
+  "candidate_files_verified": 2348,
+  "observed_at": "2026-11-06T02:20:57.362692+00:00",
+  "limitations": [
+    "Tiny-model numerical and compiled runtime probes, not a fresh large-model pipeline or reward-quality test.",
+    "Selected GPU roles and phase timestamps are not utilization.",
+    "External ring helper retains host scalar reads."
+  ],
+  "failed_harness_attempt_preserved": true
+}

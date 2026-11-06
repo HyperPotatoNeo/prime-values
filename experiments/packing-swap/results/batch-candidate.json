@@ -1,0 +1,57 @@
+{
+  "packed_sha256": "e8e58d634dd5a7c37f60630dc925892bb976e64b6d726e0e6543cb5491757484",
+  "samples": 128,
+  "micro_batches_per_rank": [
+    13,
+    13,
+    13,
+    13
+  ],
+  "per_rank_component_counts": [
+    [
+      1067,
+      584,
+      375
+    ],
+    [
+      1231,
+      383,
+      374
+    ],
+    [
+      844,
+      737,
+      404
+    ],
+    [
+      1037,
+      526,
+      183
+    ]
+  ],
+  "global_component_counts": [
+    4179,
+    2230,
+    1336
+  ],
+  "source_files": {
+    "batch": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/packing-swap-candidate/src/prime_rl/trainer/batch.py",
+      "sha256": "278411fc2563b8e9c39f36280889e0035dad263b7aab145c596a1f8ceb65f97c"
+    },
+    "partition": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/packing-swap-candidate/src/prime_rl/trainer/utils.py",
+      "sha256": "743d1842fe70668c2c02c95ca39a2ad64e1ee9239c139dd2991476374bb5ba77"
+    },
+    "normalization": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/packing-swap-candidate/src/prime_rl/trainer/rl/normalization.py",
+      "sha256": "d87a11fd56f56b9a2488e172bb7d9a93d1695777b1bfe5af60f7c9283dc8442d"
+    },
+    "transport": {
+      "path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/packing-swap-candidate/src/prime_rl/transport/types.py",
+      "sha256": "23a721e4530a58dd6f65ae31457201d0c3f0ec7c396bb75abdc12d1a0ba008b7"
+    }
+  },
+  "harness_sha256": "34a5c838b4d129913e4c1803c60fbdd91d4cb15ceda9a4bc301700fc84d0c530",
+  "scope": "Actual prepare_batch, transport serialization and count_loss_tokens; global count is the sum over four simulated data ranks. No distributed collective, model or GPU run."
+}

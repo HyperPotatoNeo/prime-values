@@ -1,4 +1,5 @@
 import asyncio
+import math
 
 import pytest
 import verifiers.v1 as vf
@@ -61,6 +62,49 @@ def test_policy_gae_and_value_target_use_independent_lambdas():
     assert returns == pytest.approx([0.0, 1.0, 0.0, 1.0])
 
 
+@pytest.mark.parametrize("gamma", [0.0, 0.73, 1.0])
+@pytest.mark.parametrize("policy_lambda,target_lambda", [(0.0, 1.0), (1.0, 0.0), (0.2, 0.8), (0.8, 0.2), (1.0, 1.0)])
+def test_gae_matches_finite_horizon_return_mixture_with_context_gaps(gamma, policy_lambda, target_lambda):
+    """Lambda returns mix explicit n-step bootstraps, with the terminal remainder unsplit."""
+    action_values = [0.15, -0.4, 0.9, 0.25]
+    reward = -0.6
+
+    def lambda_returns(lam):
+        result = []
+        for start in range(len(action_values)):
+            remaining = len(action_values) - start
+            bootstraps = [
+                (1 - lam) * lam ** (horizon - 1) * gamma**horizon * action_values[start + horizon]
+                for horizon in range(1, remaining)
+            ]
+            terminal = lam ** (remaining - 1) * gamma ** (remaining - 1) * reward
+            result.append(math.fsum([*bootstraps, terminal]))
+        return result
+
+    expected_targets = lambda_returns(target_lambda)
+    expected_advantages = [q - value for q, value in zip(lambda_returns(policy_lambda), action_values, strict=True)]
+    for gaps in ([0, 0, 0, 0], [2, 0, 3, 1]):
+        values, mask = [], []
+        for gap, value in zip(gaps, action_values, strict=True):
+            values.extend([1000.0] * gap + [value])
+            mask.extend([False] * gap + [True])
+        values.extend([-1000.0, 999.0])
+        mask.extend([False, False])
+
+        advantages, targets = compute_gae(
+            reward=reward,
+            values=values,
+            mask=mask,
+            gamma=gamma,
+            gae_lambda=policy_lambda,
+            value_target_lambda=target_lambda,
+        )
+
+        assert [a for a, active in zip(advantages, mask, strict=True) if active] == pytest.approx(expected_advantages)
+        assert [q for q, active in zip(targets, mask, strict=True) if active] == pytest.approx(expected_targets)
+        assert all(a == q == 0.0 for a, q, active in zip(advantages, targets, mask, strict=True) if not active)
+
+
 def test_leave_one_out_group_advantage_excludes_own_reward():
     assert group_advantages([0.0, 1.0, 1.0], "leave_one_out") == pytest.approx([-1.0, 0.5, 0.5])
     assert group_baselines([0.0, 1.0, 1.0], "leave_one_out") == pytest.approx([1.0, 0.5, 0.5])
@@ -75,6 +119,7 @@ def _build_rollout(
     reward: float,
     *,
     sampled_lengths: list[int],
+    prompt_length: int = 1,
     obs_lengths: list[int] | None = None,
     env_name: str = "test",
     metrics: dict | None = None,
@@ -99,7 +144,7 @@ def _build_rollout(
         return ids
 
     # Leading user prompt (never trainable).
-    prompt_ids = _take(1)
+    prompt_ids = _take(prompt_length)
     nodes.append(
         vf.MessageNode(
             message=vf.UserMessage(content="q"),
@@ -139,10 +184,23 @@ def _build_rollout(
             )
             parent = len(nodes) - 1
 
-    rollout = Rollout[vf.Task](
-        task=vf.Task(idx=0, prompt=None),
+    rollout = Rollout[vf.TaskData](
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
+        ok=True,
+        task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": reward},
+        calls=[
+            vf.ModelCall(
+                node=index,
+                usage=vf.Usage(
+                    prompt_tokens=sum(len(previous.token_ids) for previous in nodes[:index]),
+                    completion_tokens=len(node.token_ids),
+                ),
+            )
+            for index, node in enumerate(nodes)
+            if node.sampled
+        ],
+        rewards={"reward": vf.Reward(score=reward)},
         metrics=metrics or {},
     )
     rollout.env_name = env_name
@@ -255,7 +313,7 @@ def test_linear_context_term_penalizes_more_context():
     cfg = LinearLengthPenaltyConfig(num_output_tokens_weight=0.0, num_input_tokens_weight=0.25, num_turns_weight=0.0)
     group = [
         _build_rollout(1.0, sampled_lengths=[10], obs_lengths=[]),
-        _build_rollout(1.0, sampled_lengths=[10], obs_lengths=[100]),
+        _build_rollout(1.0, sampled_lengths=[10], prompt_length=101),
     ]
     asyncio.run(GRPOAlgorithm(GRPOAlgoConfig(length_penalty=cfg), policy_pool=None).score_group(group))
     advs = [_scalar(rollout) for rollout in group]

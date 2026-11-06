@@ -1,0 +1,48 @@
+{
+  "status": "read-only design; defer implementation until a coherent inference dependency upgrade",
+  "reviewed_base": "5f80407b57f035b3d0de0dce46b26fffb849ab94",
+  "decision": "Do not ship an all-unknown consumer stub or label group dispatch versions as exact sampled-token provenance. Prefer the independent metric-accumulation unit next, subject to its numerical review.",
+  "upstream": {
+    "policy_labels": "a22eeb329d29ba68996fe2be173417b168093bcd",
+    "mismatch_bins": "b2df580d19957e74580ca3d352d76d433cbd5e74",
+    "renderer_passthrough": "0526944665ac9f00e8d56e110babe97a2c174fa4:renderers/client.py",
+    "verifier_passthrough": "3f142cc61adb4b0168d925fb44e76370d6299a37:verifiers/v1/{types.py,clients/train.py,graph.py}",
+    "excluded_behavior": ["cde40c64 stale-token masking replaces group cancellation", "28c5f576 staleness configuration/metric rename", "34cd9694 masking metric fix"]
+  },
+  "already_present": [
+    "GroupState.policy_version_at_start and InflightRollout.policy_version are scheduler provenance; dispatcher copies the group start version to each Rollout and cache salt.",
+    "InflightRollout.off_policy_steps counts weight updates while a rollout is in flight; existing thresholds cancel groups. Preserve this behavior and its existing metrics.",
+    "ValueTrajectory owns a copied policy_version together with immutable token/mask/layout/private-prefix credit inputs. ValueRollout retains both policy_version and critic value_version.",
+    "Value replay batches aggregate policy_version_min/max and value_version_min/max; the value trainer already logs source versions, spreads, and critic lag. These are distinct from token-level engine provenance.",
+    "The policy trainer already measures aggregate/per-environment mismatch KL and saturation diagnostics. Staleness bins and exact per-token versions are absent."
+  ],
+  "missing_producer_chain": [
+    "Pinned vLLM0.24.0 has no adopted0.32 update_weight_version/span contract. Current inference/vllm/server.py loads weights via collective_rpc but never labels the engine version.",
+    "Current utils/client.py already accepts step for weight updates, but sends only weight_dir to /update_weights and no version on LoRA loads. Pass the version through existing transport paths; a transport directory reorganization is unnecessary.",
+    "Renderer bdb96b0c does not return weight_versions from a generate choice. Its required pass-through is upstream0526944.",
+    "Verifier b13ba60d has no WeightVersionSpan, TurnTokens.weight_versions or MessageNode.weight_versions. Upstream3f142cc61 supplies these fields and transfers them during graph commit; it is414 commits beyond the current pin, with renderer>=0.1.12 and Harbor0.24 metadata at that revision. A blind pin advance would greatly exceed this feature.",
+    "Current Episode-to-Rollout adapter preserves canonical trace fields, but cannot preserve a field absent from the pinned canonical schema. Use actual upstream schema when upgrading; do not add a parallel faux trace format."
+  ],
+  "future_atomic_scope": [
+    "First validate a coherent vLLM/renderer/verifier stack upgrade independently, including serving-token wrapper compatibility, native and legacy environment bridges, tokenizer/prompt parity and actor/critic numerical behavior. Do not change FP32 optimization/reduction settings.",
+    "Label the engine only after successful full-weight or LoRA adoption. Label boot/resume versions before dispatch. Verify the existing filesystem/NCCL paths rather than assuming upstream renamed transports are prerequisites.",
+    "Carry completion-indexed spans through renderer, TurnTokens, canonical graph commit, actual WireEpisode serialization and the single-trace adapter. Preserve exact sampling mask alignment across multi-turn and shared-prefix branches.",
+    "Append optional observation-only fields to current transport/types.py structs; propagate them through trainer/batch.py truncation, packing, padding and trainer/rl/data.py CP splitting. Do not import upstream transport reorganization or padding semantics.",
+    "Stamp age against the version of weights used for that training batch, not the current engine version at logging time. Use -1 for unknown/non-sampled/padding. Report known/unknown coverage explicitly; do not reuse upstream policy.start fallback under an exact-token-age metric name.",
+    "Fold mismatch diagnostics into bins using the reviewed metric accumulator. Preserve all policy/value loss inputs, masks, denominators, sample selection, group cancellation, private critic context and value replay semantics. Keep critic source policy_version as its original group provenance; add separate fields only if later required.",
+    "Document limitations: bin0 can still contain numerical/backend/cache effects and is not proof of correctness. An unlabeled backend or legacy bridge must remain visibly unknown rather than be treated as fresh."
+  ],
+  "independent_acceptance_gates": [
+    "One actual paused-generation weight update: observe old/new spans in a single response, then a fully new-version response; also verify boot/resume labeling and failed adoption never reports a falsely advanced version. Run through the real renderer and canonical Episode wire, not a fabricated endpoint response alone.",
+    "One compact alignment oracle through real graph/branch materialization and packing: multi-turn assistant scaffolds, shared branch prefixes, reused context, missing/default labels, partial spans, truncation/padding and CP slices. Independent expected token positions, coverage and bins; no branch-index guesses or treating context as sampled.",
+    "Reject or explicitly mark unknown malformed overlap/out-of-range/future labels. Test ages at32767/32768 and the64+ boundary so int16 cannot silently wrap. Diagnostic invalidity must not silently alter objective/admission masks.",
+    "Actual codec roundtrip with old messages missing the optional trailing field and new messages carrying it. Verify append-only compatibility empirically with the installed msgspec configuration, including the actual transport codec.",
+    "Paired frozen/current policy and value update on identical batches: full gradients, optimizer states, protected value trajectory/private prompts and cancellation emissions unchanged. A small hand-computed distributed bin case checks global count-weighted mean/std/max and coverage, including an empty rank; avoid averaging rank means.",
+    "Do not claim support for LoRA, alternate weight transports or legacy bridges based solely on the full-weight native test; either exercise each supported changed producer or retain a clearly unknown provenance path."
+  ],
+  "audit_limits": [
+    "Read local source and exact Git diffs; no production edits, dependency changes, or GPU experiments performed for this design.",
+    "A broad renderer history query hit a missing promisor Git object. Exact relevant0526944 diff was readable; no history repair or completeness claim was made.",
+    "No claim that every vLLM0.24 internal symbol was searched remotely; required0.32 contract is established by the exact upstream feature and renderer commits, and the current producer chain definitively does not use it."
+  ]
+}

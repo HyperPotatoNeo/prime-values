@@ -74,8 +74,14 @@ def clean_exit(func: Callable) -> Callable:
                 return ret
             except Exception:
                 get_logger().opt(exception=True).error(f"Fatal error in {func.__name__}")
+                # Destroying a failed rank's process group can wait forever on
+                # collectives its peers will never join. Let torchrun reap them.
+                if dist.is_initialized():
+                    get_logger().complete()
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+                    os._exit(1)
                 wandb.finish(exit_code=1)
-                # sys.exit raises SystemExit so the finally block still runs.
                 sys.exit(1)
             finally:
                 if dist.is_initialized():

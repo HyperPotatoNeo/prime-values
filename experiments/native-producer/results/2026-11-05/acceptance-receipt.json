@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "baseline_commit": "1801d1129f1adeeed6dcfabb0295451e4b5cb4b8",
+  "harness_sha256": "e90cbaac4ba0f35492b78c2791389848ca0290c04eb6223dabf9c112fda1a97e",
+  "comparator_sha256": "05cafc2d85fed22109be53f047d309446c0334b2747558965026e8d0a8ea602a",
+  "baseline": "baseline005",
+  "candidate": "candidate005",
+  "natural_exit_codes": {
+    "baseline005": 0,
+    "candidate005": 0
+  },
+  "execution_receipt_chunks": [
+    "821027",
+    "c474a9"
+  ],
+  "comparison": {
+    "status": "passed",
+    "exact_comparisons": [
+      "reverse/clipped/records",
+      "reverse/clipped/credit",
+      "reverse/within/records",
+      "reverse/within/credit",
+      "rg/clipped/records",
+      "rg/clipped/credit",
+      "rg/within/records",
+      "rg/within/credit",
+      "literal policy request body sets (counts differ for target controls)"
+    ],
+    "difference_count": 0,
+    "differences": [],
+    "baseline_raw_sha256": "e7e10ffc90b59649a95909cee52ffdf248c768e8f8f9e56c253a3cdbdc8e5d79",
+    "candidate_raw_sha256": "163512f1ad519ea98ff0d87a8b474d1e207c44894b1b9425d4120f5e185d3604",
+    "harness_sha256": "e90cbaac4ba0f35492b78c2791389848ca0290c04eb6223dabf9c112fda1a97e",
+    "scope": "Actual value-owned geometry, sampled logprobs, task/peer credit and TETHER continuation; literal requests. Deterministic HTTP/evaluator fixtures, no model/GPU numerical inference claim."
+  },
+  "sampled_logprobs_match_full_precision_fixture": true,
+  "cases": [
+    {
+      "env": "rg",
+      "case": "within",
+      "actions": 10,
+      "reward": 1.0
+    },
+    {
+      "env": "rg",
+      "case": "within",
+      "actions": 10,
+      "reward": 0.0
+    },
+    {
+      "env": "rg",
+      "case": "clipped",
+      "actions": 3,
+      "reward": 1.0
+    },
+    {
+      "env": "rg",
+      "case": "clipped",
+      "actions": 3,
+      "reward": 0.0
+    },
+    {
+      "env": "reverse",
+      "case": "within",
+      "actions": 25,
+      "reward": 1.0
+    },
+    {
+      "env": "reverse",
+      "case": "within",
+      "actions": 25,
+      "reward": 0.0
+    },
+    {
+      "env": "reverse",
+      "case": "clipped",
+      "actions": 3,
+      "reward": 1.0
+    },
+    {
+      "env": "reverse",
+      "case": "clipped",
+      "actions": 3,
+      "reward": 0.0
+    }
+  ],
+  "credit_modes": 12,
+  "tether_continuations": 4,
+  "target_controls": {
+    "private_prefix": {
+      "passed": true
+    },
+    "failed_episode": {
+      "passed": true
+    },
+    "production_start": {
+      "passed": true
+    },
+    "rg": {
+      "cancelled": true,
+      "recovery_reward": 1.0,
+      "worker_pids": [
+        67950,
+        67958
+      ],
+      "delta_count": 47,
+      "partial_not_final": true
+    },
+    "reverse": {
+      "cancelled": true,
+      "recovery_reward": 1.0,
+      "worker_pids": [
+        68229,
+        68266
+      ],
+      "delta_count": 29,
+      "partial_not_final": true
+    }
+  },
+  "worker_audit": {
+    "reverse-worker0.jsonl": {
+      "requests": 4,
+      "pid": 68229,
+      "exact_payload_roundtrip": true
+    },
+    "reverse-worker1.jsonl": {
+      "requests": 2,
+      "pid": 68266,
+      "exact_payload_roundtrip": true
+    },
+    "rg-worker0.jsonl": {
+      "requests": 6,
+      "pid": 67950,
+      "exact_payload_roundtrip": true
+    },
+    "rg-worker1.jsonl": {
+      "requests": 3,
+      "pid": 67958,
+      "exact_payload_roundtrip": true
+    }
+  },
+  "cleanup": {
+    "gpu_allocations": 0,
+    "all_nine_known_worker_pids_absent": [
+      67957,
+      67960,
+      68189,
+      68222,
+      67950,
+      67958,
+      68229,
+      68266,
+      68166
+    ]
+  },
+  "root_lock_sha256": "b0c0728e6341eb903751264e0a44f7064ecd36e89a9dde2d812762b50f7d5169",
+  "root_pyproject_sha256": "8f079d95154bd50b2ca23df7bea38fdef93d41ad9e1b0e7ff0fd3f8c463f328c",
+  "source_hashes": {
+    "src/prime_rl/orchestrator/envs.py": "17eae7989c3ecc3428a3cfe8e3d57a6945878a2fd182791dae6916a17fb27b8f",
+    "src/prime_rl/orchestrator/episodes.py": "0b854fe36176be625df888d671f4189cfaa605ec59dac73c488ccb1ad67d64de",
+    "src/prime_rl/orchestrator/types.py": "4b72da9fef9dbc189914c2ed9e773659e537c7fb69028498ed34ad8c15ed026e",
+    "src/prime_rl/orchestrator/trajectories.py": "9020521109d481df59d5d37c94f16c919e83344b4a632771ceefe59abbbb6394",
+    "src/prime_rl/orchestrator/train_sink.py": "7760a4dd13b730c504002ec7d45b83dce31bef312d510f9aabe1406c2dae9e42",
+    "src/prime_rl/orchestrator/value_context.py": "1b21dc9db6548fc6421f132b641ff90265e7ef5d723c95a9aebae07c41ab2042",
+    "src/prime_rl/orchestrator/records.py": "bb8fa346ac896b23e9610c3c692898bebd77c1198be782c12b542abe1ac51635",
+    "src/prime_rl/orchestrator/algo/grpo.py": "e7aa4244a0c98521fc21bf0af45f61dbeaeb3b8f19eb4fe04453a091bb10662b",
+    "src/prime_rl/orchestrator/algo/tether.py": "db2361974b13d1ae6929b910cf8402fc05e59f73d578652837bb5a578d07d297",
+    "src/prime_rl/value/credit.py": "004d505dcc0d2aac35c19e251b43f459823324162266bc6ce7f5570515525b9c",
+    "src/prime_rl/value/trajectory.py": "68b1b0d0d277e0caee15cf835c29f788a058edc7fe06f82f73c281a14ccf4db6",
+    "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py": "bab41fc48c988ec2a3cbfdef09c5337b9a637314bfd9020340a839ed362d834d",
+    "packages/rg-mix-env/rg_mix_v1/taskset.py": "750e11141b9872d8bd57b7f028a1437949f610d2aaf49e53ca5d1b0eaeef8682",
+    "packages/rg-mix-env/rg_mix_v1/scoring.py": "95ff7954220570ec4beec2517941d87cb548d6df0de75b55569a2d2272d83382",
+    "packages/rg-mix-env/rg_mix_shared.py": "6f7d09529742b52851143417bc81a43a624ca270c8452dcb79cf0174b51c69eb",
+    "src/prime_rl/orchestrator/env_server/env_server.py": "dfc56d67ca144b0e276867c07479dfde8848cfc302f8e0afce09b63d656b9f33",
+    "src/prime_rl/orchestrator/dispatcher.py": "cbf3b7c840a72390607508e95735b993aaebfe0636730d5ae329dcee5b63ae24",
+    "src/prime_rl/utils/monitor/prime.py": "7f4ce0b7346e9318d2293d2276807dfeb863715ba6792e99a99767d754e0e730"
+  },
+  "dependency_pins": {
+    "verifiers": "3f142cc61adb4b0168d925fb44e76370d6299a37",
+    "renderers": "0526944665ac9f00e8d56e110babe97a2c174fa4",
+    "pydantic-config": "65b15dffba82d4be19efdaf8b2b9705cc1756be8"
+  },
+  "dataset": {
+    "source": "PVC /data/rg-dataset, exact exported cached artifact",
+    "local": "work/native-rg-results/dataset-cache/rg-dataset",
+    "archive_sha256": "18aac35bac5ea5a21afb0b78fdd3deac689a2213966f82197b469cb5e38333d3",
+    "selection": "original saved RG row0; reverse-text fixed synthetic task with actual upstream task/scorer; no full dataset regeneration"
+  },
+  "limitations": [
+    "Deterministic HTTP completion and deterministic value evaluator; no learned model/GPU inference or end-to-end training acceptance.",
+    "One RG saved row and one reverse-text fixture; unchanged full RG parser/scorer source is covered by prior unit9 evidence, not rerun here.",
+    "Requests compared as exact body sets, not equal counts/order: target adds private/failure/startup controls.",
+    "Cancellation proves a held partial stream does not return final and the worker recovers; not whole-Episode retry-equivalence or dispatcher cohort cancellation acceptance.",
+    "Linux full-stack all-extras dry-run only; actual CPU installation156packages.",
+    "Minimal native profile RG/reverse only, historical configs unsupported on this branch; published parent preserves their runtime.",
+    "Physical text trace support is explicit; new semantic compaction, multimodal and producer-stamped training sidecars are rejected pending deliberate support."
+  ],
+  "attempts": {
+    "baseline001": "harness adaptiveTETHER lacked resolvedbatch size; fixed explicitbatch2 both stacks",
+    "baseline002": "incorrect reverse answer earned valid partialscore; fixture changed to emptytag to assert intended0 reward",
+    "baseline003": "passed before canonical token-label fixture update",
+    "baseline004": "passed before candidate-only cleanup/provenance changes; nonfinal sharedharness hash",
+    "candidate001": "new renderer rejected omitted canonical logprob token labels in fixture; failed Episode, no sampling math mismatch",
+    "candidate002": "same failure with raw Episode saved; officialvLLM.24 emits labels, fixture corrected identically",
+    "candidate003": "covered RG/prefix/failure/startup but harness called nonexistent Env.stop; own worker terminated and cleanup corrected",
+    "candidate004": "passed before final formatting/provenance/payload checks",
+    "final005": "same e90cbaac sharedharness on both stacks; exact comparison and natural0"
+  },
+  "supplements": {
+    "launcher": "actual RLConfig\u2192write_subconfigs\u2192childCLI complete configuration equality passed",
+    "renderer_contrast": "disabled-thinking historical continuation intentionally differs47\u219251 tokens, exact immutable pinned-source hashes; not covered by default singleturn equality",
+    "reviews": [
+      "disabled-thinking-continuation-review.json",
+      "parent-pinned-dependency-review.json",
+      "launcher-roundtrip/result.json"
+    ]
+  }
+}

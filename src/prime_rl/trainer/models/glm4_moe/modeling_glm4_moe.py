@@ -39,7 +39,7 @@ from prime_rl.trainer.models.layers.mlp import MLP, MLPConfig
 from prime_rl.trainer.models.layers.moe import MoE, MoEArgs
 from prime_rl.trainer.models.layers.norms import RMSNorm, RMSNormConfig
 from prime_rl.trainer.models.layers.rotary_emb import RotaryEmbedding, RotaryEmbeddingConfig
-from prime_rl.utils.sequence import get_cu_seqlens_from_position_ids
+from prime_rl.utils.sequence import PackedSequenceMetadata, get_cu_seqlens_from_position_ids
 
 
 class Glm4MoeDecoderLayer(GradientCheckpointingLayer):
@@ -205,6 +205,7 @@ class Glm4MoeModel(Glm4MoePreTrainedModel):
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         routed_experts: Optional[torch.LongTensor] = None,
+        packing_metadata: PackedSequenceMetadata | None = None,
     ) -> BaseModelOutputWithPast:
         """
         routed_experts (`torch.LongTensor` of shape `(batch_size, sequence_length, num_hidden_layers, num_experts_per_tok)`, *optional*):
@@ -216,8 +217,14 @@ class Glm4MoeModel(Glm4MoePreTrainedModel):
         if inputs_embeds is None:
             inputs_embeds: torch.Tensor = self.embed_tokens(input_ids)
 
+        if packing_metadata is not None:
+            packing_metadata.validate_shape(inputs_embeds.shape[0], inputs_embeds.shape[1], inputs_embeds.device)
+
         if self.config._attn_implementation in ("flash_attention_2", "flash_attention_3", "fa4"):
-            cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+            if packing_metadata is None:
+                cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+            else:
+                cu_seqlens, max_seqlen = packing_metadata.cu_seqlens, packing_metadata.max_seqlen
             torch._dynamo.mark_dynamic(cu_seqlens, 0)
         else:
             max_seqlen = None
@@ -246,6 +253,8 @@ class Glm4MoeModel(Glm4MoePreTrainedModel):
 
 @auto_docstring
 class Glm4MoeForCausalLM(Glm4MoePreTrainedModel, GenerationMixin):
+    supports_packed_sequence_metadata = True
+
     _tied_weights_keys = {"lm_head.weight": "model.embed_tokens.weight"}
     _tp_plan = {"lm_head": "colwise_rep"}
     _pp_plan = {"lm_head": (["hidden_states"], ["logits"])}
@@ -272,6 +281,7 @@ class Glm4MoeForCausalLM(Glm4MoePreTrainedModel, GenerationMixin):
         logits_to_keep: Union[int, torch.Tensor] = 0,
         temperature: Optional[torch.Tensor] = None,
         routed_experts: Optional[torch.LongTensor] = None,
+        packing_metadata: PackedSequenceMetadata | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> PrimeLmOutput:
         r"""
@@ -314,6 +324,7 @@ class Glm4MoeForCausalLM(Glm4MoePreTrainedModel, GenerationMixin):
 
         outputs: BaseModelOutputWithPast = self.model(
             input_ids=input_ids,
+            packing_metadata=packing_metadata,
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             routed_experts=routed_experts,

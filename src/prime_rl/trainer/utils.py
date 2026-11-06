@@ -11,6 +11,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.distributed as dist
@@ -226,7 +227,7 @@ def _partition_loads(weights: Sequence[int], partitions: list[list[int]]) -> lis
     return [sum(weights[i] for i in partition) for partition in partitions]
 
 
-def _refine_by_swapping(weights: Sequence[int], partitions: list[list[int]]) -> list[list[int]]:
+def _refine_by_swapping_scalar(weights: Sequence[int], partitions: list[list[int]]) -> list[list[int]]:
     partitions = [list(partition) for partition in partitions]
     loads = _partition_loads(weights, partitions)
 
@@ -254,6 +255,66 @@ def _refine_by_swapping(weights: Sequence[int], partitions: list[list[int]]) -> 
             partitions[right_rank][right_pos],
             partitions[left_rank][left_pos],
         )
+
+
+def _refine_by_swapping(weights: Sequence[int], partitions: list[list[int]]) -> list[list[int]]:
+    """Apply the best pairwise swap until none lowers ``(max load, max - min load)``.
+
+    Ties go to the first swap in (rank pair, left position, right position) order.
+    Relative loads avoid overflowing large totals. Values outside the proven int64
+    range use Python integer arithmetic with the same swap order.
+    """
+    partitions = [list(partition) for partition in partitions]
+    loads = _partition_loads(weights, partitions)
+    if any(type(weight) is not int for weight in weights):
+        return _refine_by_swapping_scalar(weights, partitions)
+    max_weight = max((abs(weight) for weight in weights), default=0)
+    int64_max = int(np.iinfo(np.int64).max)
+    if 4 * max_weight >= int64_max:
+        return _refine_by_swapping_scalar(weights, partitions)
+    item_weights = np.asarray(weights, dtype=np.int64)
+    num_partitions = len(partitions)
+    no_other_max, no_other_min = np.iinfo(np.int64).min, np.iinfo(np.int64).max
+
+    while True:
+        top = max(loads)
+        # Relative candidate loads lie in [-spread - 2W, 2W]; their
+        # difference is at most spread + 4W. Recheck after every swap.
+        if top - min(loads) + 4 * max_weight >= int64_max:
+            return _refine_by_swapping_scalar(weights, partitions)
+        relative = np.array([load - top for load in loads], dtype=np.int64)
+        best_score = (0, top - min(loads))
+        best_swap = None
+        for left_rank in range(num_partitions):
+            for right_rank in range(left_rank + 1, num_partitions):
+                if not partitions[left_rank] or not partitions[right_rank]:
+                    continue
+                others = np.delete(relative, [left_rank, right_rank])
+                other_max = others.max() if len(others) else no_other_max
+                other_min = others.min() if len(others) else no_other_min
+                left_weights = item_weights[partitions[left_rank]][:, None]
+                right_weights = item_weights[partitions[right_rank]][None, :]
+                new_left = relative[left_rank] - left_weights + right_weights
+                new_right = relative[right_rank] - right_weights + left_weights
+                new_max = np.maximum(np.maximum(new_left, new_right), other_max)
+                lowest_max = int(new_max.min())
+                if lowest_max > best_score[0]:
+                    continue
+                new_min = np.minimum(np.minimum(new_left, new_right), other_min)
+                spread = np.where(new_max == lowest_max, new_max - new_min, no_other_min)
+                flat = int(spread.argmin())
+                score = (lowest_max, int(spread.flat[flat]))
+                if score < best_score:
+                    best_score = score
+                    best_swap = (left_rank, right_rank, *divmod(flat, right_weights.shape[1]))
+        if best_swap is None:
+            return partitions
+
+        left_rank, right_rank, left_pos, right_pos = best_swap
+        left_idx, right_idx = partitions[left_rank][left_pos], partitions[right_rank][right_pos]
+        partitions[left_rank][left_pos], partitions[right_rank][right_pos] = right_idx, left_idx
+        loads[left_rank] += weights[right_idx] - weights[left_idx]
+        loads[right_rank] += weights[left_idx] - weights[right_idx]
 
 
 def balanced_partition(weights: Sequence[int], num_partitions: int) -> list[list[int]]:
@@ -543,6 +604,101 @@ def flexible_all_gather(tensor: Tensor) -> Tensor:
     return all_tensors_unpadded
 
 
+class TensorSummaries:
+    """Streaming token statistics with storage and communication independent of token count."""
+
+    def __init__(self, device: torch.device | str = "cuda", *, include_std: bool = False):
+        self.device = torch.device(device)
+        self.include_std = include_std
+        self.summaries: dict[str, Tensor] = {}
+
+    @torch.no_grad()
+    def add(self, key: str, values: Tensor, mask: Tensor | None = None) -> None:
+        values = values.detach().reshape(-1).to(device=self.device, dtype=torch.float64)
+        if mask is not None:
+            if mask.dtype != torch.bool or mask.numel() != values.numel():
+                raise ValueError("Metric masks must be boolean and match the number of values")
+            mask = mask.detach().reshape(-1).to(device=self.device)
+        selected = values if mask is None else torch.where(mask, values, 0.0)
+        count = values.new_tensor(values.numel()) if mask is None else mask.sum(dtype=torch.float64)
+        total = selected.sum()
+        minimum = values if mask is None else torch.where(mask, values, float("inf"))
+        maximum = values if mask is None else torch.where(mask, values, -float("inf"))
+        parts = [
+            count,
+            total,
+            minimum.min() if values.numel() else values.new_tensor(float("inf")),
+            maximum.max() if values.numel() else values.new_tensor(-float("inf")),
+        ]
+        if self.include_std:
+            centered = selected - total / count.clamp_min(1)
+            if mask is not None:
+                centered = torch.where(mask, centered, 0.0)
+            parts.append(centered.square().sum())
+        summary = torch.stack(parts)
+        if key in self.summaries:
+            previous = self.summaries[key]
+            if self.include_std:
+                both_nonempty = (previous[0] > 0) & (count > 0)
+                previous_mean = torch.where(both_nonempty, previous[1] / previous[0].clamp_min(1), 0.0)
+                current_mean = torch.where(both_nonempty, total / count.clamp_min(1), 0.0)
+                between = (
+                    (current_mean - previous_mean).square() * previous[0] * count / (previous[0] + count).clamp_min(1)
+                )
+                summary[4] += previous[4] + between
+            summary[:2] += previous[:2]
+            summary[2] = torch.minimum(summary[2], previous[2])
+            summary[3] = torch.maximum(summary[3], previous[3])
+        self.summaries[key] = summary
+
+    def compute_stats(self) -> dict[str, float | int]:
+        gathered_keys: list[list[str] | None] = [None] * dist.get_world_size()
+        dist.all_gather_object(gathered_keys, list(self.summaries))
+        keys = sorted({key for rank_keys in gathered_keys if rank_keys is not None for key in rank_keys})
+        if not keys:
+            return {}
+        empty_values = [0.0, 0.0, float("inf"), -float("inf")]
+        if self.include_std:
+            empty_values.append(0.0)
+        empty = torch.tensor(empty_values, device=self.device, dtype=torch.float64)
+        rows = torch.stack([self.summaries.get(key, empty) for key in keys])
+        totals = (
+            torch.cat((rows[:, :2], torch.isnan(rows[:, 2:3]).to(torch.float64)), dim=1)
+            if self.include_std
+            else rows[:, :2].contiguous().clone()
+        )
+        minima, maxima = rows[:, 2].contiguous(), rows[:, 3].contiguous()
+        dist.all_reduce(totals, op=dist.ReduceOp.SUM)
+        dist.all_reduce(minima, op=dist.ReduceOp.MIN)
+        dist.all_reduce(maxima, op=dist.ReduceOp.MAX)
+        if self.include_std:
+            minima = torch.where(totals[:, 2] > 0, float("nan"), minima)
+            maxima = torch.where(totals[:, 2] > 0, float("nan"), maxima)
+        parts = [totals[:, :2], minima[:, None], maxima[:, None]]
+        if self.include_std:
+            local_count = rows[:, 0]
+            nonempty = local_count > 0
+            local_mean = torch.where(nonempty, rows[:, 1] / local_count.clamp_min(1), 0.0)
+            global_mean = torch.where(nonempty, totals[:, 1] / totals[:, 0].clamp_min(1), 0.0)
+            # Merge centered moments rather than subtracting two large raw
+            # second moments when observations have a large common offset.
+            squared_deviation = rows[:, 4] + local_count * (local_mean - global_mean).square()
+            dist.all_reduce(squared_deviation, op=dist.ReduceOp.SUM)
+            parts.append(squared_deviation[:, None])
+        rows = torch.cat(parts, dim=1).cpu().tolist()
+        self.summaries.clear()
+        metrics = {}
+        for key, row in zip(keys, rows):
+            count, total, minimum, maximum = row[:4]
+            metrics[f"{key}/count"] = int(count)
+            metrics[f"{key}/mean"] = total / count if count else float("nan")
+            metrics[f"{key}/min"] = minimum if count else float("nan")
+            metrics[f"{key}/max"] = maximum if count else float("nan")
+            if self.include_std:
+                metrics[f"{key}/std"] = (row[4] / (count - 1)) ** 0.5 if count > 1 else float("nan")
+        return metrics
+
+
 class Tensors(defaultdict):
     """A class to accumulate tensors and compute statistics (mean, median, std, min, max) across multiple steps and ranks."""
 
@@ -562,7 +718,13 @@ class Tensors(defaultdict):
         for key in keys:
             # All-gather tensors across steps and ranks (get global distribution)
             values = self.pop(key, [])
-            tensors = torch.cat(values, dim=0).to("cuda") if values else torch.empty(0, device="cuda")
+            # A shared dtype also covers ranks without this metric. FP64 avoids
+            # overflow in the variance of large importance-ratio diagnostics.
+            tensors = (
+                torch.cat(values, dim=0).to(device="cuda", dtype=torch.float64)
+                if values
+                else torch.empty(0, device="cuda", dtype=torch.float64)
+            )
             assert tensors.ndim == 1, "Can only aggregate 1D tensors"
             tensors = flexible_all_gather(tensors)
             assert tensors.ndim == 1, "Can only aggregate 1D tensors"

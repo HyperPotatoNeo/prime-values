@@ -1,0 +1,20 @@
+{
+  "status": "independent source/oracle review and bounded CPU acceptance passed; ready for integration",
+  "base": "unit7 optimizer-resume candidate",
+  "upstream": "87ddbcf08179a113e76cd8650511f40e2a6a0e15",
+  "patch_sha256": "2403dfd44bffc9961afe5266a737d963746d85f6e512341a1a700f933f6050ad",
+  "changed_file_count": 8,
+  "protected_file_count": 211,
+  "roundtrip": "Fresh tree from exact base; applied patch and verified all8 resulting bytes/path set",
+  "harnesses": {
+    "experiments/packing-swap/verify.py": "ded86196c6a6b879b5a9ddf8d1c4391b580781f153804fb2b09c86ceaf09daca",
+    "experiments/packing-swap/batch_probe.py": "34a5c838b4d129913e4c1803c60fbdd91d4cb15ceda9a4bc301700fc84d0c530"
+  },
+  "checks": [
+    "130 direct cases including literal first-improvement tie, signed/huge/empty and fallback branches;12 full balanced_partition cases; exact ordered outputs and input nonmutation",
+    "Actual128-sample mixed component/routed-array batch serializes byte-identically:1007809bytes; per-rank/global counts identical",
+    "Three repeated CPU helper timings each shape; no full-model throughput or GPU claim",
+    "Ruff check/format and AST passed; independent reviewer clear"
+  ],
+  "gpu_results": "not applicable: CPU-only algorithm change"
+}

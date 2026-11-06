@@ -68,6 +68,9 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
     # samples without live rl member tokens (the trainer raises otherwise).
     advantages: list[float] | None = None
 
+    # Comparable live-policy engine steps; -1/None means unknown, not dispatch version.
+    token_policy_versions: EncodedTensor | None = None
+
 
 class TrainingBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     """A batch of training examples with metadata for transport."""
@@ -108,3 +111,6 @@ class MicroBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     # Packer-derived metadata used for run-local token exports.
     run_id: str | None = None
     run_step: int | None = None
+
+    # Physical input-token coordinates; shared context keeps original sampled labels.
+    token_policy_versions: EncodedTensor | None = None

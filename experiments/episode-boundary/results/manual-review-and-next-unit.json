@@ -1,0 +1,72 @@
+{
+  "scope": "Independent read-only review of current Episode adapter, dispatcher, task-data consumers, value context; next-unit analysis only. No next-unit implementation or frozen GPU bundle changes.",
+  "current_review": {
+    "blocking_findings": [],
+    "checks": [
+      "Original multi-trace episodes reject before trainability selection; dispatcher rethrows UnsupportedEpisodeError into component failure supervision.",
+      "Episode.ok and Trace.ok jointly gate credit. Successful retry histories remain observable without failing successful traces.",
+      "Empty/failed adapter outputs contain explicit errors, preserving dispatcher/metrics error access; cancellation markers remain failed with original requested task index.",
+      "Native/legacy task.data consumers preserve privileged prompt access and recursive public-record redaction.",
+      "Non-trainable traces skip policy/value materialization before asynchronous evaluator work.",
+      "LOO finish reasons are keyed by ModelCall.node; failed calls have no node. New call ordering does not determine graph ordering.",
+      "Value-disabled harness requires natural exit0, exact policy-step coverage, finite losses/gradients, completion markers, no value processes/checkpoints, and policy publication.",
+      "Episode sink tests use real TrainEnvs, algorithm and TrainSink with only evaluator/renderer/publisher boundaries replaced; frozen prompt comparison explicitly excludes renderer-token/remote equivalence."
+    ],
+    "limits": [
+      "Manual review complements, and does not replace, live GPU validation.",
+      "Adapter shares policy trace graph storage until the existing value-owned snapshot boundary; only value data is claimed immutable.",
+      "The value-disabled final checkpoint alone is not an intermediate-counter-lag oracle; enabled-pipeline intermediate snapshots cover that regression."
+    ]
+  },
+  "recommended_next_unit": {
+    "name": "Client-owned native tasks and stateless environment workers",
+    "upstream_prime_rl": "f5946b098e7d085732897292c150e959138bb703",
+    "required_verifier": "b13ba60da63cea91389e7575766b7270d0d11fc5",
+    "benefit": "Load each native dataset once in the orchestrator instead of each worker, send the exact selected TaskData to every sibling, support lazily generated tasks without server-side index caches or requiring identical worker generation.",
+    "files": [
+      "src/prime_rl/orchestrator/envs.py",
+      "src/prime_rl/orchestrator/train_source.py",
+      "src/prime_rl/orchestrator/dispatcher.py",
+      "src/prime_rl/orchestrator/types.py",
+      "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+      "experiments/rl-safety/pipeline.py"
+    ],
+    "sequence": [
+      "Port only f5946b09 task ownership/addressing changes and verifier b13ba60d; retain current renderer, pydantic and research-environment pins after API checks. Do not pull intervening Prime RL NIXL/ModelExpress transport work.",
+      "Load native tasksets once; finite tasks use the existing seeded shuffle policy, infinite tasks advance once per selected example. Keep one stable serialized task payload per group so all siblings share input and private critic context.",
+      "Send exactly one of task_data (native) or task_idx (legacy). Preserve upstream legacy run_group and canonical Episode\u2192single-original-trace adapter unchanged.",
+      "Adapt config compatibility for verifier non-optional env.taskset; current normalized legacy None needs translation to its empty TasksetConfig. Adapt preflight to load native dataset client-side and prove server reconstruction without server load().",
+      "Validate bounded streaming/eval behavior and explicitly define restart expectations before enabling infinite tasks by default. Keep finite color-codeword pin until its curriculum change is intentional."
+    ],
+    "api_incompatibilities": [
+      "EnvClient.run RunRequest now enforces exclusive task_data/task_idx; native server validates data_cls and reconstructs Task using taskset.task config.",
+      "Native server no longer owns dataset/count/indexed cache. Env.start must obtain native tasks locally; info() task count is only a legacy contract.",
+      "TaskData.idx becomes optional upstream. This launcher retains integer record IDs while allowing duplicate/gappy semantic idx; seeded selection follows dataset order and credit/pass@k remain keyed by group UUID, without unbounded identity history.",
+      "EnvConfig.taskset becomes non-optional; old normalized legacy configs currently serialize None.",
+      "Agent.run(shared_tools=...) becomes tools=... and client ownership closes resources. Current research package source search found no shared_tools= calls, but real custom agent/tool smoke remains appropriate.",
+      "Verifier delta includes Docker network-policy support. Defaults preserve unrestricted policy; do not expose or claim this separate feature without its own validation."
+    ],
+    "preservation_boundaries": [
+      "Keep vf.Episode canonical, reject >1 original trace, and preserve episode failure provenance.",
+      "No policy/value return, lambda, action mask, renderer, numerical dtype, or loss changes.",
+      "ValueTrajectory snapshot stays the ownership boundary before filtering; static privileged task data and LOO grouping must produce identical inputs.",
+      "Legacy dataset row addressing and joint-score group membership remain unchanged."
+    ],
+    "acceptance": [
+      "Real two-worker native fixture records dataset load only once on the client, with zero worker dataset loads; both siblings receive byte-identical selected data.",
+      "Finite seeded sequence matches old index-based selection for the same dataset; opaque extra TaskData fields, image content and private value prompt survive reconstruction.",
+      "Infinite fixture is pulled once per group, remains bounded by dispatch permits, and eval rejects unbounded num_examples. Invalid/missing/excluded wire fields fail explicitly.",
+      "Run existing legacy single/joint producer smoke and Episode sink/cancellation tests unchanged. Compare exact frozen critic credit and LOO prompt receipts.",
+      "One representative real model fresh+resume pipeline verifies value warmup/adoption and finite updates; retain value-disabled smoke."
+    ],
+    "resume_caveat": "Neither current TrainSource nor upstream f5946b09 checkpoints source RNG/cursors/generator state; verifier content-identity evaluation resume is not exact RL sampler resume. Do not claim identical task-order continuation. A separate source-state contract is needed for that stronger guarantee.",
+    "deferred": [
+      "Multi-agent value credit",
+      "Episode/group scoring redesign",
+      "Remote payload ownership/release lifecycle",
+      "Per-token generation-version provenance/staleness changes",
+      "NIXL or ModelExpress weight transport",
+      "Latest GPU stack upgrades"
+    ]
+  }
+}

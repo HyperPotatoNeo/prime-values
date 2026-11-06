@@ -33,7 +33,7 @@ from prime_rl.trainer.models.layers.rotary_emb import (
     RotaryEmbeddingConfig,
     apply_rotary_pos_emb,
 )
-from prime_rl.utils.sequence import get_cu_seqlens_from_position_ids
+from prime_rl.utils.sequence import PackedSequenceMetadata, get_cu_seqlens_from_position_ids
 
 from .configuration_afmoe import AfmoeConfig
 from .converting_afmoe import (
@@ -464,6 +464,7 @@ class AfmoeModel(AfmoePreTrainedModel):
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         routed_experts: Optional[torch.LongTensor] = None,
+        packing_metadata: PackedSequenceMetadata | None = None,
     ) -> MoeModelOutputWithPast:
         """
         routed_experts (`torch.LongTensor` of shape `(batch_size, sequence_length, num_hidden_layers, num_experts_per_tok)`, *optional*):
@@ -480,8 +481,14 @@ class AfmoeModel(AfmoePreTrainedModel):
 
         use_flash = self.config._attn_implementation in ("flash_attention_2", "flash_attention_3", "fa4")
 
+        if packing_metadata is not None:
+            packing_metadata.validate_shape(inputs_embeds.shape[0], inputs_embeds.shape[1], inputs_embeds.device)
+
         if use_flash:
-            cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+            if packing_metadata is None:
+                cu_seqlens, max_seqlen = get_cu_seqlens_from_position_ids(position_ids)
+            else:
+                cu_seqlens, max_seqlen = packing_metadata.cu_seqlens, packing_metadata.max_seqlen
             torch._dynamo.mark_dynamic(cu_seqlens, 0)
             causal_mask_mapping = None
         else:
@@ -529,6 +536,8 @@ class AfmoeModel(AfmoePreTrainedModel):
 
 
 class AfmoeForCausalLM(AfmoePreTrainedModel, GenerationMixin):
+    supports_packed_sequence_metadata = True
+
     _tied_weights_keys = {"lm_head.weight": "model.embed_tokens.weight"}
     _tp_plan = {"lm_head": "colwise_rep"}
     _pp_plan = {"lm_head": (["hidden_states"], ["logits"])}
@@ -573,6 +582,7 @@ class AfmoeForCausalLM(AfmoePreTrainedModel, GenerationMixin):
         token_type_ids: Optional[torch.Tensor] = None,  # will be ignored
         temperature: Optional[torch.Tensor] = None,
         routed_experts: Optional[torch.LongTensor] = None,
+        packing_metadata: PackedSequenceMetadata | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> PrimeLmOutput:
         r"""
@@ -589,6 +599,7 @@ class AfmoeForCausalLM(AfmoePreTrainedModel, GenerationMixin):
 
         outputs: MoeModelOutputWithPast = self.model(
             input_ids=input_ids,
+            packing_metadata=packing_metadata,
             attention_mask=attention_mask,
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,

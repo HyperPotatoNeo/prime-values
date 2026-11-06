@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "paired_producer_cases_verified": 8,
+  "paired_context_results_verified": 8,
+  "three_path_counterfactuals_verified": true,
+  "source_hashes_verified": 18,
+  "unchanged_value_math_sink_materializer_algorithm_files_verified": 7,
+  "cases": [
+    {
+      "case": "within",
+      "actions": [
+        28
+      ]
+    },
+    {
+      "case": "exact",
+      "actions": [
+        28
+      ]
+    },
+    {
+      "case": "completion_clipped",
+      "actions": [
+        3
+      ]
+    },
+    {
+      "case": "prompt_overflow",
+      "actions": []
+    }
+  ],
+  "raw_sha256": "b048027e35192bdb5aa7932fe0a1efacbcfb0a17b4d88210052870b0969ddbcb",
+  "harness_sha256": "bde1d2fbed96a924be9e0ce91dfbd3dd3e32aeefcf7756a67ea61b78da52fe7e",
+  "qualification": "Only explicitly asserted preexisting reasoning_tokens0/None differs across producers. Full native Usage is unchanged by projection. No GPU/model or untested topology claim."
+}

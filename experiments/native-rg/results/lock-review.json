@@ -1,0 +1,143 @@
+{
+  "baseline_lock_sha256": "a1caefe4206412ac649e55328eafd8c4671ae3b816d3a90f6482354c30159b5f",
+  "candidate_lock_sha256": "ebecb1c1dee65ad2ab78dcb7829bbf0befe9d4f1b1fc6f17639f4ef1b0165444",
+  "added": [
+    "arckit",
+    "bfi",
+    "cellpylib",
+    "drawsvg",
+    "magiccube",
+    "pycosat",
+    "pyfiglet",
+    "pytz",
+    "reasoning-gym",
+    "rg-mix-env",
+    "zss"
+  ],
+  "removed": [],
+  "changed_existing": [
+    "prime-rl"
+  ],
+  "all_existing_nonroot_packages_structurally_equal": true,
+  "pinned_scorer": "0.1.25",
+  "numeric_and_core_versions": {
+    "torch": {
+      "version": "2.11.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "torchvision": {
+      "version": "0.26.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "torchaudio": {
+      "version": "2.11.0+cu128",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/cu128"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "transformers": {
+      "version": "5.6.2",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "vllm": {
+      "version": "0.24.0+cu129",
+      "source": {
+        "url": "https://github.com/vllm-project/vllm/releases/download/v0.24.0/vllm-0.24.0+cu129-cp38-abi3-manylinux_2_28_x86_64.whl"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "flash-attn": {
+      "version": "2.8.3+cu128torch2.11",
+      "source": {
+        "url": "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu128torch2.11-cp312-cp312-linux_x86_64.whl"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "flash-attn-3": {
+      "version": "3.0.0",
+      "source": {
+        "registry": "https://download.pytorch.org/whl/test/cu128"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "flash-linear-attention": {
+      "version": "0.5.2",
+      "source": {
+        "git": "https://github.com/fla-org/flash-linear-attention#a95475391465272cd3dc11e47d4a7772522dc9b7"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "triton": {
+      "version": "3.6.0",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "numpy": {
+      "version": "2.3.5",
+      "source": {
+        "registry": "https://pypi.org/simple"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "dion": {
+      "version": "0.1.0",
+      "source": {
+        "git": "https://github.com/samsja/dion.git?rev=d891eeb#d891eebbd950a6ff11d9b5f806282e33df83df9d"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "renderers": {
+      "version": null,
+      "source": {
+        "editable": "deps/renderers"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "verifiers": {
+      "version": null,
+      "source": {
+        "editable": "deps/verifiers"
+      },
+      "unchanged_full_lock_entry": true
+    },
+    "prime-pydantic-config": {
+      "version": null,
+      "source": {
+        "editable": "deps/pydantic-config"
+      },
+      "unchanged_full_lock_entry": true
+    }
+  },
+  "sync_check": {
+    "command": "UV_PROJECT_ENVIRONMENT=../native-rg-full-sync-env uv sync --all-extras --locked",
+    "result": "Resolved472 packages then rejected macOS because lock supportsLinux x86_64/aarch64 only; no installedGPUenvironmentmodified. Runtimeagentowns isolateduvCPUprojectinstallation."
+  },
+  "package_python_floor": ">=3.11",
+  "root_pyproject_only_changes": [
+    "Add rg-mix-env to optional envs dependencies",
+    "Add editable packages/rg-mix-env source, matching existing local package layout; no workspace table needed"
+  ],
+  "root_pyproject_sha256": "111f2687ac28d0f46ec5f2a3353100ed765d4538165aac57024660b9027bc606",
+  "linux_sync_dry_run": {
+    "command": "UV_PROJECT_ENVIRONMENT=../native-rg-full-sync-env uv sync --all-extras --locked --dry-run --python-platform x86_64-manylinux_2_35",
+    "exit_code": 0,
+    "resolved_packages": 472,
+    "would_install_packages": 469,
+    "actual_install_performed": false,
+    "qualification": "GenericLinux2.28 dry-run rejected existingMooncake2.35wheel floor; explicit supportedglibc2.35 plan succeeds. FullGPUenvironmentnotinstalledonMac."
+  },
+  "all_existing_nonroot_entries_including_duplicate_names_equal": true,
+  "unchanged_existing_nonroot_entry_count": 460
+}

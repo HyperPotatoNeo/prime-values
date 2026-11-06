@@ -1,0 +1,82 @@
+[
+  {
+    "name": "control",
+    "exit_code": 0,
+    "tests": 22,
+    "errors": 0,
+    "skips": 0,
+    "failures": 0,
+    "assertion_failures": 0,
+    "status": "passed"
+  },
+  {
+    "name": "shared_lambdas",
+    "exit_code": 1,
+    "tests": 15,
+    "errors": 0,
+    "skips": 0,
+    "failures": 8,
+    "assertion_failures": 8,
+    "status": "killed"
+  },
+  {
+    "name": "context_as_action",
+    "exit_code": 1,
+    "tests": 15,
+    "errors": 0,
+    "skips": 0,
+    "failures": 15,
+    "assertion_failures": 15,
+    "status": "killed"
+  },
+  {
+    "name": "symmetric_dppo",
+    "exit_code": 1,
+    "tests": 2,
+    "errors": 0,
+    "skips": 0,
+    "failures": 1,
+    "assertion_failures": 1,
+    "status": "killed"
+  },
+  {
+    "name": "drop_rejected_action_kl",
+    "exit_code": 1,
+    "tests": 5,
+    "errors": 0,
+    "skips": 0,
+    "failures": 5,
+    "assertion_failures": 5,
+    "status": "killed"
+  },
+  {
+    "name": "differentiate_reference_advantage",
+    "exit_code": 1,
+    "tests": 3,
+    "errors": 0,
+    "skips": 0,
+    "failures": 3,
+    "assertion_failures": 3,
+    "status": "killed"
+  },
+  {
+    "name": "gate_ce_by_action_mask",
+    "exit_code": 1,
+    "tests": 3,
+    "errors": 0,
+    "skips": 0,
+    "failures": 3,
+    "assertion_failures": 3,
+    "status": "killed"
+  },
+  {
+    "name": "unshifted_value_state",
+    "exit_code": 1,
+    "tests": 2,
+    "errors": 0,
+    "skips": 0,
+    "failures": 2,
+    "assertion_failures": 2,
+    "status": "killed"
+  }
+]

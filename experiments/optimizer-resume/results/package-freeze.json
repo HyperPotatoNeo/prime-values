@@ -1,0 +1,18 @@
+{
+  "status": "independent source/harness review clear; frozen for GPU acceptance",
+  "base": "immutable unit6 activation-offload candidate; remote /data/activation-offload-001/candidate",
+  "upstream": "91dce1f3",
+  "patch_sha256": "0e299dee696f8b8cbc70861506ddedfac9f1b91d362a32de96a0356be5cc6a90",
+  "changed_file_count": 3,
+  "protected_file_count": 211,
+  "roundtrip": "Applied to fresh tree from exact base; all3 resulting bytes and path set verified",
+  "harnesses": {
+    "tests/integration/optimizer_resume_probe.py": "f5b1c018cd0b7454afb0f521a1e5c363989ce74b02a465c821abbbae24698389"
+  },
+  "review": [
+    "Actual torch2.11 DCP group ordering inspected; snapshots canonical FQNs before load mutates groups",
+    "All base optimizers restored in list/group order; count/order/membership rejected before metadata mutation; params and CPU state tensors untouched",
+    "Actual DCP Muon/Adam/mixed oracle checks full state and two continued updates, changed LR/labels, pointer identities and rejection controls"
+  ],
+  "gpu_results": "pending"
+}

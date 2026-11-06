@@ -62,6 +62,7 @@ class AppState(Stateful):
         self.optimizers = optimizers
         self.scheduler = scheduler
         self.progress = progress
+        self._optimizer_group_params: list[list[str]] | None = None
 
     def _get_base_optimizers(self) -> list[Optimizer]:
         """Extract base optimizers from wrappers like CPUOffloadOptimizer."""
@@ -104,6 +105,9 @@ class AppState(Stateful):
         # returns, without GPU optimizer state ever existing for the duration of the
         # read.
         has_cpu_offload = self._has_cpu_offload()
+        if has_cpu_offload:
+            # Keep the template identity separate from the groups DCP overwrites.
+            self._optimizer_group_params = [list(group["params"]) for group in optimizer_state_dict["param_groups"]]
         for opt in self.optimizers:
             if isinstance(opt, CPUOffloadOptimizer):
                 opt._move_states("cpu")
@@ -126,10 +130,27 @@ class AppState(Stateful):
             # through Optimizer.load_state_dict, whose _cast hook does
             # value.to(param.dtype, param.device) and would allocate a fresh GPU
             # copy of every state tensor — undoing the in-place CPU load and
-            # detaching optim.state from the tensors we just populated. So we only
-            # apply the model side here and flip the wrappers to initialized so
-            # subsequent steps take the steady-state path.
+            # detaching optim.state from the tensors we just populated. Apply the
+            # model and group metadata without loading optimizer tensors again.
+            loaded_groups = state_dict["optimizers"]["param_groups"]
+            current_groups = [group for optimizer in base_optimizers for group in optimizer.param_groups]
+            if self._optimizer_group_params is None:
+                raise RuntimeError("CPU-offload checkpoint loading requires an AppState state_dict template")
+            if len(loaded_groups) != len(current_groups) or len(loaded_groups) != len(self._optimizer_group_params):
+                raise ValueError("Checkpoint optimizer parameter-group count does not match the load template")
+            if any(
+                list(group["params"]) != expected
+                for group, expected in zip(loaded_groups, self._optimizer_group_params, strict=True)
+            ):
+                raise ValueError(
+                    "Checkpoint optimizer parameter-group order or membership does not match the load template"
+                )
+
             set_model_state_dict(self.model, model_state_dict=state_dict["model"])
+            # DCP fills state tensors in place, but Python group metadata (including
+            # Muon's step counter) must be restored without replacing parameters.
+            for group, loaded_group in zip(current_groups, loaded_groups, strict=True):
+                group.update({key: value for key, value in loaded_group.items() if key != "params"})
             for opt in self.optimizers:
                 if isinstance(opt, CPUOffloadOptimizer):
                     opt._initialized = True

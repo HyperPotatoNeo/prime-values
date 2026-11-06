@@ -1,0 +1,133 @@
+{
+  "model": {
+    "name": "Qwen/Qwen3-4B-Instruct-2507",
+    "trust_remote_code": false,
+    "vlm": null,
+    "seq_len": 512,
+    "attn": "flash_attention_2",
+    "compile": {
+      "fullgraph": false
+    },
+    "ac": {
+      "mode": "full",
+      "freq": 1,
+      "targets": [
+        "norm"
+      ]
+    },
+    "ac_offloading": {
+      "pin_memory": true,
+      "max_inflight_activations": 5
+    },
+    "fsdp_cpu_offload": false,
+    "optim_cpu_offload": false,
+    "reshard_after_forward": true,
+    "dp_replicate": 1,
+    "ep": "auto",
+    "ep_comm_backend": "torch",
+    "deepep_num_sms": 20,
+    "deepep_token_chunk_size": null,
+    "cp": 1,
+    "cp_style": "ring",
+    "impl": "custom",
+    "optimization_dtype": "float32",
+    "reduce_dtype": "float32",
+    "moe_router_dtype": "float32",
+    "moe_use_grouped_mm": true,
+    "fp8": false,
+    "index_cache": null,
+    "freeze_moe_router": false,
+    "lora": null,
+    "debug": {
+      "num_layers": null,
+      "random_init": false,
+      "force_balanced_routing": false
+    },
+    "fused_lm_head_token_chunk_size": 1024
+  },
+  "tokenizer_name": null,
+  "privileged_context": "task",
+  "loss": {
+    "type": "classification",
+    "reward_range": [
+      0.0,
+      1.0
+    ],
+    "num_bins": 2
+  },
+  "optim": {
+    "lr": 0.00001,
+    "weight_decay": 0.01,
+    "max_norm": 1.0,
+    "type": "adamw",
+    "betas1": 0.9,
+    "betas2": 0.999
+  },
+  "scheduler": {
+    "type": "constant"
+  },
+  "gamma": 1.0,
+  "gae_lambda": 1.0,
+  "value_target_lambda": 1.0,
+  "batch_size": 8,
+  "replay": {
+    "max_updates_per_rollout": 1,
+    "capacity": 8,
+    "refill_size": 8,
+    "seed": 0
+  },
+  "warmup_updates": 2,
+  "transport": {
+    "type": "zmq",
+    "host": "127.0.0.1",
+    "bind_host": "0.0.0.0",
+    "port": 29610,
+    "poll_timeout_ms": 1000,
+    "max_pending_rollouts": 2048
+  },
+  "weight_broadcast": {
+    "type": "nccl",
+    "host": "127.0.0.1",
+    "port": 29611,
+    "control_port": 29613,
+    "timeout": 1200,
+    "evaluator_world_size": 1
+  },
+  "evaluator": {
+    "placement": "dedicated",
+    "base_url": [
+      "http://127.0.0.1:29612"
+    ],
+    "host": "0.0.0.0",
+    "port": 29612,
+    "max_batch_tokens": 4096,
+    "batch_wait_ms": 2.0,
+    "max_concurrency": 64,
+    "max_pending_requests": 64,
+    "max_pending_tokens": 1048576,
+    "request_timeout": 600.0,
+    "dtype": "bfloat16",
+    "double_buffer_weights": true
+  },
+  "ckpt": {
+    "interval": 1,
+    "resume_step": null,
+    "keep_last": 1
+  },
+  "output_dir": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/episode-producer/native-preflight/run/value",
+  "max_steps": null,
+  "matmul_precision": "high",
+  "dist_timeout_seconds": 3600,
+  "log": {
+    "level": "debug",
+    "vf_level": "info",
+    "json_logging": false,
+    "log_data": false,
+    "interval": 10.0,
+    "ranks_filter": [
+      0
+    ]
+  },
+  "wandb": null,
+  "env_vars": {}
+}

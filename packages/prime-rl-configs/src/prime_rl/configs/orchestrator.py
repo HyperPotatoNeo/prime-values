@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
 import verifiers.v1 as vf
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, SerializeAsAny, model_validator
 from renderers import AutoRendererConfig, RendererConfig
 
 from prime_rl.configs.algorithm import (
@@ -151,7 +151,38 @@ class EvalSamplingConfig(BaseConfig):
         return data
 
 
-class EnvConfig(vf.EnvServerConfig):
+class EnvConfig(vf.ServeConfig):
+    """PrimeRL sampling/admission settings around the canonical native env and serving config."""
+
+    env: SerializeAsAny[vf.EnvConfig] = Field(default_factory=vf.SingleAgentEnvConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_native_env(cls, data):
+        from verifiers.v1.configs.cli.env import resolve_env_field
+
+        if isinstance(data, dict):
+            if any(key in data for key in ("id", "args", "extra_env_kwargs")):
+                raise ValueError(
+                    "Legacy environment configuration requires the frozen current-stack branch/lock. "
+                    "This experimental native producer accepts env.taskset; legacy IDs are not native aliases."
+                )
+            data = dict(data)
+        resolved = resolve_env_field(data)
+        if isinstance(resolved, dict) and isinstance(resolved.get("env"), vf.EnvConfig):
+            from verifiers.v1.runtimes import SubprocessConfig
+
+            # PrimeRL previously ran harnesses locally unless explicitly configured.
+            # The new verifier default is remote Prime provisioning; preserve ours.
+            for name, agent in resolved["env"]:
+                if isinstance(agent, vf.AgentConfig) and "runtime" not in agent.model_fields_set:
+                    setattr(resolved["env"], name, agent.model_copy(update={"runtime": SubprocessConfig()}))
+        return resolved
+
+    @property
+    def env_id(self) -> str:
+        return self.env.env_id
+
     name: str | None = None
     """Display name for this environment in logs, metrics, and buffer keys. Defaults to the taskset id. Must be unique across all envs in the same group."""
 
@@ -168,20 +199,94 @@ class EnvConfig(vf.EnvServerConfig):
         fixed ``static`` pool, ``"auto"`` falls through to the default ``elastic`` pool. An
         explicit ``pool`` always wins."""
         if isinstance(data, dict) and "num_workers" in data:
+            data = dict(data)
             num_workers = data.pop("num_workers")
             if "pool" not in data and num_workers != "auto":
                 data["pool"] = {"type": "static", "num_workers": num_workers}
         return data
 
-    @property
-    def is_legacy(self) -> bool:
-        """A v0/legacy env (run via the bridge): an ``id`` is set and no v1 ``taskset`` is."""
-        return not self.taskset.id
-
-    @property
-    def env_id(self) -> str:
-        """The env identifier — the v1 taskset id (v1) or the legacy env id (v0)."""
-        return self.taskset.id or self.id or ""
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_agent_config(cls, data):
+        """Translate flat single-agent inputs into the canonical verifier env schema."""
+        agent_fields = (
+            "harness",
+            "runtime",
+            "timeout",
+            "retries",
+            "max_turns",
+            "max_input_tokens",
+            "max_output_tokens",
+            "max_total_tokens",
+        )
+        if not isinstance(data, dict):
+            return data
+        env_data = data.get("env")
+        if isinstance(env_data, dict):
+            env_data = dict(env_data)
+            agent = env_data.get("agent")
+            if isinstance(agent, dict) and isinstance(agent.get("harness"), dict) and "runtime" in agent["harness"]:
+                agent = dict(agent)
+                harness = dict(agent["harness"])
+                runtime = harness.pop("runtime")
+                if "runtime" in agent:
+                    raise ValueError("Do not set runtime in both agent and agent.harness")
+                agent.update(harness=harness, runtime=runtime)
+                env_data["agent"] = agent
+                data = {**data, "env": env_data}
+        if isinstance(env_data, dict) and "taskset" in env_data and env_data["taskset"] is None:
+            data = {**data, "env": {**env_data, "taskset": {}}}
+        if not any(key in data for key in ("taskset", "multiplex", *agent_fields)):
+            return data
+        data = dict(data)
+        if "env" in data:
+            raise ValueError("Do not mix flat taskset/agent options with env; put all options under env and env.agent")
+        warnings.warn(
+            "Flat environment options are deprecated; use env.taskset, env.agent and env.interception instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        env: dict = {}
+        if "taskset" in data:
+            taskset = data.pop("taskset")
+            if isinstance(taskset, dict):
+                taskset = dict(taskset)
+                judges = taskset.pop("judges", None)
+                if judges:
+                    task = dict(taskset.get("task", {}))
+                    if "judges" in task:
+                        raise ValueError("Do not set both taskset.judges and taskset.task.judges")
+                    task["judges"] = judges
+                    taskset["task"] = task
+                if not taskset.get("id") and set(taskset) <= {"id"}:
+                    taskset = {}
+            env["taskset"] = {} if taskset is None else taskset
+        agent = {key: data.pop(key) for key in agent_fields if key in data}
+        retries = agent.get("retries")
+        if isinstance(retries, dict) and "rollout" in retries:
+            if set(retries) != {"rollout"}:
+                raise ValueError("Do not mix retries.rollout with agent retry fields")
+            agent["retries"] = retries["rollout"]
+        harness = agent.get("harness")
+        if isinstance(harness, dict) and "runtime" in harness:
+            harness = dict(harness)
+            runtime = harness.pop("runtime")
+            if "runtime" in agent:
+                raise ValueError("Do not set runtime in both agent and agent.harness")
+            agent.update(harness=harness, runtime=runtime)
+        if isinstance(harness, dict) and harness.get("id", "default") == "default":
+            agent["harness"] = {**harness, "id": "bash"}
+        elif harness is None and "taskset" in env:
+            agent["harness"] = {"id": "bash"}
+        if agent:
+            env["agent"] = agent
+        if "multiplex" in data:
+            env["interception"] = {
+                "type": "elastic",
+                "multiplex": data.pop("multiplex"),
+            }
+        data["env"] = env
+        return data
 
     @property
     def resolved_name(self) -> str:
@@ -189,29 +294,28 @@ class EnvConfig(vf.EnvServerConfig):
 
     @model_validator(mode="after")
     def validate_env(self):
-        if not self.taskset.id and not self.id:
-            raise ValueError('no env configured — set taskset = { id = "<id>" } (v1) or id = "<id>" (v0/legacy)')
+        if not self.env_id:
+            raise ValueError('no env configured — set env.taskset = { id = "<native-id>" }')
         if self.resolved_name == "agg":
             raise ValueError(
                 'Environment name "agg" is reserved for cross-env metric aggregation. Use a different name or id.'
             )
         return self
 
-    @model_validator(mode="after")
-    def resolve_legacy_env_kwargs(self):
-        """For a v0/legacy env, surface the v1 knobs the legacy bridge applies via
-        ``extra_env_kwargs`` (``env.set_kwargs(...)``): the per-rollout wall-clock timeout and
-        the multi-turn completion-token budget. (``max_seq_len`` is added per train run in
-        ``OrchestratorConfig.resolve_env_config``, which knows ``seq_len``.)"""
-        if self.is_legacy:
-            if self.timeout.rollout is not None:
-                self.extra_env_kwargs["timeout_seconds"] = self.timeout.rollout
-            if self.max_output_tokens is not None:
-                self.extra_env_kwargs["max_total_completion_tokens"] = self.max_output_tokens
-        return self
+
+class SingleTurnTrainingProjectionConfig(BaseConfig):
+    type: Literal["single_turn"] = "single_turn"
+    max_seq_len: int | None = Field(None, gt=0, strict=True)
+    """Retained training-token prefix. None resolves to the actor sequence length."""
 
 
 class TrainEnvConfig(EnvConfig):
+    training_projection: SingleTurnTrainingProjectionConfig | None = None
+    """Optional post-generation projection of a native single-turn text trace.
+    Scoring text and provider usage remain complete; policy and value training
+    consume the retained token prefix. None preserves the producer's geometry.
+    """
+
     sampling: TrainSamplingConfig = TrainSamplingConfig()
     """Per-env sampling overrides. Unset fields inherit from the group-level train sampling config."""
 
@@ -418,7 +522,8 @@ class NCCLWeightBroadcastConfig(BaseConfig):
 
 
 WeightBroadcastConfig: TypeAlias = Annotated[
-    FileSystemWeightBroadcastConfig | NCCLWeightBroadcastConfig, Field(discriminator="type")
+    FileSystemWeightBroadcastConfig | NCCLWeightBroadcastConfig,
+    Field(discriminator="type"),
 ]
 
 
@@ -624,13 +729,10 @@ class OrchestratorConfig(BaseConfig):
         it's ignored."""
         if self.pool_size is None:
             return self
-        if not self.any_policy_sourced:
-            raise ValueError(
-                f"orchestrator.pool_size={self.pool_size!r} is set but no train env samples "
-                "from the policy — the renderer-client sampling pool never runs (the renderer "
-                "is still used for client-side tokenization). Remove pool_size."
-            )
-        return self
+        raise ValueError(
+            "pool_size is obsolete in this native producer profile: renderer pools are elastic and multiplexed; "
+            "fixed pool size has no equivalent mapping. Remove pool_size."
+        )
 
     @model_validator(mode="after")
     def validate_renderer_auto_resolves(self):
@@ -724,8 +826,10 @@ class OrchestratorConfig(BaseConfig):
 
     @model_validator(mode="after")
     def resolve_env_config(self):
-        """Set vLLM sampling defaults + legacy env kwargs on each train env from top-level fields."""
+        """Resolve training projection and policy sampling defaults from top-level fields."""
         for env in self.train.env:
+            if env.training_projection is not None and env.training_projection.max_seq_len is None:
+                env.training_projection.max_seq_len = self.seq_len
             # Policy-sourced rollouts hit our vLLM server; frozen-sourced
             # rollouts may hit external OAI endpoints that reject these knobs.
             assert env.algo is not None
@@ -733,8 +837,4 @@ class OrchestratorConfig(BaseConfig):
                 env.sampling.extra_body.setdefault("top_k", -1)
                 env.sampling.extra_body.setdefault("min_p", 0.0)
                 env.sampling.extra_body.setdefault("return_token_ids", True)
-            if env.is_legacy:
-                # v0 env: cap per-turn response tokens to the training budget (the legacy
-                # bridge applies extra_env_kwargs via env.set_kwargs).
-                env.extra_env_kwargs["max_seq_len"] = self.seq_len
         return self

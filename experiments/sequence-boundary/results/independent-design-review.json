@@ -1,0 +1,44 @@
+{
+  "status": "read_only_review_complete; implementation_contract_proposed",
+  "source": "native RG unit e019cb55; verifier b13ba60da63cea91389e7575766b7270d0d11fc5",
+  "reproduction_review": {
+    "artifact": "attempt001/result.json",
+    "independent_source_review": true,
+    "executed_by_this_reviewer": false,
+    "result": "Identical actual renderer requests and full-response reward1; prompt651/completion28. Limit680 preserves28actions; limit654 retains3legacy actions versus28native; limit650 produces no legacy training sample. Gamma0.9 zero-value terminal credit is 0.81/0.9/1 for legacy3actions, not the native first3 targets.",
+    "limitations": "Single cached RG task, deterministic HTTP response, real servers/renderers/materializer/value credit. No model, GPU, whole TrainSink publication or multiturn proof."
+  },
+  "source_findings": [
+    "OrchestratorConfig.resolve_env_config sets max_seq_len only on legacy training environments.",
+    "Verifier utils/response_utils.py parse_response_tokens clips returned token arrays after full response parsing. Full message text remains the reward and peer-context source.",
+    "Verifier v1/legacy.py _to_v1_response preserves original call Usage and finish_reason. _v1_stop_condition separately maps truncation stop names.",
+    "Verifier v1/trace.py Branch.num_total_tokens uses last_usage.total_tokens and num_output_tokens uses aggregate usage.completion_tokens. Both remain physical provider counters after legacy clipping. Do not replace these with retained training counts in length penalty or batching.",
+    "TrainSink captures ValueTrajectory after materialization. This is the ownership boundary: truncation after capture or only in policy packing is too late to preserve critic credit geometry.",
+    "Filters inspect branches directly; algorithm base reference scoring, Echo and Tether fallback also consume iter_trainable_branches. Materialized-samples-only clipping would leave inconsistent training consumers.",
+    "from_episode currently shares node/call objects through model_construct. Projection must allocate owned node arrays; mutating the returned Rollout would otherwise mutate the canonical physical Episode."
+  ],
+  "recommended_contract": {
+    "configuration": "Explicit opt-in per-training-environment projection profile, default absent. Positive max_seq_len resolved to actor sequence length for an explicitly migrated config; no automatic native default change.",
+    "boundary": "One pure helper projects an upstream vf.Trace before from_episode constructs Rollout. Input Episode remains byte-identical. Returned canonical Trace is explicitly a training projection, not claimed to be the physical source.",
+    "initial_admission": "One successful model call, one linear text-only branch, complete well-aligned token/mask/logprob arrays. Reject requested projection for unsupported multiturn, branching, tools, multimodal, routed-expert or kept-token sidecars. No restriction is added when projection is absent.",
+    "geometry": "Clone nodes and slice token_ids/mask/is_content by remaining prefix cap; slice sampling logprobs by retained sampled-token count. Retain empty suffix nodes, full messages, calls, raw Usage, finish reasons, rewards and task data. This preserves graph/call identity while changing only training-visible arrays.",
+    "provenance": "Retain original physical trace or Episode in an excluded ownership field if its lifetime otherwise ends. Persist a clear projection receipt: profile, limit, original stop/truncation, physical and retained token/action counts. Serialized projected records must be labeled. Do not invent raw usage or overwrite physical call finish reasons.",
+    "truncation": "Projected trace exposes effective truncation when clipping occurred, using an existing canonical truncation stop marker and recording the original reason. Exact legacy stop-condition spelling is not universal: RG maps max_turns_reached to max_turns. Keep physical flags accessible separately.",
+    "no_actions": "Prompt at or beyond the cap produces no sampled training tokens; existing no-sample and group/LOO rejection handles the rollout. No fake terminal action or critic update.",
+    "credit": "Existing critic snapshot/GAE receives projected samples. Full-response reward remains assigned to the last retained action. Existing critic sequence cap and privileged-prefix rules remain unchanged.",
+    "other_consumers": "All filters/reference scoring/Echo/Tether/materialization see the same projected canonical trace through existing Rollout paths. LOO full message text and actual call finish reasons remain unchanged. Existing raw provider usage counters keep historical length-penalty and batching meaning."
+  },
+  "acceptance_gates": [
+    "No-profile native path remains byte-for-byte and numerically unchanged; original Episode bytes remain unchanged under projection too.",
+    "Actual old/native producer cases below, equal to, and above both prompt and completion boundaries; compare masks/logprobs/actions, full reward, raw Usage, effective truncation and owned value targets.",
+    "Actual TrainSink publication and group-LOO context equality for mixed rewards with a clipped sibling; prompt-overflow sibling yields the same whole-group eligibility behavior.",
+    "Tail-only gibberish/repetition must be ignored in projected filters exactly as legacy; retained-prefix defect remains detected. This checks cohort selection, not only array lengths.",
+    "Unsupported topology and sidecars fail explicitly before sample/value publication; no-profile versions continue working.",
+    "Keep source and projected records separately inspectable; destructive downstream sample cleanup cannot mutate the physical Episode or owned critic trajectory."
+  ],
+  "later_dependency_pair": {
+    "verifier": "3f142cc61adb4b0168d925fb44e76370d6299a37",
+    "renderer": "0526944665ac9f00e8d56e110babe97a2c174fa4",
+    "finding": "Reviewed TrainClient, AgentConfig and TurnTokens definitions: no equivalent post-response actor-training-limit option. Agent/input/output limits and renderer max_prompt_len change generation/admission, so cannot reproduce full-text scoring plus clipped training. Later verifier has logical/effective multimodal token separation and version spans; projection must explicitly reject or support those arrays during that future upgrade. This bounded current-stack projection does not require upgrading the producer dependencies."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-05",
+  "base_main": "30bfbf301335e8ce24c62fa5fd24bcc37a633bd3",
+  "baseline": "95263173",
+  "upstream_inspected": "3c96816de9a2a906649a04026a46517840a0f4a6",
+  "source_matches": 313,
+  "archive": {
+    "name": "rl-safety-evidence.tar.gz",
+    "bytes": 26891157,
+    "sha256": "b75ae90602c9b0c792b09183b497c953b7585d4826a7b69a07d92004884055aa",
+    "files_verified": 445,
+    "persistent_location": "prime-values-shared:/data/rl-safety-001/evidence.tar.gz"
+  },
+  "runtime": {
+    "image": "primeintellect/prime-rl@sha256:e175fb968a270de9450cde72817ebac0a97087fbfc3b7765f1c10cc5b5886209",
+    "model": "Qwen/Qwen3-4B-Instruct-2507",
+    "model_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "submodules": {
+      "pydantic-config": "99f47c6cc043e91c995fae225a495a92efe1126c",
+      "renderers": "5904fa24aa73f83c1694fd85a78d0e746d468284",
+      "research-environments": "3e3b5ac3d75aa30f783d5b0c71e39b034cadcec2",
+      "verifiers": "9c6b155e10e58981a2495840b8a9026becbcfb9e"
+    }
+  },
+  "qualification": "Fresh-stage natural exits were not recorded; completed updates/checkpoints verified. Both fresh-process resumed stages recorded natural exit zero.",
+  "large_checkpoints": "Node-local full Qwen checkpoints are disposable; archive retains metadata/scalars/logs, not full Qwen states.",
+  "cleanup": {
+    "jobs_deleted": [
+      "pv-rl-safety-001",
+      "pv-rl-safety-002",
+      "pv-rl-safety-003"
+    ],
+    "remaining_test_pods": 0,
+    "unrelated_training": "untouched",
+    "persistent_evidence": "retained"
+  }
+}

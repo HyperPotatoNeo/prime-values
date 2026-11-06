@@ -1,0 +1,29 @@
+{
+  "status": "source_and_pure_contracts_passed",
+  "base": "19e0e4f7",
+  "tests": 11,
+  "junit": "independent-tests001.xml",
+  "ruff": "passed; only formatter changes after test execution",
+  "files_sha256": {
+    "src/prime_rl/orchestrator/provenance.py": "dae7219e974015d744adbfd8b18fa2f888f871a3112854b3091550210277b757",
+    "src/prime_rl/orchestrator/episodes.py": "48c7dcd0e4cd521fe80a167c8ec5f4713af9ce01f973135e1b95c39e6ffd2ccb",
+    "src/prime_rl/orchestrator/trajectories.py": "1949d2e00a789c1186fbc32e6863b3b17e6333d4b768ec5953e86bfc6e9094eb",
+    "src/prime_rl/orchestrator/train_sink.py": "6e305e36df26eb6fdf4c13a26b8e363619bf46647685c4a2b317736516789d9c",
+    "src/prime_rl/transport/provenance.py": "2355264fce1416bc3aba37b8c25e00170239910d2f98229e3bc77f5a4b9cbcc8",
+    "src/prime_rl/transport/types.py": "6f7d2c772ffbe149fcc1e0fd131f16f5df9b21587d0fc844f19a4f181468c28f",
+    "src/prime_rl/trainer/batch.py": "6d71b39ab66a7d2b7e9e951e3e39d3d54ba89c21c34bf300f7cef8d68877eff5",
+    "src/prime_rl/trainer/rl/data.py": "233631707b6cfb6de0e77a47bc2bd8ce03d5281a14679a0d6e30b24cf1997d05",
+    "tests/unit/orchestrator/test_weight_versions.py": "892dd0d1528b84c449185551ef1409c0a238f4df2eaa4f0d53bb568c51a13cd6"
+  },
+  "protected_files_exact": 33,
+  "source_imports_under_candidate": true,
+  "findings": [
+    "Literal original mask ordinal mapping passes even for duplicate token IDs and nonsuffix masks.",
+    "Opaque audit labels exact; strict canonical nonnegative int64 protocol, absent/default/noncanonical/out-of-range unknown.",
+    "Malformed geometry raises before mutation and adapter exposes UnsupportedEpisodeError.",
+    "Single-turn clipped spans reflect retained True count and source physical trace remains unchanged.",
+    "Shared-prefix label copies retain sampling provenance independently of dedup training mask. Capture disabled yields identical prior policy fields and immutable value snapshot.",
+    "Reviewed packer mixed unknown/padding/dummy and CPU loader paths; optional codec appended, no loss/model/value input."
+  ],
+  "pending": "Runtime actual wire/sink/packer and old omitted-array compatibility evidence; no GPU or model numeric run justified for observation-only carrier."
+}

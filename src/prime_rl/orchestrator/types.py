@@ -7,12 +7,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, Literal, Protocol
 
 import verifiers.v1 as vf
-from pydantic import ConfigDict, Field
-from verifiers.v1.task import TaskT
+from pydantic import ConfigDict, Field, computed_field
+from verifiers.v1.task import DataT
 
 from prime_rl.orchestrator.trajectories import TrainingLayout
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
+from prime_rl.value.trajectory import ValueTrajectory
 
 if TYPE_CHECKING:
     from prime_rl.orchestrator.metrics import EvalRollouts, TrainRollouts
@@ -65,18 +66,19 @@ class GroupState:
     task_idx: int
     rollouts_to_schedule: int
     target_rollouts: int
+    task_data: dict | None = None
     emitted: int = 0
     eval_step: int | None = None
     pinned_client: vf.ClientConfig | None = None
     policy_version_at_start: int = 0
 
 
-class Rollout(vf.Trace[TaskT], Generic[TaskT]):
+class Rollout(vf.Trace[DataT], Generic[DataT]):
     """A completed rollout: the env's typed ``vf.Trace`` *is* the rollout — prime-rl's
     orchestration metadata lives on it directly (set by the dispatcher once the rollout
     returns), so there's no wrapper. Train vs eval is the ``kind`` discriminator. All metadata
-    fields are ``exclude=True``, so dumping a Rollout yields a plain trace — the on-disk
-    ``results.jsonl`` is unchanged.
+    fields are ``exclude=True``, so dumping a Rollout yields the canonical trace
+    with preserved episode provenance in ``info``; orchestration-only fields are excluded.
 
     It is also the single currency the scoring hooks receive: a hook reads the trace
     directly (``rollout.reward``, ``rollout.nodes``, ``rollout.num_turns``) and writes
@@ -92,6 +94,11 @@ class Rollout(vf.Trace[TaskT], Generic[TaskT]):
     off_policy_steps: int = Field(default=0, exclude=True)
     samples: list[TrainingSample] = Field(default_factory=list, exclude=True)
     training_layout: TrainingLayout | None = Field(default=None, exclude=True)
+    source_physical_trace: vf.WireTrace | None = Field(default=None, exclude=True)
+    """Original producer trace when this rollout has an explicit training projection.
+    Its full messages and provider usage describe generation; token arrays on this
+    Rollout describe training. Never serialized as a second trace.
+    """
     # Per-token rl advantage stream, full-length-N (= len(token_ids)) per
     # sample, concatenated across the rollout's samples in order; 0.0 on
     # non-trainable positions. None = no credit assigned (advantage-based
@@ -104,9 +111,38 @@ class Rollout(vf.Trace[TaskT], Generic[TaskT]):
     value_returns: list[list[float]] | None = Field(default=None, exclude=True)
     value_version: int | None = Field(default=None, exclude=True)
     value_prefix: TokenPrefix | None = Field(default=None, exclude=True)
+    value_trajectory: ValueTrajectory | None = Field(default=None, exclude=True)
     is_filtered: bool = Field(default=False, exclude=True)
     filter_results: dict[str, bool] = Field(default_factory=dict, exclude=True)
     eval_step: int | None = Field(default=None, exclude=True)
+
+    @property
+    def trainable(self) -> bool:
+        return self.agent.trainable
+
+    @property
+    def agent_name(self) -> str:
+        return self.agent.name
+
+    @property
+    def error(self) -> vf.Error | None:
+        return self.last_error
+
+    @property
+    def is_truncated(self) -> bool:
+        # Keep historical framework-limit flags alongside the native length marker.
+        return self.stop_condition in {"context_length", "harness_timeout"} or super().is_truncated
+
+    @computed_field
+    @property
+    def num_total_tokens(self) -> int:
+        """Preserve PrimeRL's pre-migration branch accounting for batching and length penalties."""
+        return sum(branch.num_total_tokens for branch in self.branches)
+
+    @computed_field
+    @property
+    def num_input_tokens(self) -> int:
+        return self.num_total_tokens - self.num_output_tokens
 
     def assign_advantages(self, values: float | list[float]) -> None:
         """Write the rl advantage stream: a scalar broadcast over the

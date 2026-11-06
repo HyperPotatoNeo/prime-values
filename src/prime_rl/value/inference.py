@@ -7,7 +7,8 @@ import torch
 from torch import nn
 
 from prime_rl.configs.value import ValueLossConfig
-from prime_rl.trainer.model import predict_value
+from prime_rl.trainer.model import model_supports_packed_sequence_metadata, predict_value
+from prime_rl.utils.sequence import prepare_packed_sequence_metadata
 from prime_rl.value.batch import ValueInputMicroBatch
 from prime_rl.value.math import align_value_logits, predict_values
 
@@ -23,7 +24,14 @@ def predict_value_microbatches(
     for micro_batch in micro_batches:
         input_ids = torch.tensor(micro_batch.input_ids, dtype=torch.long, device=device).unsqueeze(0)
         position_ids = torch.tensor(micro_batch.position_ids, dtype=torch.long, device=device).unsqueeze(0)
-        logits = predict_value(model, input_ids, position_ids)
+        packing_metadata = (
+            prepare_packed_sequence_metadata(
+                micro_batch.sequence_lengths, total_tokens=input_ids.shape[1], device=input_ids.device
+            )
+            if model_supports_packed_sequence_metadata(model)
+            else None
+        )
+        logits = predict_value(model, input_ids, position_ids, packing_metadata=packing_metadata)
         logits = align_value_logits(logits, micro_batch.sequence_lengths)
         values = predict_values(logits, loss).reshape(-1)
         offset = 0

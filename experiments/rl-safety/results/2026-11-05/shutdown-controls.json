@@ -1,0 +1,74 @@
+{
+  "input_sha256": {
+    "inference.log": "5e59dcab6dbd485cdb9dcc37cb2688800382486f578a6a27e44237c134b0f7a1",
+    "launcher.log": "e1f804f69d3082ecb8581e6911139cedc013eb73914c074c7657c4813abbec65"
+  },
+  "controls": [
+    {
+      "case": "actual_completed_shutdown",
+      "expected": "expected_shutdown_engine_dead",
+      "actual": "expected_shutdown_engine_dead",
+      "passed": true
+    },
+    {
+      "case": "missing_launcher_completion",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "shutdown_marker_after_trace",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "different_exception",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "environment_startup_failure",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "launcher_finished_after_shutdown",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "incomplete_shutdown_final",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "incomplete_shutdown_live",
+      "expected": "shutdown_pending",
+      "actual": "shutdown_pending",
+      "passed": true
+    },
+    {
+      "case": "additional_exception",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "engine_error_after_completed_shutdown",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    },
+    {
+      "case": "completion_before_terminal_exception",
+      "expected": "rejected",
+      "actual": "rejected",
+      "passed": true
+    }
+  ]
+}

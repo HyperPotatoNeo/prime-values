@@ -16,7 +16,7 @@ policy/target lambdas of `1.0`. The critic batch size inherits
 
 ```toml
 [orchestrator]
-group_size = 2
+group_size = 8
 
 [orchestrator.algo]
 type = "grpo"
@@ -25,10 +25,10 @@ type = "grpo"
 ```
 
 Run it through the normal entrypoint; the value roles are launched
-automatically:
+automatically. The [native launch examples](../configs/native/README.md) provide reverse-text and cached RG variants and describe their resource/data requirements:
 
 ```bash
-uv run rl @ examples/value_function/rl.toml
+WANDB_MODE=offline uv run rl @ configs/native/reverse_text_value.toml
 ```
 
 Use `uv run rl @ <config> --dry-run` to inspect the fully resolved value,
@@ -127,6 +127,14 @@ sequence, it:
 4. queues the finalized rollout and its lambda returns for replay while
    stamping the selected advantage on the policy sample.
 
+The value plane owns a copied trajectory: tokens, unique training masks,
+native action positions, branch layout, scoring reward, privileged prefix and
+sampling policy version. Policy filtering or payload cleanup cannot rewrite
+these critic inputs. Positioned TETHER counts native action positions while
+fitting only the unique training tokens, including when branches share a prefix.
+The credit functions live in `prime_rl.value.credit`; the orchestrator attaches
+their results to the independently versioned critic and policy streams.
+
 Context, prompt, and tool-response tokens are never value-loss members. Packed
 sequences reset both the causal value shift and GAE recursion at every sequence
 boundary. Each rollout retains its arrival-time value predictions and their
@@ -156,13 +164,15 @@ Branched traces need no extra setting at the default
 separately gives every unique trainable token the same Monte Carlo result as
 one stitched sequence.
 
-If branches are successive segments of one episode (for example, after
-context compaction) and temporal credit is enabled, declare that contract on
-the environment's algorithm:
+For supported plain branches that are successive segments of one episode,
+temporal credit requires an explicit contract on the environment algorithm.
+The current native producer rejects semantic-parent/compaction traces before
+credit assignment; this setting does not enable those unsupported traces:
 
 ```toml
 [[orchestrator.train.env]]
-id = "..."
+# Use a reviewed native taskset that actually emits sequential plain branches.
+env.taskset = { id = "your-native-taskset" }
 
 [orchestrator.train.env.algo]
 type = "grpo"
@@ -519,17 +529,17 @@ own `max_steps` in serve-only mode until the policy run finishes.
 ## Optional privileged value context
 
 With the default `value_function.privileged_context = "task"`, a native
-Verifiers v1 task may expose the following optional typed field:
+Verifiers v1 task-data object may expose the following optional typed field:
 
 ```python
 import verifiers.v1 as vf
 
 
-class MyTask(vf.Task):
+class MyTaskData(vf.TaskData):
     value_function_prompt: str | None = None
 ```
 
-The taskset decides during task construction whether to populate the field and
+The taskset decides during task construction whether to populate `task.data.value_function_prompt` and
 owns the context and prompt wording. A missing or `None` field leaves policy
 and value token streams and credit computation unchanged; algorithms without a
 value evaluator ignore the field. A non-empty string activates conditioning

@@ -1,0 +1,77 @@
+{
+  "status": "passed",
+  "authoritative_attempt": "acceptance004",
+  "baseline_commit": "e019cb55e8f18cdd9c0fb840156126b9ec201400",
+  "harness_sha256": "bde1d2fbed96a924be9e0ce91dfbd3dd3e32aeefcf7756a67ea61b78da52fe7e",
+  "actual_gate": {
+    "requests": 18,
+    "cases": [
+      "within680",
+      "exact679",
+      "completion_clip654",
+      "prompt_overflow650"
+    ],
+    "physical_prompt_tokens": 651,
+    "physical_completion_tokens": 28,
+    "retained_actions": [
+      28,
+      28,
+      3,
+      0
+    ],
+    "paths": [
+      "frozen legacy",
+      "original native default",
+      "projected native opt-in"
+    ],
+    "sink_contexts": [
+      "task",
+      "group_leave_one_out"
+    ],
+    "group_rewards": [
+      1,
+      0
+    ],
+    "gamma": 0.9,
+    "gae_lambda": 0.35,
+    "value_target_lambda": 0.8
+  },
+  "assertions": [
+    "Actual Env.run_rollout with OrchestratorConfig-resolved TrainEnv projection; candidate module paths guarded",
+    "Original Episode literal pre/post equality; full native provider Usage unchanged",
+    "Actual source token/logprob/mask/text/scorer and fixed request bytes preserved; old/native reasoning_usage distinction explicitly retained",
+    "Full paired token/credit/evaluator/prompt/publication arrays independently re-compared",
+    "Within/exact fullnative sink equalslegacy/projected; clippedlegacy/projected differsfullnative as expected",
+    "Actual GibberishFilter sees bad tail onfulltrace, admitsclippedprefix; independentcritic publication precedesfilter",
+    "Promptoverflow has no sampledactions, evaluatorrequest, criticpublication or policybatch",
+    "Standalone scopedprojection rejection/config tests and real launcher TOML/childCLI roundtrips passed"
+  ],
+  "attempts": {
+    "initial_reproduction": "Before production changes: identical requests expose legacy3 vsnative28 actions and different discountedterminalcredit; rawreceipt retained.",
+    "acceptance001": "Cross-producer entire Usage equality failed because legacy fills reasoning_tokens0 and native preserves unknownNone. No projection numerical mismatch.",
+    "acceptance002": "Same failure isolated and rawpair saved; all other comparedfields equal.",
+    "acceptance003": "Explicit knownreasoning metadata distinction; all required configuredprojection andlegacy/sink gates passed.",
+    "acceptance004": "Adds originalnative task/LOOsink counterfactual once/context; finalauthoritative18requests. No productionchange sincefreeze."
+  },
+  "preexisting_metadata_difference": "Legacy reasoning_tokens0 versus nativeNone is explicitly asserted and retained in rawrecords; do not claim complete cross-producer Usage identity. Native source/projection entireUsage isexact.",
+  "dependencies": "No numerical/runtime dependency changes; existingCPUproject/pinnedQwen tokenizer and savedRGcache reused.",
+  "resource_scope": {
+    "gpu_count": 0,
+    "cluster_jobs": 0,
+    "execution": "Local CPU only"
+  },
+  "limitations": [
+    "Single successful one-call linear text training projection only; unsupported valid shapes explicitlyreject.",
+    "Full original Episode/trace plus projected copy retained; no memory/throughput benefit claimed.",
+    "Defaultnative remainsfullgeometry; legacy behavior untouched; no historicalconfiguration switched.",
+    "Deterministic HTTPtoken service and deterministicvalue service; not model-inference, GPU-kernel or learning-quality evidence."
+  ],
+  "external_inputs": {
+    "dataset_archive": "work/native-rg-results/rg-cache.tar.gz",
+    "dataset_archive_sha256": "18aac35bac5ea5a21afb0b78fdd3deac689a2213966f82197b469cb5e38333d3",
+    "dataset_source": "/data/rg-dataset on prime-values-shared (read-only unit9export)",
+    "tokenizer": "Qwen/Qwen3-4B-Instruct-2507 at cdbee75f17c01a7cc42f958dc650907174af0554",
+    "unit9_evidence_sha256": "04506adf766de50bfa50f372ab9b94cdc9e712527b8b357415820bddbeeaf995"
+  },
+  "run_command": "PYTHONPATH=work/sequence-boundary-candidate/src:work/sequence-boundary-candidate/packages/prime-rl-configs/src uv run --project work/native-rg-cpu python work/sequence-boundary-candidate/experiments/sequence-boundary/acceptance.py --source work/sequence-boundary-candidate --dataset work/native-rg-results/dataset-cache/rg-dataset --tokenizer work/native-rg-results/tokenizer --legacy work/native-rg-results/frozen-legacy-package/rg_mix_env.py --output work/sequence-boundary/acceptance004"
+}

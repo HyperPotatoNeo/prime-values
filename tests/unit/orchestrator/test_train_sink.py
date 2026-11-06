@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from collections import defaultdict
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,6 +11,7 @@ from prime_rl.orchestrator.metrics import TrainRollouts
 from prime_rl.orchestrator.train_sink import TrainSink
 from prime_rl.orchestrator.value_context import TokenPrefix
 from prime_rl.transport import TrainingSample
+from prime_rl.value.trajectory import snapshot_value_trajectory
 
 
 def _sample() -> TrainingSample:
@@ -33,13 +35,21 @@ def _rollout(
     samples = [_sample() for _ in range(num_samples)] if with_sample and not has_error else []
     return SimpleNamespace(
         env_name="test-env",
-        task=SimpleNamespace(idx=0),
+        task=SimpleNamespace(data=SimpleNamespace(idx=0)),
         has_error=has_error,
+        trainable=True,
         samples=samples,
         reward=1.0,
         value_returns=[[0.0, 1.0] for _ in samples] if samples else None,
         value_version=value_version if samples else None,
         value_prefix=None,
+        value_trajectory=snapshot_value_trajectory(
+            samples,
+            sampled_masks=[sample.mask for sample in samples],
+            layout=None,
+            reward=1.0,
+            policy_version=policy_version,
+        ),
         policy_version=policy_version,
         num_total_tokens=2,
         is_filtered=False,
@@ -173,6 +183,11 @@ def test_value_rollout_truncates_and_copies_sample_data():
     sample = rollout.samples[0]
     targets = rollout.value_returns[0]
 
+    sample.token_ids[:] = [99, 100]
+    sample.mask[:] = [True, False]
+    rollout.samples.clear()
+    rollout.policy_version = 99
+
     sink._publish_value_rollouts([rollout])
 
     value_sample = publisher.publish.call_args.args[0].samples[0]
@@ -182,6 +197,7 @@ def test_value_rollout_truncates_and_copies_sample_data():
     assert value_sample.token_ids is not sample.token_ids
     assert value_sample.mask is not sample.mask
     assert value_sample.targets is not targets
+    assert publisher.publish.call_args.args[0].policy_version == 0
 
 
 @pytest.mark.parametrize(
@@ -196,6 +212,7 @@ def test_value_rollout_lifts_policy_streams_around_privileged_prefix(insert_at, 
     sink = _value_sink(publisher, seq_len=4)
     rollout = _rollout()
     rollout.value_prefix = TokenPrefix(token_ids=(90, 91), insert_at=insert_at)
+    rollout.value_trajectory = replace(rollout.value_trajectory, prefix=rollout.value_prefix)
     policy_token_ids = list(rollout.samples[0].token_ids)
     policy_mask = list(rollout.samples[0].mask)
     policy_targets = list(rollout.value_returns[0])
@@ -215,13 +232,13 @@ def test_value_prefix_preflight_rejects_overflow_without_exposing_prompt():
     sink = _prefix_sink(seq_len=3)
     sink.renderer.render_ids.return_value = [1, 90, 91]
     rollout = _rollout()
-    rollout.task = SimpleNamespace(idx=7, value_function_prompt="private solved grid")
+    rollout.task = SimpleNamespace(data=SimpleNamespace(idx=7, value_function_prompt="private solved grid"))
 
     with pytest.raises(ValueError, match="merged_tokens=4") as error:
         sink._build_value_prefix(
             rollout,
             rollout.samples,
-            prompt=rollout.task.value_function_prompt,
+            prompt=rollout.task.data.value_function_prompt,
             enabled=True,
         )
 
@@ -235,7 +252,7 @@ def test_value_prefix_preflight_rejects_overflow_without_exposing_prompt():
     assert sink._build_value_prefix(
         rollout,
         rollout.samples,
-        prompt=rollout.task.value_function_prompt,
+        prompt=rollout.task.data.value_function_prompt,
         enabled=True,
     ) == TokenPrefix(
         token_ids=(90, 91),
@@ -248,14 +265,14 @@ def test_missing_or_none_value_prompt_uses_no_prefix_without_rendering():
     rollout = _rollout()
 
     assert sink._build_value_prefix(rollout, rollout.samples, prompt=None, enabled=True) is None
-    rollout.task.value_function_prompt = None
+    rollout.task.data.value_function_prompt = None
     assert sink._build_value_prefix(rollout, rollout.samples, prompt=None, enabled=True) is None
-    rollout.task.value_function_prompt = {"ignored": "without a value function"}
+    rollout.task.data.value_function_prompt = {"ignored": "without a value function"}
     assert (
         sink._build_value_prefix(
             rollout,
             rollout.samples,
-            prompt=rollout.task.value_function_prompt,
+            prompt=rollout.task.data.value_function_prompt,
             enabled=False,
         )
         is None
@@ -267,23 +284,23 @@ def test_value_prefix_preflight_rejects_empty_prompt_and_mixed_bos_branches():
     sink = _prefix_sink()
     sink.renderer.render_ids.return_value = [1, 90]
     rollout = _rollout(num_samples=2)
-    rollout.task = SimpleNamespace(idx=7, value_function_prompt="  ")
+    rollout.task = SimpleNamespace(data=SimpleNamespace(idx=7, value_function_prompt="  "))
 
     with pytest.raises(ValueError, match="non-whitespace"):
         sink._build_value_prefix(
             rollout,
             rollout.samples,
-            prompt=rollout.task.value_function_prompt,
+            prompt=rollout.task.data.value_function_prompt,
             enabled=True,
         )
 
-    rollout.task.value_function_prompt = "hint"
+    rollout.task.data.value_function_prompt = "hint"
     rollout.samples[1].token_ids[0] = 2
     with pytest.raises(ValueError, match="all branches"):
         sink._build_value_prefix(
             rollout,
             rollout.samples,
-            prompt=rollout.task.value_function_prompt,
+            prompt=rollout.task.data.value_function_prompt,
             enabled=True,
         )
 
@@ -291,24 +308,24 @@ def test_value_prefix_preflight_rejects_empty_prompt_and_mixed_bos_branches():
 def test_value_prefix_preflight_rejects_non_string_and_rendered_bos_mismatch():
     sink = _prefix_sink()
     rollout = _rollout()
-    rollout.task = SimpleNamespace(idx=7, value_function_prompt={"oracle": "private"})
+    rollout.task = SimpleNamespace(data=SimpleNamespace(idx=7, value_function_prompt={"oracle": "private"}))
 
     with pytest.raises(TypeError, match="must be a string"):
         sink._build_value_prefix(
             rollout,
             rollout.samples,
-            prompt=rollout.task.value_function_prompt,
+            prompt=rollout.task.data.value_function_prompt,
             enabled=True,
         )
     sink.renderer.render_ids.assert_not_called()
 
-    rollout.task.value_function_prompt = "hint"
+    rollout.task.data.value_function_prompt = "hint"
     sink.renderer.render_ids.return_value = [1]
     with pytest.raises(ValueError, match="rendered to no prefix tokens"):
         sink._build_value_prefix(
             rollout,
             rollout.samples,
-            prompt=rollout.task.value_function_prompt,
+            prompt=rollout.task.data.value_function_prompt,
             enabled=True,
         )
 
@@ -317,7 +334,7 @@ def test_value_prefix_preflight_rejects_non_string_and_rendered_bos_mismatch():
         sink._build_value_prefix(
             rollout,
             rollout.samples,
-            prompt=rollout.task.value_function_prompt,
+            prompt=rollout.task.data.value_function_prompt,
             enabled=True,
         )
 
@@ -332,7 +349,7 @@ def test_overflow_escapes_add_before_rollout_or_pending_state_mutates():
         overflow_sample.logprobs = [0.0, -0.1, -0.2]
         rollout = _rollout()
         rollout.group_id = uuid.UUID(int=1)
-        rollout.task = SimpleNamespace(idx=7, value_function_prompt="private oracle")
+        rollout.task = SimpleNamespace(data=SimpleNamespace(idx=7, value_function_prompt="private oracle"))
         rollout.samples = old_samples
         old_layout = MagicMock()
         rollout.training_layout = old_layout
@@ -344,7 +361,11 @@ def test_overflow_escapes_add_before_rollout_or_pending_state_mutates():
         )
         sink = TrainSink.__new__(TrainSink)
         sink.mm_token_type_ids_mapping = None
-        sink.train_envs = SimpleNamespace(get=lambda _name: SimpleNamespace(algorithm=algorithm))
+        sink.train_envs = SimpleNamespace(
+            get=lambda _name: SimpleNamespace(
+                algorithm=algorithm, sampler=SimpleNamespace(samples_from_live_policy=True)
+            )
+        )
         sink._value_seq_len = 3
         sink._value_privileged_context = "task"
         sink.renderer = MagicMock()
@@ -413,10 +434,14 @@ def test_group_value_prefixes_are_assigned_atomically_after_preflight():
 def test_group_value_context_rejects_task_prompt_before_materialization():
     async def run_test() -> None:
         rollout = _rollout()
-        rollout.task = SimpleNamespace(idx=7, value_function_prompt="conflicting oracle")
+        rollout.task = SimpleNamespace(data=SimpleNamespace(idx=7, value_function_prompt="conflicting oracle"))
         algorithm = SimpleNamespace(value_evaluator=MagicMock())
         sink = TrainSink.__new__(TrainSink)
-        sink.train_envs = SimpleNamespace(get=lambda _name: SimpleNamespace(algorithm=algorithm))
+        sink.train_envs = SimpleNamespace(
+            get=lambda _name: SimpleNamespace(
+                algorithm=algorithm, sampler=SimpleNamespace(samples_from_live_policy=True)
+            )
+        )
         sink._value_privileged_context = "group_leave_one_out"
 
         with (

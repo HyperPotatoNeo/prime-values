@@ -212,6 +212,15 @@ class NCCLWeightBroadcast(WeightBroadcast):
         self.nccl_broadcast_sender.broadcast_weights(model, step)
         self.logger.debug(f"Weights broadcasted in {time.perf_counter() - start_time:.2f}s")
 
+    @torch.no_grad()
+    def synchronize_restored_weights(self, model: nn.Module, step: int) -> None:
+        # Startup has no dispatched rollouts. The orchestrator explicitly receives
+        # this checkpoint before opening its sources; all trainer ranks join the
+        # sender's DTensor collectives without manufacturing a new training batch.
+        self.logger.info(f"Broadcasting restored policy weights at step {step}")
+        self.nccl_broadcast_sender.broadcast_weights(model, step)
+        self.logger.info(f"Restored policy weights broadcast at step {step}")
+
     def _compute_notified_runs(self) -> list[tuple[int, Path]]:
         """Derive the list of (run_idx, save_dir) pairs that need broadcasting.
 

@@ -1,0 +1,63 @@
+{
+  "job": {
+    "name": "pv-episode-sync-001",
+    "namespace": "siddarth",
+    "uid": "0a6f94b3-4b1c-4519-8e3f-1a70b960aa3a",
+    "creationTimestamp": "2026-11-06T00:51:26Z"
+  },
+  "job_status": {
+    "completionTime": "2026-11-06T02:59:11Z",
+    "conditions": [
+      {
+        "lastProbeTime": "2026-11-06T00:51:26Z",
+        "lastTransitionTime": "2026-11-06T00:51:26Z",
+        "message": "Job resumed",
+        "reason": "JobResumed",
+        "status": "False",
+        "type": "Suspended"
+      },
+      {
+        "lastProbeTime": "2026-11-06T02:59:11Z",
+        "lastTransitionTime": "2026-11-06T02:59:11Z",
+        "message": "Reached expected number of succeeded pods",
+        "reason": "CompletionsReached",
+        "status": "True",
+        "type": "SuccessCriteriaMet"
+      },
+      {
+        "lastProbeTime": "2026-11-06T02:59:11Z",
+        "lastTransitionTime": "2026-11-06T02:59:11Z",
+        "message": "Reached expected number of succeeded pods",
+        "reason": "CompletionsReached",
+        "status": "True",
+        "type": "Complete"
+      }
+    ],
+    "ready": 0,
+    "startTime": "2026-11-06T00:51:26Z",
+    "succeeded": 1,
+    "terminating": 0,
+    "uncountedTerminatedPods": {}
+  },
+  "pod": {
+    "name": "pv-episode-sync-001-xr7f4",
+    "uid": "a2833b7c-38c2-4755-a232-30bb4f9b3377",
+    "phase": "Succeeded"
+  },
+  "completion_flag_requested_at": "2026-11-06T02:59:05Z",
+  "deletion_request_started_at": "2026-11-06T03:00:20.940414+00:00",
+  "deletion_command_finished_at": "2026-11-06T03:00:21.786797+00:00",
+  "deletion_returncode": 0,
+  "deletion_stdout": "job.batch \"pv-episode-sync-001\" deleted from siddarth namespace\n",
+  "deletion_stderr": "",
+  "absence_observed_at": "2026-11-06T03:00:55.765538+00:00",
+  "remaining_jobs": 0,
+  "remaining_pods": 0,
+  "scope": {
+    "cluster": "resolution-h200-2",
+    "namespace": "siddarth",
+    "job_field_selector": "metadata.name=pv-episode-sync-001",
+    "pod_label_selector": "batch.kubernetes.io/job-name=pv-episode-sync-001"
+  },
+  "release_limit": "Container finished and Job completion timestamps captured; no SM/utilization telemetry or exact Kueue reservation-release timestamp was measured."
+}

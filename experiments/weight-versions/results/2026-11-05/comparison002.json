@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "comparisons": [
+    {
+      "left": "baseline/absent",
+      "right": "candidate/absent",
+      "contexts": [
+        "task",
+        "group_leave_one_out"
+      ],
+      "exact_http_requests": true,
+      "exact_all_preexisting_numeric_fields": true
+    },
+    {
+      "left": "baseline/clipped_absent",
+      "right": "candidate/clipped_absent",
+      "contexts": [
+        "task",
+        "group_leave_one_out"
+      ],
+      "exact_http_requests": true,
+      "exact_all_preexisting_numeric_fields": true
+    },
+    {
+      "left": "candidate/absent",
+      "right": "candidate/mixed",
+      "contexts": [
+        "task",
+        "group_leave_one_out"
+      ],
+      "exact_http_requests": true,
+      "exact_all_preexisting_numeric_fields": true
+    },
+    {
+      "left": "candidate/absent",
+      "right": "candidate/opaque",
+      "contexts": [
+        "task",
+        "group_leave_one_out"
+      ],
+      "exact_http_requests": true,
+      "exact_all_preexisting_numeric_fields": true
+    },
+    {
+      "left": "candidate/clipped_absent",
+      "right": "candidate/clipped",
+      "contexts": [
+        "task",
+        "group_leave_one_out"
+      ],
+      "exact_http_requests": true,
+      "exact_all_preexisting_numeric_fields": true
+    },
+    {
+      "left": "candidate/frozen_absent",
+      "right": "candidate/frozen_known",
+      "contexts": [
+        "task",
+        "group_leave_one_out"
+      ],
+      "exact_http_requests": true,
+      "exact_all_preexisting_numeric_fields": true
+    }
+  ],
+  "exact_context_comparisons": 12,
+  "baseline_result_sha256": "0edc23553bfed47ffdbbb3dad21abb6048519df7d04d3527dbd01cd6948fed05",
+  "candidate_result_sha256": "33971c5987cf83a0b067e88149de5ad182751bcc485d33e27dd53ff087efdbc8",
+  "harness_sha256": "f0a2c9f6e1939710befe2742f1830d2d9b6d126a787cc16967db97c44aa56f50",
+  "comparator_sha256": "6a2eafc60afc028790f58c8d0e211dc98635137a6fad5c04b2c7647f82bf17cd",
+  "scope": "Actual CPU HTTP fixture, native worker/TrainClient/Episode msgpack, TrainSink credit, packing and CPU tensors; no GPU/backend weight reload truth or numerical training step."
+}

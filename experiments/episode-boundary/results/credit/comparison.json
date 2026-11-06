@@ -1,0 +1,6 @@
+{
+  "cases": 8,
+  "exact_match": true,
+  "first_difference": null,
+  "comparison": "finalized credit, requests, controller state, actor/critic loss and full logit gradients"
+}

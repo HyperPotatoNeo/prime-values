@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "pure_tests": {
+    "tests": 11,
+    "failures": 0,
+    "junit": "independent-contract-tests-final004.xml",
+    "ruff": "passed"
+  },
+  "additional_control": "Actual dispatcher synthetic failure/cancel marker retains deeply owned task/private payload; nontrainable canonical AgentInfo and error handling are valid. Earlier GroupState constructor fixture failure retained in final003.xml.",
+  "source_sha256": {
+    "src/prime_rl/orchestrator/episodes.py": "0b854fe36176be625df888d671f4189cfaa605ec59dac73c488ccb1ad67d64de",
+    "src/prime_rl/orchestrator/dispatcher.py": "cbf3b7c840a72390607508e95735b993aaebfe0636730d5ae329dcee5b63ae24",
+    "src/prime_rl/orchestrator/types.py": "4b72da9fef9dbc189914c2ed9e773659e537c7fb69028498ed34ad8c15ed026e",
+    "tests/unit/orchestrator/test_native_producer_contract.py": "0dcebe4a2c8b3b28d0529e0cce2cfb51d5df625257ab7c1d966ce9b930cb3986",
+    "src/prime_rl/inference/vllm/serving_tokens.py": "f8ac63db8bddecfa2d5718fb9047c1fcb14e782c343659b34880b5be73db6044"
+  },
+  "vllm_response_audit": {
+    "source": "https://raw.githubusercontent.com/vllm-project/vllm/v0.24.0/vllm/entrypoints/serve/disagg/serving.py",
+    "sha256": "6d82c5144c5d5b67d9f3a5d5115f777b99eee8a1247ef7e0882e04db350fa80b",
+    "full_response_call_lines": [
+      247,
+      253
+    ],
+    "canonical_label_lines": [
+      433,
+      450
+    ],
+    "finding": "Requested logprobs always carry token_id:<id> labels; PrimeRlServingTokens delegates full response construction and preserves choices. New renderer fixture correction matches current vLLM0.24 source.",
+    "limit": "Source audit, not a new live vLLM execution."
+  }
+}

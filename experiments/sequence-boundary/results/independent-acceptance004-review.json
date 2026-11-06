@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "supplements": "independent-final-acceptance-review.json (accepted003)",
+  "authoritative_attempt": "acceptance004",
+  "harness_sha256": "bde1d2fbed96a924be9e0ce91dfbd3dd3e32aeefcf7756a67ea61b78da52fe7e",
+  "paired_raw_sha256": "b048027e35192bdb5aa7932fe0a1efacbcfb0a17b4d88210052870b0969ddbcb",
+  "source_hashes_checked": 18,
+  "paired_producer_records": 8,
+  "task_and_LOO_sink_results": 8,
+  "counterfactual": "All within/exact native unprojected sink outputs equal legacy/projected. Completion-clipped targets differ from full native and policy admission changes0to2 as expected; prompt overflow publishes0 versus2 original critic samples. Raw originals remain full; producer Usage preserved exactly within native.",
+  "scope": "Same18 deterministic HTTP responses; actual canonical producer/scorer/filter/TrainSink/value credit. No model/GPU evidence; no further production edits or tests needed."
+}

@@ -1,0 +1,10 @@
+{
+  "command": "PYTHONPATH=src:packages/prime-rl-configs/src:../task-ownership-verifiers:deps/renderers:deps/pydantic-config/src uv run --project ../cpu-tests --no-sync pytest -q tests/unit/train/test_tensor_summaries.py tests/unit/train/rl/test_metrics.py",
+  "cwd": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/metric-streaming-candidate",
+  "exit_code": 0,
+  "passed": 7,
+  "duration_seconds_reported": 1.86,
+  "evidence_kind": "Summary transcribed from successful tool output; no independent raw pytest log was retained",
+  "warning": "14 TorchScript script_method deprecation warnings",
+  "phase": "Final rerun after NaN extrema propagation fix; no numerical source changes afterward"
+}

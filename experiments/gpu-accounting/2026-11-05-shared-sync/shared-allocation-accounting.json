@@ -1,0 +1,983 @@
+{
+  "observed_at": "2026-11-06T03:04:05.050264+00:00",
+  "project": "prime-values",
+  "cluster": "resolution-h200-2",
+  "namespace": "siddarth",
+  "one_physical_allocation": {
+    "job": {
+      "name": "pv-episode-sync-001",
+      "namespace": "siddarth",
+      "uid": "0a6f94b3-4b1c-4519-8e3f-1a70b960aa3a",
+      "creationTimestamp": "2026-11-06T00:51:26Z"
+    },
+    "pod": {
+      "name": "pv-episode-sync-001-xr7f4",
+      "uid": "a2833b7c-38c2-4755-a232-30bb4f9b3377",
+      "phase": "Succeeded"
+    },
+    "requested_gpus": 8,
+    "model": "NVIDIA H200",
+    "scheduled_at": "2026-11-06T00:51:27Z",
+    "container_started_at": "2026-11-06T00:51:36Z",
+    "container_finished_at": "2026-11-06T02:59:08Z",
+    "container_exit_code": 0,
+    "job_completed_at": "2026-11-06T02:59:11Z",
+    "allocation_release_exact": null,
+    "utilization_telemetry": null
+  },
+  "accounting_rules": [
+    "All phases and failed attempts reused this single8GPU reservation; never count them as separate allocations.",
+    "Configured visible devices/model roles are not measured utilization.",
+    "Command wall times include startup/compile/load/teardown; not pure model compute time.",
+    "No exact Kueue reservation-release observation; container and Job timestamps are preserved separately.",
+    "Retained waits are subsets of uncovered stage gaps, not additional additive intervals.",
+    "Earlier7.956 elapsed-job proxy at01:51:06Z is historical and must not be added to these final lifetime proxies."
+  ],
+  "lifetime_proxies": {
+    "container_lifetime_gpu_hours": 17.004444444444445,
+    "job_creation_to_completion_gpu_hours": 17.033333333333335,
+    "quality": "estimated proxies only; not measured allocation-hours or active-compute hours"
+  },
+  "phases": [
+    {
+      "phase": "episode-sync-001",
+      "stage": "output/dedicated/fresh",
+      "start": "2026-11-06T01:00:51.308150+00:00",
+      "end": "2026-11-06T01:09:19.415101+00:00",
+      "time_basis": "UTC filesystem mtime of actual request and natural-exit receipts; brackets launched process, not pure training time",
+      "configured_role_gpu_counts": {
+        "num_train_gpus": 1,
+        "num_infer_gpus": 1,
+        "num_value_train_gpus": 1,
+        "num_value_eval_gpus": 1
+      },
+      "configured_role_gpu_total": 4,
+      "exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "resolved_config": {
+        "path": "work/episode-sync/evidence/output/dedicated/fresh/resolved.json",
+        "sha256": "9af76f06dae190289383327fe9a3788ce44aaa12a997c826748063266a907960"
+      },
+      "wall_seconds": 508.106951
+    },
+    {
+      "phase": "episode-sync-001",
+      "stage": "output/dedicated/resumed",
+      "start": "2026-11-06T01:09:19.824394+00:00",
+      "end": "2026-11-06T01:12:52.619442+00:00",
+      "time_basis": "UTC filesystem mtime of actual request and natural-exit receipts; brackets launched process, not pure training time",
+      "configured_role_gpu_counts": {
+        "num_train_gpus": 1,
+        "num_infer_gpus": 1,
+        "num_value_train_gpus": 1,
+        "num_value_eval_gpus": 1
+      },
+      "configured_role_gpu_total": 4,
+      "exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "resolved_config": {
+        "path": "work/episode-sync/evidence/output/dedicated/resumed/resolved.json",
+        "sha256": "26496c82a2d28440dc1c2034177a9be91261776f81cd2517ea0cf978e6c2cf3f"
+      },
+      "wall_seconds": 212.795048
+    },
+    {
+      "phase": "episode-sync-001",
+      "stage": "output/trainer/fresh",
+      "start": "2026-11-06T01:12:55.435689+00:00",
+      "end": "2026-11-06T01:20:51.649666+00:00",
+      "time_basis": "UTC filesystem mtime of actual request and natural-exit receipts; brackets launched process, not pure training time",
+      "configured_role_gpu_counts": {
+        "num_train_gpus": 1,
+        "num_infer_gpus": 1,
+        "num_value_train_gpus": 1,
+        "num_value_eval_gpus": 0
+      },
+      "configured_role_gpu_total": 3,
+      "exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "resolved_config": {
+        "path": "work/episode-sync/evidence/output/trainer/fresh/resolved.json",
+        "sha256": "846e83efa1b3025ad8a11b09741bba7731f4c5860e14c69ad9b84769cd15449d"
+      },
+      "wall_seconds": 476.213977
+    },
+    {
+      "phase": "episode-sync-001",
+      "stage": "output/trainer/resumed",
+      "start": "2026-11-06T01:20:51.818565+00:00",
+      "end": "2026-11-06T01:25:33.799405+00:00",
+      "time_basis": "UTC filesystem mtime of actual request and natural-exit receipts; brackets launched process, not pure training time",
+      "configured_role_gpu_counts": {
+        "num_train_gpus": 1,
+        "num_infer_gpus": 1,
+        "num_value_train_gpus": 1,
+        "num_value_eval_gpus": 0
+      },
+      "configured_role_gpu_total": 3,
+      "exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "resolved_config": {
+        "path": "work/episode-sync/evidence/output/trainer/resumed/resolved.json",
+        "sha256": "0878fa2663e88237bc55a09fdd830fdc67e4e23949696355d1a32656f55e8485"
+      },
+      "wall_seconds": 281.98084
+    },
+    {
+      "phase": "episode-sync-001",
+      "stage": "output/value-disabled/evidence",
+      "start": "2026-11-06T01:25:36.899040+00:00",
+      "end": "2026-11-06T01:28:25.881937+00:00",
+      "time_basis": "UTC filesystem mtime of actual request and natural-exit receipts; brackets launched process, not pure training time",
+      "configured_role_gpu_counts": {
+        "num_train_gpus": 1,
+        "num_infer_gpus": 1,
+        "num_value_train_gpus": 0,
+        "num_value_eval_gpus": 0
+      },
+      "configured_role_gpu_total": 2,
+      "exit": {
+        "natural_returncode": 0
+      },
+      "resolved_config": {
+        "path": "work/episode-sync/evidence/output/value-disabled/evidence/resolved.json",
+        "sha256": "ed51df9ad027d784f0bcb72cd9fb56c66dafb3331789a256dabe5bbe87991a56"
+      },
+      "wall_seconds": 168.982897
+    },
+    {
+      "phase": "task-ownership-001",
+      "stage": "output/dedicated/fresh",
+      "start": "2026-11-06T01:39:13.206044+00:00",
+      "end": "2026-11-06T01:46:50.182872+00:00",
+      "time_basis": "UTC filesystem mtime of actual request and natural-exit receipts; brackets launched process, not pure training time",
+      "configured_role_gpu_counts": {
+        "num_train_gpus": 1,
+        "num_infer_gpus": 1,
+        "num_value_train_gpus": 1,
+        "num_value_eval_gpus": 1
+      },
+      "configured_role_gpu_total": 4,
+      "exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "resolved_config": {
+        "path": "work/task-ownership/evidence/output/dedicated/fresh/resolved.json",
+        "sha256": "52362f6b5b9cba27c72486ad7cb6efbb7c1961fad1e02302bc710e5d5b59e0bc"
+      },
+      "wall_seconds": 456.976828
+    },
+    {
+      "phase": "task-ownership-001",
+      "stage": "output/dedicated/resumed",
+      "start": "2026-11-06T01:46:50.412235+00:00",
+      "end": "2026-11-06T01:50:28.950979+00:00",
+      "time_basis": "UTC filesystem mtime of actual request and natural-exit receipts; brackets launched process, not pure training time",
+      "configured_role_gpu_counts": {
+        "num_train_gpus": 1,
+        "num_infer_gpus": 1,
+        "num_value_train_gpus": 1,
+        "num_value_eval_gpus": 1
+      },
+      "configured_role_gpu_total": 4,
+      "exit": {
+        "natural_returncode": 0,
+        "returncode_after_cleanup": 0
+      },
+      "resolved_config": {
+        "path": "work/task-ownership/evidence/output/dedicated/resumed/resolved.json",
+        "sha256": "616a2238b4452fbdf7669cc633fff406080fd460b936fc02920711e47947d981"
+      },
+      "wall_seconds": 218.538744
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt001",
+      "stage": "frozen-imports",
+      "start": "2026-11-06T02:09:23Z",
+      "end": "2026-11-06T02:09:35Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt001/stages.tsv",
+        "sha256": "6019624dae5fc530ad62d62123fce3d7c61ed156af4e7a9fcb42f1b11559c8cc"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt001",
+      "stage": "frozen-model",
+      "start": "2026-11-06T02:09:35Z",
+      "end": "2026-11-06T02:09:49Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 1,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt001/stages.tsv",
+        "sha256": "6019624dae5fc530ad62d62123fce3d7c61ed156af4e7a9fcb42f1b11559c8cc"
+      },
+      "wall_seconds": 14.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt002",
+      "stage": "frozen-imports",
+      "start": "2026-11-06T02:12:43Z",
+      "end": "2026-11-06T02:12:55Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+        "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt002",
+      "stage": "frozen-model",
+      "start": "2026-11-06T02:12:55Z",
+      "end": "2026-11-06T02:13:07Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+        "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt002",
+      "stage": "frozen-cp-ring",
+      "start": "2026-11-06T02:13:07Z",
+      "end": "2026-11-06T02:13:23Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+        "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+      },
+      "wall_seconds": 16.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt002",
+      "stage": "frozen-cp-ulysses",
+      "start": "2026-11-06T02:13:23Z",
+      "end": "2026-11-06T02:13:38Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+        "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+      },
+      "wall_seconds": 15.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt002",
+      "stage": "frozen-compiled",
+      "start": "2026-11-06T02:13:38Z",
+      "end": "2026-11-06T02:14:04Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+        "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+      },
+      "wall_seconds": 26.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt002",
+      "stage": "candidate-imports",
+      "start": "2026-11-06T02:14:04Z",
+      "end": "2026-11-06T02:14:19Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+        "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+      },
+      "wall_seconds": 15.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output-attempt002",
+      "stage": "candidate-model",
+      "start": "2026-11-06T02:14:19Z",
+      "end": "2026-11-06T02:14:30Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 1,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+        "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+      },
+      "wall_seconds": 11.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "frozen-model",
+      "start": "2026-11-06T02:18:34Z",
+      "end": "2026-11-06T02:18:46Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "frozen-model-repeat",
+      "start": "2026-11-06T02:18:46Z",
+      "end": "2026-11-06T02:18:58Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "frozen-cp-ring",
+      "start": "2026-11-06T02:18:58Z",
+      "end": "2026-11-06T02:19:14Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 16.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "frozen-cp-ulysses",
+      "start": "2026-11-06T02:19:14Z",
+      "end": "2026-11-06T02:19:29Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/task-ownership-001/source",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 15.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "candidate-model",
+      "start": "2026-11-06T02:19:29Z",
+      "end": "2026-11-06T02:19:41Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "candidate-cp-ring",
+      "start": "2026-11-06T02:19:41Z",
+      "end": "2026-11-06T02:19:56Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 15.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "candidate-cp-ulysses",
+      "start": "2026-11-06T02:19:56Z",
+      "end": "2026-11-06T02:20:12Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 16.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "candidate-compiled",
+      "start": "2026-11-06T02:20:12Z",
+      "end": "2026-11-06T02:20:34Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 22.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "compare-compiled",
+      "start": "2026-11-06T02:20:34Z",
+      "end": "2026-11-06T02:20:46Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "packed-boundary-001",
+      "attempt": "output",
+      "stage": "boundary-profile",
+      "start": "2026-11-06T02:20:46Z",
+      "end": "2026-11-06T02:20:49Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/packed-boundary/evidence/output/stages.tsv",
+        "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+      },
+      "wall_seconds": 3.0
+    },
+    {
+      "phase": "trainer-metrics-001",
+      "attempt": "output",
+      "stage": "frozen-trainer",
+      "start": "2026-11-06T02:33:38Z",
+      "end": "2026-11-06T02:33:56Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/packed-boundary-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/trainer-metrics/evidence/output/stages.tsv",
+        "sha256": "0d4b9e01436cd67ed7e1fde4b9562e4ded3c8bee897b20476bd7a6668cc115f3"
+      },
+      "wall_seconds": 18.0
+    },
+    {
+      "phase": "trainer-metrics-001",
+      "attempt": "output",
+      "stage": "candidate-trainer",
+      "start": "2026-11-06T02:33:56Z",
+      "end": "2026-11-06T02:34:15Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/trainer-metrics-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/trainer-metrics/evidence/output/stages.tsv",
+        "sha256": "0d4b9e01436cd67ed7e1fde4b9562e4ded3c8bee897b20476bd7a6668cc115f3"
+      },
+      "wall_seconds": 19.0
+    },
+    {
+      "phase": "trainer-metrics-001",
+      "attempt": "output",
+      "stage": "nccl-stats",
+      "start": "2026-11-06T02:34:15Z",
+      "end": "2026-11-06T02:34:26Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/trainer-metrics-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/trainer-metrics/evidence/output/stages.tsv",
+        "sha256": "0d4b9e01436cd67ed7e1fde4b9562e4ded3c8bee897b20476bd7a6668cc115f3"
+      },
+      "wall_seconds": 11.0
+    },
+    {
+      "phase": "trainer-metrics-001",
+      "attempt": "output",
+      "stage": "profile",
+      "start": "2026-11-06T02:34:26Z",
+      "end": "2026-11-06T02:34:33Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/trainer-metrics-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/trainer-metrics/evidence/output/stages.tsv",
+        "sha256": "0d4b9e01436cd67ed7e1fde4b9562e4ded3c8bee897b20476bd7a6668cc115f3"
+      },
+      "wall_seconds": 7.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "frozen-experts-off",
+      "start": "2026-11-06T02:46:40Z",
+      "end": "2026-11-06T02:46:59Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/trainer-metrics-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 19.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "frozen-experts-on",
+      "start": "2026-11-06T02:46:59Z",
+      "end": "2026-11-06T02:47:17Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/trainer-metrics-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 18.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "candidate-experts-on",
+      "start": "2026-11-06T02:47:17Z",
+      "end": "2026-11-06T02:47:36Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/activation-offload-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 19.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "frozen-critic-off",
+      "start": "2026-11-06T02:47:36Z",
+      "end": "2026-11-06T02:48:01Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/trainer-metrics-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 25.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "frozen-critic-on",
+      "start": "2026-11-06T02:48:01Z",
+      "end": "2026-11-06T02:48:23Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/trainer-metrics-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 22.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "candidate-critic-on",
+      "start": "2026-11-06T02:48:23Z",
+      "end": "2026-11-06T02:48:46Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0,1",
+      "configured_visible_gpu_count": 2,
+      "source_root": "/data/activation-offload-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 23.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "compare-frozen-critic",
+      "start": "2026-11-06T02:48:46Z",
+      "end": "2026-11-06T02:48:58Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/activation-offload-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "activation-offload-001",
+      "attempt": "output",
+      "stage": "compare-candidate-critic",
+      "start": "2026-11-06T02:48:58Z",
+      "end": "2026-11-06T02:49:10Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/activation-offload-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/activation-offload/evidence/output/stages.tsv",
+        "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+      },
+      "wall_seconds": 12.0
+    },
+    {
+      "phase": "optimizer-resume-001",
+      "attempt": "output",
+      "stage": "frozen-resume",
+      "start": "2026-11-06T02:56:00Z",
+      "end": "2026-11-06T02:56:36Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/activation-offload-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/optimizer-resume/evidence/output/stages.tsv",
+        "sha256": "8b59c498cf24198e42272abb08ed7dac2fde87e716f36e8b13f916b48662243b"
+      },
+      "wall_seconds": 36.0
+    },
+    {
+      "phase": "optimizer-resume-001",
+      "attempt": "output",
+      "stage": "candidate-resume",
+      "start": "2026-11-06T02:56:36Z",
+      "end": "2026-11-06T02:57:03Z",
+      "time_basis": "UTC launcher start/end markers; includes Python/torch startup, compile/load and teardown",
+      "configured_visible_devices": "0",
+      "configured_visible_gpu_count": 1,
+      "source_root": "/data/optimizer-resume-001/candidate",
+      "exit_code": 0,
+      "timing_receipt": {
+        "path": "work/optimizer-resume/evidence/output/stages.tsv",
+        "sha256": "8b59c498cf24198e42272abb08ed7dac2fde87e716f36e8b13f916b48662243b"
+      },
+      "wall_seconds": 27.0
+    }
+  ],
+  "recorded_stage_wall_seconds_sum": 2859.595285,
+  "known_retained_wait_intervals": [
+    {
+      "start": "2026-11-06T02:34:41.244488+00:00",
+      "end": "2026-11-06T02:46:40Z",
+      "reason": "Parent retained the existing reservation while unit6 activation-offload implementation and independent probes were prepared/reviewed. Empty compute-process snapshot at start; no intervening GPU stage launched.",
+      "source": {
+        "path": "work/trainer-metrics/evidence/resource-after.json",
+        "sha256": "f4e471da2702dcd5f73795135eeca06f65bac42196bbc029c7a91c0c83467dc4"
+      },
+      "wall_seconds": 718.755512,
+      "classification": "Known retained wait, not measured SM idle time; subset of unclassified stage gaps, do not add twice."
+    },
+    {
+      "start": "2026-11-06T02:49:23.584141+00:00",
+      "end": "2026-11-06T02:56:00Z",
+      "reason": "Parent retained the existing reservation while unit7 optimizer-resume implementation and independent probe were prepared/reviewed. Empty compute-process snapshot at start; no intervening GPU stage launched.",
+      "source": {
+        "path": "work/activation-offload/evidence/resource-after.json",
+        "sha256": "6bb2ed9e790cf98a56f042ca91f1b6d88365631ffc6cc71ec25329e94f6a4dc9"
+      },
+      "wall_seconds": 396.415859,
+      "classification": "Known retained wait, not measured SM idle time; subset of unclassified stage gaps, do not add twice."
+    }
+  ],
+  "unclassified_or_export_stage_gaps": [
+    {
+      "start": "2026-11-06T00:51:36Z",
+      "end": "2026-11-06T01:00:51.308150+00:00",
+      "wall_seconds": 555.30815,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T01:09:19.415101+00:00",
+      "end": "2026-11-06T01:09:19.824394+00:00",
+      "wall_seconds": 0.409293,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T01:12:52.619442+00:00",
+      "end": "2026-11-06T01:12:55.435689+00:00",
+      "wall_seconds": 2.816247,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T01:20:51.649666+00:00",
+      "end": "2026-11-06T01:20:51.818565+00:00",
+      "wall_seconds": 0.168899,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T01:25:33.799405+00:00",
+      "end": "2026-11-06T01:25:36.899040+00:00",
+      "wall_seconds": 3.099635,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T01:28:25.881937+00:00",
+      "end": "2026-11-06T01:39:13.206044+00:00",
+      "wall_seconds": 647.324107,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T01:46:50.182872+00:00",
+      "end": "2026-11-06T01:46:50.412235+00:00",
+      "wall_seconds": 0.229363,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T01:50:28.950979+00:00",
+      "end": "2026-11-06T02:09:23Z",
+      "wall_seconds": 1134.049021,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T02:09:49Z",
+      "end": "2026-11-06T02:12:43Z",
+      "wall_seconds": 174.0,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T02:14:30Z",
+      "end": "2026-11-06T02:18:34Z",
+      "wall_seconds": 244.0,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T02:20:49Z",
+      "end": "2026-11-06T02:33:38Z",
+      "wall_seconds": 769.0,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T02:34:33Z",
+      "end": "2026-11-06T02:46:40Z",
+      "wall_seconds": 727.0,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T02:49:10Z",
+      "end": "2026-11-06T02:56:00Z",
+      "wall_seconds": 410.0,
+      "classification": "Not covered by a recorded probe/pipeline process interval; preparation, review, transfer and wait cannot be separated retrospectively. Not measured idle/utilization."
+    },
+    {
+      "start": "2026-11-06T02:57:03Z",
+      "end": "2026-11-06T02:59:08Z",
+      "wall_seconds": 125.0,
+      "classification": "Export and orderly job completion; no further GPU stage launched; no continuous utilization measurement."
+    }
+  ],
+  "earlier_idle_intervals": "Unknown as utilization; do not infer idle from absence of primary stage logs. Setup, conversions, authentication retries, review and exports occupied some gaps.",
+  "cleanup": {
+    "job": {
+      "name": "pv-episode-sync-001",
+      "namespace": "siddarth",
+      "uid": "0a6f94b3-4b1c-4519-8e3f-1a70b960aa3a",
+      "creationTimestamp": "2026-11-06T00:51:26Z"
+    },
+    "job_status": {
+      "completionTime": "2026-11-06T02:59:11Z",
+      "conditions": [
+        {
+          "lastProbeTime": "2026-11-06T00:51:26Z",
+          "lastTransitionTime": "2026-11-06T00:51:26Z",
+          "message": "Job resumed",
+          "reason": "JobResumed",
+          "status": "False",
+          "type": "Suspended"
+        },
+        {
+          "lastProbeTime": "2026-11-06T02:59:11Z",
+          "lastTransitionTime": "2026-11-06T02:59:11Z",
+          "message": "Reached expected number of succeeded pods",
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "SuccessCriteriaMet"
+        },
+        {
+          "lastProbeTime": "2026-11-06T02:59:11Z",
+          "lastTransitionTime": "2026-11-06T02:59:11Z",
+          "message": "Reached expected number of succeeded pods",
+          "reason": "CompletionsReached",
+          "status": "True",
+          "type": "Complete"
+        }
+      ],
+      "ready": 0,
+      "startTime": "2026-11-06T00:51:26Z",
+      "succeeded": 1,
+      "terminating": 0,
+      "uncountedTerminatedPods": {}
+    },
+    "pod": {
+      "name": "pv-episode-sync-001-xr7f4",
+      "uid": "a2833b7c-38c2-4755-a232-30bb4f9b3377",
+      "phase": "Succeeded"
+    },
+    "completion_flag_requested_at": "2026-11-06T02:59:05Z",
+    "deletion_request_started_at": "2026-11-06T03:00:20.940414+00:00",
+    "deletion_command_finished_at": "2026-11-06T03:00:21.786797+00:00",
+    "deletion_returncode": 0,
+    "deletion_stdout": "job.batch \"pv-episode-sync-001\" deleted from siddarth namespace\n",
+    "deletion_stderr": "",
+    "absence_observed_at": "2026-11-06T03:00:55.765538+00:00",
+    "remaining_jobs": 0,
+    "remaining_pods": 0,
+    "scope": {
+      "cluster": "resolution-h200-2",
+      "namespace": "siddarth",
+      "job_field_selector": "metadata.name=pv-episode-sync-001",
+      "pod_label_selector": "batch.kubernetes.io/job-name=pv-episode-sync-001"
+    },
+    "release_limit": "Container finished and Job completion timestamps captured; no SM/utilization telemetry or exact Kueue reservation-release timestamp was measured."
+  },
+  "scheduler_sources": [
+    {
+      "path": "work/optimizer-resume/pod-before-cleanup-allowlisted.json",
+      "sha256": "b124957f34af6de7a8e0358aed2efe3f499cb95c39136322a80e7c52a056aae6"
+    },
+    {
+      "path": "work/optimizer-resume/pod-finished-allowlisted.json",
+      "sha256": "33a2218af196276de40f3f31701e015ebc67ca7b8528f285caad3a264d3e0ae9"
+    },
+    {
+      "path": "work/optimizer-resume/pods-after-cleanup-allowlisted.json",
+      "sha256": "a0365506c1c4c0dd38ebb002a0aae9cec660ff27cf2b6453dc0c6f84751a4459"
+    }
+  ],
+  "timing_sources": [
+    {
+      "path": "work/task-ownership/resource-snapshot.json",
+      "sha256": "e8d54eeab9e3dcc62e1b4791b79a4d2dd5d8c776f37e19af57487d4e0e2964af"
+    },
+    {
+      "path": "work/packed-boundary/evidence/output-attempt001/stages.tsv",
+      "sha256": "6019624dae5fc530ad62d62123fce3d7c61ed156af4e7a9fcb42f1b11559c8cc"
+    },
+    {
+      "path": "work/packed-boundary/evidence/output-attempt002/stages.tsv",
+      "sha256": "0b5ea2e72dd333f9f7ecc77e0763f8d9e1a7875fccf986a20a71d82c4d6c3b54"
+    },
+    {
+      "path": "work/packed-boundary/evidence/output/stages.tsv",
+      "sha256": "5c4a39cd1d7fa6a982b73ae2470546af2822c94f14af2092c1618d0f03fdc548"
+    },
+    {
+      "path": "work/trainer-metrics/evidence/output/stages.tsv",
+      "sha256": "0d4b9e01436cd67ed7e1fde4b9562e4ded3c8bee897b20476bd7a6668cc115f3"
+    },
+    {
+      "path": "work/activation-offload/evidence/output/stages.tsv",
+      "sha256": "47ce31de4d18c016998a0e246e5dac7809b2f8466c1f1e4ab246cdbdb9f0ccae"
+    },
+    {
+      "path": "work/optimizer-resume/evidence/output/stages.tsv",
+      "sha256": "8b59c498cf24198e42272abb08ed7dac2fde87e716f36e8b13f916b48662243b"
+    }
+  ]
+}

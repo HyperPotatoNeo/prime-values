@@ -28,6 +28,8 @@ adopt those weights without coupling critic progress to policy versions. Value
 evaluation can run on dedicated GPUs for independent throughput or queue on the
 value trainer's GPUs when a smaller deployment matters more.
 
+Start with the [supported native training profile](configs/native/README.md) for current reverse-text and cached RG launch configs, with or without a value function. This branch does not yet replace the full historical environment catalog; its explicit compatibility inventory and frozen references are linked there.
+
 See [Value Functions](docs/value-functions.md) for topology, replay semantics,
 configuration, and monitoring.
 
@@ -61,18 +63,20 @@ PRIME-RL: Async RL Training at Scale
 
 </br>
 <p align="center">
-  <a href="https://github.com/PrimeIntellect-ai/prime-rl/actions/workflows/style.yaml">
-    <img src="https://github.com/PrimeIntellect-ai/prime-rl/actions/workflows/style.yaml/badge.svg" alt="Style" />
+  <a href="https://github.com/HyperPotatoNeo/prime-values/actions/workflows/style.yaml">
+    <img src="https://github.com/HyperPotatoNeo/prime-values/actions/workflows/style.yaml/badge.svg" alt="Style" />
   </a>
-  <a href="https://github.com/PrimeIntellect-ai/prime-rl/actions/workflows/cpu_tests.yaml">
-    <img src="https://github.com/PrimeIntellect-ai/prime-rl/actions/workflows/cpu_tests.yaml/badge.svg" alt="Test" />
+  <a href="https://github.com/HyperPotatoNeo/prime-values/actions/workflows/cpu_tests.yaml">
+    <img src="https://github.com/HyperPotatoNeo/prime-values/actions/workflows/cpu_tests.yaml/badge.svg" alt="Test" />
   </a>
-  <a href="https://github.com/PrimeIntellect-ai/prime-rl/actions/workflows/gpu_tests.yaml">
-    <img src="https://github.com/PrimeIntellect-ai/prime-rl/actions/workflows/gpu_tests.yaml/badge.svg" alt="Test" />
+  <a href="https://github.com/HyperPotatoNeo/prime-values/actions/workflows/gpu_tests.yaml">
+    <img src="https://github.com/HyperPotatoNeo/prime-values/actions/workflows/gpu_tests.yaml/badge.svg" alt="Test" />
   </a>
 </p>
 
-## Overview
+## Upstream architecture overview
+
+The following architecture/model catalog describes inherited PRIME-RL capabilities. The supported end-to-end profile on this branch is native reverse-text and cached RG with the documented policy/value paths; the catalog is not a claim of validation for every model, media type, deployment or environment.
 
 PRIME-RL is a framework for large-scale reinforcement learning. It is designed to be easy to use and hackable, yet capable of scaling to 1000+ GPUs. Here is what we think sets it apart:
 
@@ -110,7 +114,7 @@ With `[model] impl = "auto"` (the default), the trainer selects that custom stac
 
 ## Setup
 
-> *We develop and test on NVIDIA RTX 3090/4090/5090, A100, H100, H200, and B200. If your setup fails, please create an [issue](https://github.com/PrimeIntellect-ai/prime-rl/issues).*
+> Use Linux, Python 3.12, an NVIDIA GPU/driver compatible with the locked CUDA 13 stack, and enough device/host memory for the selected roles. See [native examples](configs/native/README.md) for current resource and acceptance scope. Report problems in this repository's [issues](https://github.com/HyperPotatoNeo/prime-values/issues).
 
 ### Prerequisites
 
@@ -121,7 +125,7 @@ Currently, you **need at least one NVIDIA GPU to use PRIME-RL**. If you don't al
 Set up PRIME-RL in a single command.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/PrimeIntellect-ai/prime-rl/main/scripts/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/HyperPotatoNeo/prime-values/main/scripts/install.sh | bash
 ```
 
 <details>
@@ -133,14 +137,14 @@ Manual Setup
 1. Clone the repository
 
 ```bash
-git clone https://github.com/PrimeIntellect-ai/prime-rl.git
-cd prime-rl
+git clone https://github.com/HyperPotatoNeo/prime-values.git
+cd prime-values
 ```
 
 2. Initialize submodules
 
 ```bash
-git submodule update --init -- deps/verifiers deps/renderers deps/research-environments deps/pydantic-config
+git submodule update --init --recursive -- deps/verifiers deps/renderers deps/research-environments deps/pydantic-config
 ```
 
 3. Install [uv](https://docs.astral.sh/uv/)
@@ -153,26 +157,10 @@ source $HOME/.local/bin/env
 4. Install dependencies from the lock file
 
 ```bash
-uv sync --all-extras
+uv sync --all-extras --locked
 ```
 
-4.1. On aarch64 hosts: build flash-attn from source for your GPU
-
-> *NOTE*: aarch64 has no prebuilt flash-attn wheel. This step compiles the CUDA extension for your local GPU (~20-30 minutes). Compute capability is auto-detected from `nvidia-smi`; override with `TORCH_CUDA_ARCH_LIST=9.0` (Hopper) / `10.0` (Blackwell) if needed.
-> *NOTE*: After this step, you can't run `uv sync --all-extras` or `uv run` as it will uninstall the package, you can avoid it by running `uv sync --inexact` or `uv run --no-sync`.
-
-```bash
-bash scripts/docker-arm64-post-install.sh
-```
-
-3.1. Optional: Install Flash Attention 3 (on Hopper GPUs only, for flash_attention_3 attention backend)
-
-> *NOTE*: This step will take a while, as it builds the Flash Attention 3 extension from source, as it has no wheels prebuilt.
-> *NOTE*: After this step, you can't run `uv sync --all-extras` or `uv run` as it will uninstall the package, you can avoid it by running `uv sync --inexact` or `uv run --no-sync`
-
-```bash
-uv pip install "flash-attn-3 @ git+https://github.com/Dao-AILab/flash-attention.git@main#subdirectory=hopper" --no-build-isolation
-```
+The lock selects platform-specific attention wheels. Do not replace them with an unpinned source build. This native profile's recorded full runtime acceptance is Linux x86_64; other hardware requires its own validation.
 
 </details>
 
@@ -194,37 +182,19 @@ uv run python -V
 uv run python -c "import flash_attn"
 ```
 
-3. Check that you can run SFT trainer  (*this requires 1 GPU*)
+3. Resolve the current native policy configuration without launching workers
 
 ```bash
-uv run sft @ configs/debug/sft/train.toml
+uv run rl @ configs/native/reverse_text_policy.toml --dry-run --output-dir outputs/native-check
 ```
 
-4. Check that you can run the RL trainer (*this requires 1 GPU*)
+4. On a suitably provisioned machine, launch the supported native smoke run
 
 ```bash
-uv run trainer @ configs/debug/rl/train.toml
+WANDB_MODE=offline uv run rl @ configs/native/reverse_text_policy.toml --output-dir outputs/native-smoke
 ```
 
-5. Check that you can run the inference server (*this requires 1 GPU*)
-
-```bash
-uv run inference @ configs/debug/infer.toml
-```
-
-*Keep the inference server running in the background for the next steps.*
-
-5.1. Check that you can run the orchestrator against the inference server
-
-```bash
-uv run orchestrator @ configs/debug/orch.toml
-```
-
-5.2. Check that you can run evals against the inference server
-
-```bash
-uv run eval @ configs/debug/eval.toml
-```
+The authored Qwen4B policy example requests two GPUs; the value example requests four. These role counts do not establish memory fit on every GPU. Consult [native examples](configs/native/README.md) and select a smaller model when needed.
 
 </details>
 
@@ -245,7 +215,7 @@ uv run hf auth login
 ```
 
 ## Training Examples
-We provide end-to-end training examples in the [`examples`](examples) directory to highlight features of the framework and guide you through the process of training your own models.
+The [`examples`](examples) directory preserves the upstream/historical catalog. Its RL configurations are not all executable on this native profile. Use [configs/native](configs/native/README.md) for current launch examples and the [compatibility inventory](experiments/dependency-migration/config-compatibility.json) for explicit entrypoint and rejection contracts. The descriptions below document the historical examples, not validation of every model or environment on this branch.
 
 ### Basic Training: 1 to 8 GPUs
 
@@ -284,7 +254,7 @@ Check out the [docs](docs) directory for in-depth guides on how to use PRIME-RL.
 
 ## Contributing
 
-We warmly welcome community contributions! We use [issues](https://github.com/PrimeIntellect-ai/prime-rl/issues) to track bugs, feature requests, and share our internal roadmap. If you encounter bugs, have pain points during development, or have ideas for new features, please open an issue.
+We warmly welcome community contributions! We use [issues](https://github.com/HyperPotatoNeo/prime-values/issues) to track bugs, feature requests, and share our internal roadmap. If you encounter bugs, have pain points during development, or have ideas for new features, please open an issue.
 
 Contributions are welcome via PR. Please follow these guidelines:
 1. Install the [pre-commit hooks](#pre-commit-hooks) to ensure your code is formatted correctly.
@@ -303,11 +273,12 @@ uv run pre-commit install
 ### Tests
 
 ```bash
-uv run pytest -v                    # everything
-uv run pytest tests/unit -v         # unit only
-uv run pytest tests/integration -v  # integration only
-uv run pytest -v -m "not gpu"       # CPU-only (inverse of the gpu marker)
+uv run pytest tests/unit -v -m "not gpu"                     # CPU unit suite
+uv run pytest tests/unit -v -m gpu                           # GPU unit suite
+uv run pytest tests/integration/test_native_profile.py -vvs  # current native lifecycle
 ```
+
+See [Development](docs/development.md) for self-hosted GPU CI setup and the explicitly pinned workflow for preserved scenario tests.
 
 ## License
 

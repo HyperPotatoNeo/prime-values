@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections import defaultdict
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
@@ -31,6 +32,7 @@ from prime_rl.orchestrator.value_context import TokenPrefix, group_leave_one_out
 from prime_rl.transport import TrainingSample
 from prime_rl.utils.async_utils import safe_cancel_all
 from prime_rl.utils.logger import get_logger
+from prime_rl.value.trajectory import snapshot_value_trajectory
 from prime_rl.value.transport import ValueRolloutPublisher
 from prime_rl.value.types import ValueTrainingRollout, ValueTrainingSample
 
@@ -191,22 +193,24 @@ class TrainSink:
         message graph. Training is renderer-only across all modes (RL/OPD student, SFT teacher),
         so every node already carries its tokens. Errored rollouts are dropped at the group
         level, so skip them here."""
-        if rollout.has_error:
+        if rollout.has_error or not rollout.trainable:
             return
         algorithm = self.train_envs.get(rollout.env_name).algorithm
         value_enabled = algorithm.value_evaluator is not None
-        task_prompt = getattr(rollout.task, "value_function_prompt", None) if value_enabled else None
+        task_prompt = getattr(rollout.task.data, "value_function_prompt", None) if value_enabled else None
         if value_enabled and self._value_privileged_context == "group_leave_one_out" and task_prompt is not None:
             raise ValueError(
                 "task value_function_prompt cannot be combined with "
                 "value_function.privileged_context='group_leave_one_out' "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         materialization = await asyncio.to_thread(
             materialize_training_data,
             rollout,
             env_name=rollout.env_name,
             mm_token_type_ids_mapping=self.mm_token_type_ids_mapping,
+            capture_sampled_masks=value_enabled,
+            capture_policy_versions=self.train_envs.get(rollout.env_name).sampler.samples_from_live_policy,
         )
         samples = materialization.samples
         value_prefix = self._build_value_prefix(
@@ -218,6 +222,17 @@ class TrainSink:
         rollout.samples = samples
         rollout.training_layout = materialization.layout
         rollout.value_prefix = value_prefix
+        if value_enabled:
+            rollout.value_trajectory = snapshot_value_trajectory(
+                samples,
+                sampled_masks=materialization.sampled_masks,
+                layout=materialization.layout,
+                reward=float(rollout.reward),
+                prefix=value_prefix,
+                env_name=rollout.env_name,
+                group_id=str(rollout.group_id),
+                policy_version=rollout.policy_version,
+            )
         # Arrival phase: rollout-local scoring (raw reward, echo observation
         # weighting, opd/opsd reference logprobs) runs as soon as the rollout is
         # tokenized — before its group is complete.
@@ -233,7 +248,7 @@ class TrainSink:
         if not group:
             return
         env_name = group[0].env_name
-        task_idx = group[0].task.idx
+        task_idx = group[0].task.data.idx
         num_errored = sum(r.has_error for r in group)
         num_without_samples = sum(not r.has_error and not r.samples for r in group)
         survivors = [r for r in group if not r.has_error and r.samples]
@@ -284,8 +299,12 @@ class TrainSink:
 
         if group_value_context:
             prefixes = await asyncio.to_thread(self._build_group_value_prefixes, survivors)
+            if any(rollout.value_trajectory is None for rollout in survivors):
+                raise RuntimeError("value trajectory was not captured before group finalization")
             for rollout, prefix in zip(survivors, prefixes, strict=True):
                 rollout.value_prefix = prefix
+                assert rollout.value_trajectory is not None
+                rollout.value_trajectory = replace(rollout.value_trajectory, prefix=prefix)
 
         # Advantages + per-sample wire stamping (advantage stream, loss
         # routing) are the algorithm's job (finalize_group); the sink only
@@ -347,12 +366,12 @@ class TrainSink:
             return None
         if not isinstance(prompt, str):
             raise TypeError(
-                f"value context prompt must be a string (env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"value context prompt must be a string (env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         if not prompt.strip():
             raise ValueError(
                 "value context prompt must contain non-whitespace text "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
 
         rendered = self.renderer.render_ids(
@@ -364,18 +383,18 @@ class TrainSink:
         if len(set(branch_has_bos)) != 1:
             raise ValueError(
                 "all branches in a rollout must use the same BOS convention "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         rendered_has_bos = bos_token_id is not None and rendered[:1] == [bos_token_id]
         if rendered_has_bos != branch_has_bos[0]:
             raise ValueError(
                 "rendered value context and policy branches must use the same BOS convention "
-                f"(env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"(env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         prefix_token_ids = tuple(rendered[1:] if rendered_has_bos else rendered)
         if not prefix_token_ids:
             raise ValueError(
-                f"value context rendered to no prefix tokens (env={rollout.env_name!r}, task={rollout.task.idx})"
+                f"value context rendered to no prefix tokens (env={rollout.env_name!r}, task={rollout.task.data.idx})"
             )
         prefix = TokenPrefix(
             token_ids=prefix_token_ids,
@@ -386,7 +405,7 @@ class TrainSink:
             if merged_length > self._value_seq_len:
                 raise ValueError(
                     "conditioned value input exceeds value_function.model.seq_len "
-                    f"(env={rollout.env_name!r}, task={rollout.task.idx}, branch={branch}, "
+                    f"(env={rollout.env_name!r}, task={rollout.task.data.idx}, branch={branch}, "
                     f"original_tokens={len(sample.token_ids)}, prefix_tokens={len(prefix.token_ids)}, "
                     f"merged_tokens={merged_length}, seq_len={self._value_seq_len}); "
                     "increase the critic sequence length, shorten the privileged context, "
@@ -410,26 +429,34 @@ class TrainSink:
     def _publish_value_rollouts(self, rollouts: list[Rollout]) -> None:
         if self._value_publisher is None:
             return
-        trainable_rollouts = [rollout for rollout in rollouts if rollout.samples]
+        trainable_rollouts = [
+            rollout
+            for rollout in rollouts
+            if (rollout.value_trajectory is not None and rollout.value_trajectory.samples) or rollout.samples
+        ]
         if not any(rollout.value_returns is not None for rollout in trainable_rollouts):
             return
         if not all(
             rollout.value_returns is not None and rollout.value_version is not None for rollout in trainable_rollouts
         ):
             raise RuntimeError("value evaluator did not attach concrete lambda-return targets")
+        if any(rollout.value_trajectory is None for rollout in trainable_rollouts):
+            raise RuntimeError("value trajectory was not captured before critic publication")
         assert self._value_seq_len is not None
         for rollout in trainable_rollouts:
             assert rollout.value_returns is not None and rollout.value_version is not None
+            trajectory = rollout.value_trajectory
+            assert trajectory is not None
             samples: list[ValueTrainingSample] = []
-            for sample, targets in zip(rollout.samples, rollout.value_returns, strict=True):
-                if rollout.value_prefix is not None:
-                    token_ids = rollout.value_prefix.apply(sample.token_ids)
-                    mask = rollout.value_prefix.lift(sample.mask, fill=False)
-                    value_targets = rollout.value_prefix.lift(targets, fill=0.0)
+            for sample, targets in zip(trajectory.samples, rollout.value_returns, strict=True):
+                if trajectory.prefix is not None:
+                    token_ids = trajectory.prefix.apply(list(sample.token_ids))
+                    mask = trajectory.prefix.lift(list(sample.mask), fill=False)
+                    value_targets = trajectory.prefix.lift(targets, fill=0.0)
                 else:
                     value_length = min(len(sample.token_ids), self._value_seq_len)
-                    token_ids = sample.token_ids[:value_length]
-                    mask = sample.mask[:value_length]
+                    token_ids = list(sample.token_ids[:value_length])
+                    mask = list(sample.mask[:value_length])
                     value_targets = targets[:value_length]
                 samples.append(
                     ValueTrainingSample(
@@ -442,7 +469,7 @@ class TrainSink:
                 ValueTrainingRollout(
                     samples=samples,
                     rollout_id=self._next_value_rollout_id,
-                    policy_version=rollout.policy_version,
+                    policy_version=trajectory.policy_version,
                     value_version=rollout.value_version,
                 )
             )

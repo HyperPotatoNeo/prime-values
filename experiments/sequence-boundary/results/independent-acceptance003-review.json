@@ -1,0 +1,79 @@
+{
+  "status": "passed",
+  "reviewer": "independent pipeline_validation",
+  "harness_sha256": "84e267ac46719d176ecc51f31b1d5e1d3201b9b460cf8218d745f2abadf51071",
+  "paired_raw_sha256": "2a54e4b9a3a90cf3327dce870812984d1269cec73aa870bbff147528940e5aa8",
+  "source_hashes_checked": 18,
+  "pairs_checked": 8,
+  "http_requests_equal": 18,
+  "sink_outputs": [
+    {
+      "case": "within",
+      "context": "task",
+      "full_sink_equal": true,
+      "published": 2,
+      "policy_samples": 0,
+      "retained_actions": 28
+    },
+    {
+      "case": "within",
+      "context": "group_leave_one_out",
+      "full_sink_equal": true,
+      "published": 2,
+      "policy_samples": 0,
+      "retained_actions": 28
+    },
+    {
+      "case": "exact",
+      "context": "task",
+      "full_sink_equal": true,
+      "published": 2,
+      "policy_samples": 0,
+      "retained_actions": 28
+    },
+    {
+      "case": "exact",
+      "context": "group_leave_one_out",
+      "full_sink_equal": true,
+      "published": 2,
+      "policy_samples": 0,
+      "retained_actions": 28
+    },
+    {
+      "case": "completion_clipped",
+      "context": "task",
+      "full_sink_equal": true,
+      "published": 2,
+      "policy_samples": 2,
+      "retained_actions": 3
+    },
+    {
+      "case": "completion_clipped",
+      "context": "group_leave_one_out",
+      "full_sink_equal": true,
+      "published": 2,
+      "policy_samples": 2,
+      "retained_actions": 3
+    },
+    {
+      "case": "prompt_overflow",
+      "context": "task",
+      "full_sink_equal": true,
+      "published": 0,
+      "policy_samples": 0,
+      "retained_actions": 0
+    },
+    {
+      "case": "prompt_overflow",
+      "context": "group_leave_one_out",
+      "full_sink_equal": true,
+      "published": 0,
+      "policy_samples": 0,
+      "retained_actions": 0
+    }
+  ],
+  "reasoning_usage_difference": "Explicit exact old0/nativeNone; every other paired field exact. Projected/native physical entire Usage exact.",
+  "physical_episode": "Every saved original retains679tokens/28actions/fullmessage, no projection marker; live harness additionally asserts pre/post entire Episode equal.",
+  "scope": "Actual producer and TrainSink artifacts independently re-compared. Deterministic token HTTP service and value evaluator; no model or GPU claim.",
+  "production_changes_since_test": "episodes.py docstring only, separately verified non-docstring AST identical in launcher-roundtrip/result.json"
+}

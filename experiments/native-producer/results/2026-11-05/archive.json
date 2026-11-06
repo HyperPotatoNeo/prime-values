@@ -1,0 +1,15 @@
+{
+  "path": "work/native-producer-results/evidence.tar.gz",
+  "sha256": "69f1ab959891b2da610e2b082894cd7bc8a09bfca52904b4958ba390d1c24026",
+  "bytes": 3042457,
+  "manifest_files": 439,
+  "all_archive_member_hashes_verified": true,
+  "exclusions": [
+    "full RG dataset",
+    "tokenizer/model weights",
+    "dependency wheels",
+    "virtual environments",
+    "Git object databases"
+  ],
+  "scope": "Native producer CPU acceptance, exact source and failed-attempt provenance; no GPU training run"
+}

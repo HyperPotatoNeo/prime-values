@@ -1,0 +1,129 @@
+{
+  "scope": "Configured policy requests for these two Qwen smoke runs; production request construction and source/log audit, not a network wire capture. No new generation or judge call.",
+  "request_builders_unchanged": [
+    {
+      "historical": {
+        "path": "/data/episode-sync-001/source/packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+        "line": 67,
+        "ast_sha256": "1bcb0b9ece0c1bb0ba4e234f6638049f2c7fde3fa12bd6198059802ed6af1737"
+      },
+      "current": {
+        "path": "/data/task-ownership-001/source/packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+        "line": 67,
+        "ast_sha256": "1bcb0b9ece0c1bb0ba4e234f6638049f2c7fde3fa12bd6198059802ed6af1737"
+      }
+    },
+    {
+      "historical": {
+        "path": "/data/episode-sync-001/source/packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+        "line": 777,
+        "ast_sha256": "9c04ef3d6f11b563055c100aa817b35a052b146075532478507f1554f7c361e1"
+      },
+      "current": {
+        "path": "/data/task-ownership-001/source/packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+        "line": 782,
+        "ast_sha256": "9c04ef3d6f11b563055c100aa817b35a052b146075532478507f1554f7c361e1"
+      }
+    },
+    {
+      "historical": {
+        "path": "/data/episode-sync-001/source/src/prime_rl/orchestrator/envs.py",
+        "line": 169,
+        "ast_sha256": "e102e81ac1bbc0144a85807e798bc5668783ef6822510670dea99df26a6a508f"
+      },
+      "current": {
+        "path": "/data/task-ownership-001/source/src/prime_rl/orchestrator/envs.py",
+        "line": 205,
+        "ast_sha256": "e102e81ac1bbc0144a85807e798bc5668783ef6822510670dea99df26a6a508f"
+      }
+    },
+    {
+      "historical": {
+        "path": "/data/episode-sync-001/source/src/prime_rl/orchestrator/sampler.py",
+        "line": 53,
+        "ast_sha256": "aea4bb9be71c7ace8ad184f38f25950bb0945e20969b2092a81e4e04e4da1e72"
+      },
+      "current": {
+        "path": "/data/task-ownership-001/source/src/prime_rl/orchestrator/sampler.py",
+        "line": 53,
+        "ast_sha256": "aea4bb9be71c7ace8ad184f38f25950bb0945e20969b2092a81e4e04e4da1e72"
+      }
+    },
+    {
+      "historical": {
+        "path": "/data/episode-sync-001/source/deps/verifiers/verifiers/v1/types.py",
+        "line": 235,
+        "ast_sha256": "0c076fd94d56105a8ae30dd1d59ce5c3773c327e7ee68c43fdcbf3a3b21d37ea"
+      },
+      "current": {
+        "path": "/data/task-ownership-001/source/deps/verifiers/verifiers/v1/types.py",
+        "line": 235,
+        "ast_sha256": "0c076fd94d56105a8ae30dd1d59ce5c3773c327e7ee68c43fdcbf3a3b21d37ea"
+      }
+    }
+  ],
+  "vllm_defaults_source": "/app/.venv/lib/python3.12/site-packages/vllm/sampling_params.py",
+  "vllm_defaults_source_sha256": "1ecf8ba062e4044f6e66f65a10ba5564840db30ac70a20490b766f41fee64c00",
+  "runs": {
+    "episode_unit": {
+      "resolved_config": "/data/episode-sync-001/output/dedicated/fresh/resolved.json",
+      "config_sha256": "9af76f06dae190289383327fe9a3788ce44aaa12a997c826748063266a907960",
+      "inference_log": "/data/episode-sync-001/output/dedicated/fresh/logs/inference.log",
+      "model_generation_config_overrides": {
+        "temperature": 0.7,
+        "top_k": 20,
+        "top_p": 0.8
+      },
+      "constructed_sampling_request": {
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_tokens": 64,
+        "logprobs": true,
+        "extra_body": {
+          "top_k": -1,
+          "min_p": 0.0,
+          "return_token_ids": true
+        }
+      },
+      "effective_distribution": {
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "top_k": -1,
+        "min_p": 0.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "repetition_penalty": 1.0
+      }
+    },
+    "task_data_unit": {
+      "resolved_config": "/data/task-ownership-001/output/dedicated/fresh/resolved.json",
+      "config_sha256": "52362f6b5b9cba27c72486ad7cb6efbb7c1961fad1e02302bc710e5d5b59e0bc",
+      "inference_log": "/data/task-ownership-001/output/dedicated/fresh/logs/inference.log",
+      "model_generation_config_overrides": {
+        "temperature": 0.7,
+        "top_k": 20,
+        "top_p": 0.8
+      },
+      "constructed_sampling_request": {
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_tokens": 64,
+        "logprobs": true,
+        "extra_body": {
+          "top_k": -1,
+          "min_p": 0.0,
+          "return_token_ids": true
+        }
+      },
+      "effective_distribution": {
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "top_k": -1,
+        "min_p": 0.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "repetition_penalty": 1.0
+      }
+    }
+  }
+}

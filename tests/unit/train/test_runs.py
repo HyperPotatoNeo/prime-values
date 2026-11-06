@@ -41,7 +41,9 @@ def create_run_with_config(
             "model": {"name": "test-model"},
             "batch_size": 32,
             "group_size": 4,
-            "env": [{"id": "test-env"}],
+            "env": [
+                {"name": "test-env", "env": {"taskset": {"id": "reverse-text"}, "agent": {"harness": {"id": "null"}}}}
+            ],
             # test-model isn't in MODEL_RENDERER_MAP; use the explicit default renderer.
             "renderer": {"name": "default"},
         }
@@ -202,7 +204,7 @@ def test_config_loading(tmp_path: Path) -> None:
         "batch_size": 32,
         "max_steps": 1000,
         "group_size": 4,
-        "env": [{"id": "test-env"}],
+        "env": [{"name": "test-env", "env": {"taskset": {"id": "reverse-text"}, "agent": {"harness": {"id": "null"}}}}],
         "renderer": {"name": "default"},
     }
     create_run_with_config(tmp_path, "run_test123", config=test_config)
@@ -247,7 +249,7 @@ def test_config_cleanup_on_deletion(tmp_path: Path) -> None:
         "model": {"name": "test-model"},
         "batch_size": 16,
         "group_size": 4,
-        "env": [{"id": "test-env"}],
+        "env": [{"name": "test-env", "env": {"taskset": {"id": "reverse-text"}, "agent": {"harness": {"id": "null"}}}}],
         "renderer": {"name": "default"},
     }
     run_dir = create_run_with_config(tmp_path, "run_delete_me", config=test_config)
@@ -277,8 +279,9 @@ def test_config_invalid(tmp_path: Path) -> None:
     invalid_config = {
         "model": {"name": "test-model"},
         "batch_size": "not-a-number",  # Invalid type
+        "renderer": {"name": "default"},
         "group_size": 4,
-        "env": [{"id": "test-env"}],
+        "env": [{"name": "test-env", "env": {"taskset": {"id": "reverse-text"}, "agent": {"harness": {"id": "null"}}}}],
     }
     run_dir = create_run_with_config(tmp_path, "run_invalid", config=invalid_config)
     config_dir = run_dir / "control"
@@ -295,6 +298,8 @@ def test_config_invalid(tmp_path: Path) -> None:
     assert error_path.exists()
     error_content = error_path.read_text()
     assert "Error parsing orchestrator config" in error_content
+    assert "batch_size" in error_content
+    assert "not-a-number" in error_content
 
 
 def test_evict_run_writes_file(tmp_path: Path) -> None:

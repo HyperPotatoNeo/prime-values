@@ -1,0 +1,8 @@
+{
+  "observed_at": "2026-11-06T03:00:55.761640+00:00",
+  "cluster": "resolution-h200-2",
+  "project": "prime-values",
+  "source": "kubectl get pods -o json; allowlisted fields only",
+  "scope": "caller-selected pods; empty does not prove namespace-wide cleanup",
+  "pods": []
+}

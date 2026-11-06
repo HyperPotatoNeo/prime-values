@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from prime_rl.trainer.utils import balanced_partition
+from prime_rl.transport.provenance import decode_policy_versions, encode_policy_versions
 from prime_rl.transport.types import EncodedTensor, MicroBatch, RoutedExperts, TrainingSample
 
 ROUTED_EXPERTS_DTYPE_ITEMSIZE = {
@@ -105,6 +106,9 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
     Prepare a problem for sequence packing training.
     Tokenize and prepare tensors.
     """
+    policy_versions = training_example.token_policy_versions
+    if policy_versions is not None:
+        decode_policy_versions(policy_versions, len(training_example.token_ids))
     input_ids = training_example.token_ids
     loss_mask = training_example.mask
     inference_logprobs = training_example.logprobs
@@ -146,6 +150,8 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         cut = seq_len
         if mm_token_type_ids is not None and mm_kwargs is not None:
             cut, mm_kwargs = _truncate_mm(mm_token_type_ids, mm_kwargs, seq_len)
+        if policy_versions is not None:
+            policy_versions = encode_policy_versions(decode_policy_versions(policy_versions, len(input_ids))[:cut])
         input_ids = input_ids[:cut]
         loss_mask = loss_mask[:cut]
         inference_logprobs = inference_logprobs[:cut]
@@ -200,6 +206,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
 
     return MicroBatch(
         input_ids=input_ids,
+        token_policy_versions=policy_versions,
         advantages=advantages,
         loss_mask=loss_mask,
         position_ids=position_ids,
@@ -275,6 +282,8 @@ class _MicroBatchBin:
 
 
 def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
+    has_policy_versions = any(sample.token_policy_versions is not None for _, sample in bin_content.samples)
+    policy_chunks: list[bytes] = []
     has_ref_logprobs = any(sample.ref_logprobs is not None for _, sample in bin_content.samples)
     has_mm_token_type_ids = any(sample.mm_token_type_ids is not None for _, sample in bin_content.samples)
     # A weight stream materializes as soon as one packed sample carries it; the
@@ -296,6 +305,12 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
 
     for lora_idx, sample in bin_content.samples:
         sample_len = len(sample.input_ids)
+        if has_policy_versions:
+            if sample.token_policy_versions is not None:
+                decode_policy_versions(sample.token_policy_versions, sample_len)
+                policy_chunks.append(sample.token_policy_versions.data)
+            else:
+                policy_chunks.append(b"\xff" * (8 * sample_len))
         input_ids.extend(sample.input_ids)
         loss_mask.extend(sample.loss_mask)
         advantages.extend(sample.advantages)
@@ -327,9 +342,15 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
     sequence_lengths = [len(sample.input_ids) for _, sample in bin_content.samples]
     assert sum(sequence_lengths) == len(input_ids), (sequence_lengths, len(input_ids))
     first_sample = bin_content.first_sample
+    policy_versions = (
+        EncodedTensor(dtype="int64", shape=[len(input_ids)], data=b"".join(policy_chunks))
+        if has_policy_versions
+        else None
+    )
 
     return MicroBatch(
         input_ids=input_ids,
+        token_policy_versions=policy_versions,
         advantages=advantages,
         loss_mask=loss_mask,
         position_ids=position_ids,
@@ -438,9 +459,19 @@ def pad_micro_batch(micro_batch: MicroBatch, pad_to_multiple_of: int) -> MicroBa
             f"env_names={len(micro_batch.env_names)}, input_ids={len(micro_batch.input_ids)}"
         )
 
+    if micro_batch.token_policy_versions is not None:
+        decode_policy_versions(micro_batch.token_policy_versions, len(micro_batch.input_ids))
+
     if not (pad_to_multiple_of > 1 and padding_size > 0):
         return micro_batch
 
+    if micro_batch.token_policy_versions is not None:
+        payload = micro_batch.token_policy_versions
+        micro_batch.token_policy_versions = EncodedTensor(
+            dtype="int64",
+            shape=[len(micro_batch.input_ids) + padding_size],
+            data=payload.data + b"\xff" * (8 * padding_size),
+        )
     micro_batch.input_ids.extend([1] * padding_size)
     micro_batch.advantages.extend([0.0] * padding_size)
     micro_batch.loss_mask.extend([False] * padding_size)
@@ -476,6 +507,8 @@ def _assert_token_arrays_aligned(micro_batch: MicroBatch) -> None:
     through packing and padding — a field extended without backfill would
     corrupt training silently."""
     num_tokens = len(micro_batch.input_ids)
+    if micro_batch.token_policy_versions is not None:
+        decode_policy_versions(micro_batch.token_policy_versions, num_tokens)
     per_token_fields = (
         "loss_mask",
         "advantages",
@@ -513,6 +546,7 @@ def _make_dummy_batch(source: MicroBatch) -> MicroBatch:
     dummy.rl_weights = None
     dummy.ce_weights = None
     dummy.ref_kl_weights = None
+    dummy.token_policy_versions = None
     return dummy
 
 

@@ -1,4 +1,5 @@
 import asyncio
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -58,9 +59,11 @@ def _rollout(reward: float, *, values: list[float]) -> Rollout:
         ),
     ]
     rollout = Rollout(
-        task=vf.Task(idx=0, prompt=None),
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
+        ok=True,
+        task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": reward},
+        rewards={"reward": vf.Reward(score=reward)},
         env_name="test",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test")
@@ -106,9 +109,11 @@ def _position_rollout(reward: float, *, values: list[float]) -> Rollout:
         ),
     ]
     rollout = Rollout(
-        task=vf.Task(idx=0, prompt=None),
+        agent=vf.AgentInfo(config=vf.AgentConfig(), trainable=True),
+        ok=True,
+        task=vf.TraceTask(type="fixture", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": reward},
+        rewards={"reward": vf.Reward(score=reward)},
         env_name="test",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test")
@@ -338,6 +343,59 @@ def test_tether_state_round_trip_preserves_partial_window_and_rejects_temporal_c
         AdaptiveTetherCoefficient(config, batch_size=2, gamma=0.8, gae_lambda=0.8).load_state_dict(state)
     with pytest.raises(ValueError, match="contract"):
         AdaptiveTetherCoefficient(config, batch_size=2, gamma=0.9, gae_lambda=0.7).load_state_dict(state)
+
+
+@pytest.mark.parametrize("positioned", [False, True])
+def test_tether_runtime_resume_preserves_future_advantages_and_partial_fit_windows(positioned):
+    config = TetherBaselineConfig(
+        adaptive=AdaptiveTetherConfig(
+            batch_size=3,
+            ridge=0.05,
+            ema_decay=0.6,
+            position={"bin_size": 1, "max_action_tokens": 3, "min_bin_rollouts": 1} if positioned else None,
+        )
+    )
+
+    def runtime():
+        return TetherRuntime(
+            config,
+            gamma=0.9,
+            gae_lambda=0.7,
+            value_seq_len=4,
+            policy_seq_len=4,
+            adaptive_batch_size=3,
+        )
+
+    def group(index, size):
+        rollouts = [
+            _rollout(
+                float((index + member) % 2),
+                values=[99.0, 0.15 + 0.03 * index, 0.6 - 0.1 * member, 0.25 + 0.05 * member],
+            )
+            for member in range(size)
+        ]
+        _attach_policy_gae(rollouts, gamma=0.9, gae_lambda=0.7)
+        return rollouts
+
+    uninterrupted = runtime()
+    uninterrupted.score_group(group(0, 2))
+    uninterrupted.score_group(group(1, 2))
+    snapshot = json.loads(json.dumps(uninterrupted.state_dict()))
+    assert snapshot["updates"] == 1
+    assert snapshot["pending_rollouts"] == 1
+    coefficients = snapshot["rho"] if positioned else [snapshot["rho"]]
+    assert any(value != 0.0 for value in coefficients)
+
+    resumed = runtime()
+    resumed.load_state_dict(snapshot)
+    for index, size in enumerate([3, 2, 2, 3], start=2):
+        expected, actual = group(index, size), group(index, size)
+        uninterrupted.score_group(expected)
+        resumed.score_group(actual)
+        for expected_rollout, actual_rollout in zip(expected, actual, strict=True):
+            assert actual_rollout.advantages == pytest.approx(expected_rollout.advantages)
+        assert resumed.state_dict() == uninterrupted.state_dict()
+        assert resumed.metrics() == uninterrupted.metrics()
 
 
 def test_tether_rejects_incompatible_checkpoint_schema():

@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "authoritative_attempt": "producer-008",
+  "harness": "experiments/native-rg/acceptance.py",
+  "harness_sha256": "ff53c6db2539b7243bc5ba04d99e2d00d9373591d026cdf62ed693a819c1a1aa",
+  "runtime": "CPU-only; deterministic HTTP completion token fixture; no model inference or GPU allocation",
+  "cases": 8,
+  "requests": 29,
+  "credit_contexts": [
+    "task",
+    "group_leave_one_out"
+  ],
+  "checks": [
+    "Actual frozen legacy RG source and two distinct spawned native EnvServer processes over EnvClient/ZMQ",
+    "Exact real Qwen renderer requests: token IDs and complete ancestral sampling arguments",
+    "Exact policy token IDs/masks/logprobs, two named reward metrics, completion/truncation booleans, immutable value snapshots",
+    "Worker dataset path nonexistent; payload source verified by worker reconstruction hashes",
+    "Actual TrainSink arrival, complete-group finalization, task prefix absence, Qwen-rendered LOO peer prefixes, mixed rewards0/1, critic publication",
+    "Exact evaluator inputs/values/advantages/targets/wire advantages/published critic samples across all three paths",
+    "EnvClient cancellation followed by successful worker recovery (not dispatcher cancellation accounting)"
+  ],
+  "historical_attempts": {
+    "001": "Harness accessed absent optional value_function_prompt directly; failed before model requests.",
+    "002": "Harness used old completion_len API instead of num_output_tokens; failed before comparison.",
+    "003-004": "Passed immutable-value snapshot/request equality, but policy projection held aliases subsequently cleared by ownership test; zero token-count claims invalid. Superseded by008 list-copy/positive-count assertions.",
+    "005": "Mixed real0/1 credit and LOO prompt comparison passed, policy projection alias limitation remained; superseded.",
+    "006": "Exact request comparison correctly failed: top-level presence/frequency fields omitted by legacy bridge but forwarded by native; explicit zero values moved to extra_body for both paths. No production change or relaxed comparator.",
+    "007": "All functional checks passed including copied policy arrays and actual TrainSink;008 adds raw three-way credit outputs plus dataset-file provenance."
+  },
+  "dataset": {
+    "source": "/data/rg-dataset",
+    "files": {
+      "dataset/data-00000-of-00001.arrow": {
+        "bytes": 8578232,
+        "sha256": "56f215b921146fd91e8e4b1ef7e1563b20f3ba24bf47f63fa23f97e502bbe359"
+      },
+      "dataset/dataset_info.json": {
+        "bytes": 309,
+        "sha256": "90a88b0133711a49c49b0d6a87f3d459d176fb940a213beef27b2cec6974d2bb"
+      },
+      "dataset/state.json": {
+        "bytes": 247,
+        "sha256": "0e1bcef0062a3aec52a7049ce0e5575a8fab879b846a292f15fcafd62706cce0"
+      },
+      "metadata.json": {
+        "bytes": 13127537,
+        "sha256": "10aaf0d4bdfa88dee559a3f7fd447abe2c568d040e4d58307f5f95932b5bff43"
+      }
+    },
+    "total_bytes": 21706325,
+    "archive_bytes": 2583487,
+    "archive_sha256": "18aac35bac5ea5a21afb0b78fdd3deac689a2213966f82197b469cb5e38333d3"
+  },
+  "dataset_local_cache": "work/native-rg-results/dataset-cache/rg-dataset",
+  "dataset_archive": "work/native-rg-results/rg-cache.tar.gz",
+  "dataset_retention": "Original saved /data/rg-dataset on prime-values-shared was mounted read-only; complete original four files exported and hash-verified. Dataset archive remains local/PVC and is excluded from this compact evidence archive and Git.",
+  "tokenizer": "Qwen/Qwen3-4B-Instruct-2507 at cdbee75f17c01a7cc42f958dc650907174af0554, tokenizer/config only; file hashes in authoritative receipt.",
+  "limitations": [
+    "Deterministic completion endpoint proves actual rendering, request construction, transport, scoring, and training data/credit wiring, not vLLM kernel behavior or learned-model quality.",
+    "The same unchanged production value/credit code consumes both legacy/native traces; independent mathematical correctness is covered by the previously frozen numerical controls.",
+    "Invalid-answer eight-case transport matrix is supplemented by a real correct answer for the mixed-reward credit gate and separate package parser/scorer positive/partial oracles.",
+    "No GPU reservation; two bounded CPU readers (first interpreter setup failure, second successful export) both deleted with absence receipt."
+  ]
+}

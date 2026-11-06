@@ -29,15 +29,25 @@ from prime_rl.utils.logger import format_time, setup_logger
 from prime_rl.trainer.rl.loss import (
     compute_entropy,
     compute_loss,
-    compute_importance_ratio_and_mismatch_kl,
     selective_log_softmax,
     setup_rl_loss_fn,
     shift_tensor_left,
     shift_tensor_right,
 )
+from prime_rl.trainer.rl.metrics import (
+    accumulate_policy_provenance,
+    accumulate_token_metrics,
+    compute_policy_provenance,
+    compute_token_metrics,
+    micro_step_message,
+    policy_version_reference,
+    prepare_token_env_ids,
+)
+from prime_rl.trainer.rl.normalization import global_loss_scales
 from prime_rl.trainer.rl.token_export import setup_token_exporter
 from prime_rl.trainer.model import (
     forward,
+    model_supports_packed_sequence_metadata,
     setup_tokenizer,
     setup_model,
     is_tt_moe_model,
@@ -49,6 +59,7 @@ from prime_rl.trainer.utils import (
     build_bin_cost,
     GarbageCollection,
     MemoryProfiler,
+    TensorSummaries,
     Tensors,
     export_benchmark_json,
     filter_rl_trainer_tensor_stats_for_wandb,
@@ -60,6 +71,7 @@ from prime_rl.trainer.utils import (
 from prime_rl.trainer.world import get_world
 from prime_rl.trainer.runs import setup_multi_run_manager, Progress, get_multi_run_manager
 from prime_rl.trainer.models.layers.lora import set_lora_num_tokens
+from prime_rl.utils.sequence import prepare_packed_sequence_metadata
 from prime_rl.utils.heartbeat import Heartbeat
 from prime_rl.utils.metrics_server import HealthServer, MetricsServer, RunStats
 from prime_rl.utils.monitor import setup_monitor
@@ -225,6 +237,8 @@ def train(config: TrainerConfig):
         # The checkpoint finished step ``checkpoint_step``; resume training at the next step.
         progress.step += 1
         logger.info(f"Resuming training from checkpoint step {checkpoint_step}")
+        if weight_broadcast is not None:
+            weight_broadcast.synchronize_restored_weights(model, checkpoint_step)
 
     logger.info(
         f"Starting from step {progress.step} (total_tokens={progress.total_tokens}, total_samples={progress.total_samples})"
@@ -293,26 +307,18 @@ def train(config: TrainerConfig):
         # FSDP's per-rank divide is undone after the microbatch loop via
         # fsdp_gradient_divide_factor. One batched collective keeps every rank issuing the same
         # op regardless of which components its samples carry.
-        local_rl_scale = 0
-        local_ce_scale = 0
-        local_ref_kl_scale = 0
-        for micro_batch in micro_batches:
-            mask = micro_batch["loss_mask"]
-            rl_w = micro_batch["rl_weights"]
-            local_rl_scale += int((mask & (rl_w != 0)).sum()) if rl_w is not None else int(mask.sum())
-            if micro_batch["ce_weights"] is not None:
-                local_ce_scale += int((micro_batch["ce_weights"] != 0).sum())
-            if micro_batch["ref_kl_weights"] is not None:
-                local_ref_kl_scale += int((micro_batch["ref_kl_weights"] != 0).sum())
-        global_scales = torch.tensor(
-            [local_rl_scale, local_ce_scale, local_ref_kl_scale], dtype=torch.int64, device="cuda"
+        rl_scale, ce_scale, ref_kl_scale = global_loss_scales(
+            micro_batches, device="cuda", group=parallel_dims.get_mesh("dp_cp").get_group()
         )
-        dp_cp_group = parallel_dims.get_mesh("dp_cp").get_group()
-        dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
-        rl_scale, ce_scale, ref_kl_scale = (max(scale, 1) for scale in global_scales.tolist())
 
         logger.debug(f"Starting forward and backward pass ({batch_size=})")
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
+        diagnostic_summaries = TensorSummaries()
+        token_summaries = TensorSummaries(include_std=True)
+        provenance_summaries = TensorSummaries()
+        reference_version = policy_version_reference(
+            step=progress.step, max_concurrent_runs=config.max_concurrent_runs, has_lora=config.model.lora is not None
+        )
         cp_enabled = parallel_dims.cp_enabled
         cp_rank = parallel_dims.world_mesh["cp"].get_local_rank() if cp_enabled else 0
         cp_group = parallel_dims.world_mesh["cp"].get_group() if cp_enabled else None
@@ -320,7 +326,15 @@ def train(config: TrainerConfig):
 
         for micro_step, micro_batch in enumerate(micro_batches):
             input_ids = micro_batch["input_ids"].to("cuda")
+            metric_env_names, metric_env_ids = prepare_token_env_ids(micro_batch["env_names"], input_ids.device)
             position_ids = micro_batch["position_ids"].to("cuda")
+            packing_metadata = (
+                prepare_packed_sequence_metadata(
+                    micro_batch["sequence_lengths"], total_tokens=input_ids.shape[1], device=input_ids.device
+                )
+                if model_supports_packed_sequence_metadata(model)
+                else None
+            )
             advantages = micro_batch["advantages"].to("cuda")
             loss_mask = micro_batch["loss_mask"].to("cuda")
             inference_logprobs = micro_batch["inference_logprobs"].to("cuda")
@@ -362,9 +376,19 @@ def train(config: TrainerConfig):
                 raise NotImplementedError("Context parallelism is not supported with VLM/multimodal training")
 
             if cp_enabled:
-                input_ids, forward_position_ids = setup_cp_params(
-                    input_ids, position_ids, cp_rank, cp_size, cp_group, cp_style=config.model.cp_style
+                local_packing_metadata = (
+                    packing_metadata.for_cp(cp_rank, cp_size) if packing_metadata is not None else None
                 )
+                input_ids, forward_position_ids = setup_cp_params(
+                    input_ids,
+                    position_ids,
+                    cp_rank,
+                    cp_size,
+                    cp_group,
+                    cp_style=config.model.cp_style,
+                    packing_metadata=packing_metadata,
+                )
+                packing_metadata = local_packing_metadata
                 labels = shard_for_cp(labels, cp_rank=cp_rank, cp_world_size=cp_size)
                 if routed_experts is not None:
                     routed_experts = shard_for_cp(routed_experts, cp_rank=cp_rank, cp_world_size=cp_size)
@@ -390,7 +414,7 @@ def train(config: TrainerConfig):
                 temperatures = shard_for_cp(temperatures, cp_rank=cp_rank, cp_world_size=cp_size)
 
             # Forward pass with per-token temperatures
-            with maybe_record_function("forward"), maybe_activation_offloading(config.model.ac_offloading):
+            with maybe_record_function("forward"), maybe_activation_offloading(config.model.ac_offloading, model):
                 out = forward(
                     model,
                     input_ids,
@@ -400,6 +424,7 @@ def train(config: TrainerConfig):
                     mm_kwargs=mm_kwargs,
                     mm_token_type_ids=mm_token_type_ids,
                     routed_experts=routed_experts,
+                    packing_metadata=packing_metadata,
                 )
 
             if out.get("logprobs") is None:
@@ -446,45 +471,27 @@ def train(config: TrainerConfig):
             with maybe_record_function("backward"):
                 loss.backward()
 
-            # Add relevant tensors to tensor dict for logging purposes
-            entropy = out["entropy"][loss_mask].detach().to("cpu")
-            tensors["entropy/all"].append(entropy)
             tensors["loss"].append(loss.detach().to("cpu").unsqueeze(0))
-
-            env_names = micro_batch["env_names"]
-            masked_env_names = [env_name for env_name, keep in zip(env_names, loss_mask.flatten().tolist()) if keep]
-            env_to_indices: dict[str, list[int]] = {}
-            for idx, env_name in enumerate(masked_env_names):
-                env_to_indices.setdefault(env_name, []).append(idx)
-
-            for env_name, indices in env_to_indices.items():
-                tensors[f"entropy/{env_name}"].append(entropy[indices])
-
-            # Mismatch KL is only meaningful where sampling logprobs exist —
-            # keep rl/ref_kl member tokens (policy-sampled), exclude tokens
-            # whose action component is ce (frozen-model tokens).
-            if rl_weights is None and ref_kl_weights is None:
-                mismatch_mask = loss_mask
-                has_mismatch_tokens = True
-            else:
-                sampled_mask = (rl_weights != 0) if rl_weights is not None else loss_mask
-                if ref_kl_weights is not None:
-                    sampled_mask = sampled_mask | (ref_kl_weights != 0)
-                mismatch_mask = loss_mask & sampled_mask
-                has_mismatch_tokens = bool(mismatch_mask.any())
-            if has_mismatch_tokens:
-                with torch.no_grad():
-                    _, _, mismatch_kl = compute_importance_ratio_and_mismatch_kl(out["logprobs"], inference_logprobs)
-                mismatch_kl = mismatch_kl[mismatch_mask].detach().to("cpu")
-                tensors["mismatch_kl/all"].append(mismatch_kl)
-                mismatch_env_names = [
-                    env_name for env_name, keep in zip(env_names, mismatch_mask.flatten().tolist()) if keep
-                ]
-                mismatch_env_to_indices: dict[str, list[int]] = {}
-                for idx, env_name in enumerate(mismatch_env_names):
-                    mismatch_env_to_indices.setdefault(env_name, []).append(idx)
-                for env_name, indices in mismatch_env_to_indices.items():
-                    tensors[f"mismatch_kl/{env_name}"].append(mismatch_kl[indices])
+            mismatch_kl, mismatch_mask = accumulate_token_metrics(
+                token_summaries,
+                diagnostic_summaries,
+                entropy=out["entropy"],
+                trainer_logprobs=out["logprobs"],
+                inference_logprobs=inference_logprobs,
+                loss_mask=loss_mask,
+                rl_weights=rl_weights,
+                ref_kl_weights=ref_kl_weights,
+                env_names=metric_env_names,
+                env_ids=metric_env_ids,
+            )
+            accumulate_policy_provenance(
+                provenance_summaries,
+                token_policy_versions=micro_batch.get("token_policy_versions"),
+                eligible_mask=mismatch_mask,
+                reference_version=reference_version,
+                observe=cp_rank == 0,
+                mismatch_kl=mismatch_kl,
+            )
 
             token_exporter.export(
                 progress.step,
@@ -495,6 +502,7 @@ def train(config: TrainerConfig):
                 config.loss,
             )
 
+            load_balance_stats = {}
             if is_tt_moe_model(model):
                 load_balance_stats = get_load_balance_stats(model)
                 for k, v in load_balance_stats.items():
@@ -503,17 +511,33 @@ def train(config: TrainerConfig):
 
             # Add loss tensors to tensor dict for logging purposes
             for key, loss_tensor in loss_tensors.items():
-                tensors[key].append(loss_tensor.detach().to("cpu"))
+                if key.startswith(
+                    (
+                        "importance_ratio/",
+                        "log_importance_ratio/",
+                        "loss_mismatch_kl/",
+                        "ref_kl/importance_ratio/",
+                        "ref_kl/log_importance_ratio/",
+                        "ref_kl/loss_mismatch_kl/",
+                    )
+                ):
+                    diagnostic_summaries.add(key, loss_tensor)
+                else:
+                    tensors[key].append(loss_tensor.detach().to("cpu"))
 
-            # Debug log with *local, micro step* stats
-            micro_step_message = f"Micro Step {micro_step}/{len(micro_batches)} | Loss {tensors['loss'][-1].mean().item():.4f} | Entropy {tensors['entropy/all'][-1].mean().item():.4f}"
-            if has_mismatch_tokens:
-                micro_step_message += f" | Mismatch KL {tensors['mismatch_kl/all'][-1].mean().item():.4f}"
-            if "max_vio" in tensors:
-                micro_step_message += f" | Max Vio {tensors['max_vio'][-1].mean().item():.4f}"
-            if "routing_confidence" in tensors:
-                micro_step_message += f" | Routing Conf. {tensors['routing_confidence'][-1].mean().item():.4f}"
-            logger.debug(micro_step_message)
+            logger.opt(lazy=True).debug(
+                "{}",
+                lambda: micro_step_message(
+                    micro_step,
+                    len(micro_batches),
+                    loss,
+                    out["entropy"],
+                    loss_mask,
+                    mismatch_kl,
+                    mismatch_mask,
+                    load_balance_stats,
+                ),
+            )
 
         if config.enable_token_export:
             dist.barrier()
@@ -581,6 +605,12 @@ def train(config: TrainerConfig):
                 for idx in multi_run_manager.used_idxs:
                     multi_run_manager.ready_to_update[idx] = False
 
+        # Include this completed step in the counters saved with its checkpoint.
+        num_local_tokens = seq_len * batch_size
+        num_tokens = parallel_dims.get_mesh("dp").size() * num_local_tokens
+        progress.total_tokens += num_tokens
+        progress.total_samples += batch_size
+
         # Checkpoint the step we just finished (model = policy v{progress.step}).
         if config.max_concurrent_runs > 1:
             # Multi-run: save per-run checkpoints every step (interval-gated inside
@@ -623,12 +653,10 @@ def train(config: TrainerConfig):
 
         # Synchronize the tensor metrics across all steps and ranks
         tensor_stats = tensors.compute_stats()
+        tensor_stats.update(compute_token_metrics(token_summaries, diagnostic_summaries))
+        tensor_stats.update(compute_policy_provenance(provenance_summaries))
 
         # Compute step metrics
-        num_local_tokens = seq_len * batch_size
-        num_tokens = parallel_dims.get_mesh("dp").size() * num_local_tokens
-        progress.total_tokens += num_tokens
-        progress.total_samples += batch_size
         perf_counter = get_perf_counter(model, seq_len)
         throughput = perf_counter.get_step_tokens_per_second(num_tokens, forward_backward_time)
         mfu = perf_counter.get_step_mfu(num_tokens, forward_backward_time)

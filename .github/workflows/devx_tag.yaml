@@ -16,7 +16,7 @@ concurrency:
 jobs:
   create-dev-tag:
     name: Create .dev tag
-    if: github.ref == 'refs/heads/main'
+    if: github.repository == 'PrimeIntellect-ai/prime-rl' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Create next .dev tag from latest release

@@ -1,0 +1,59 @@
+{
+  "status": "pass",
+  "archive_bytes": 415032,
+  "archive_sha256": "9fdb34af2b77727f6c3413f548191cb9abfcbf5796eab5f2496d4aa365100b4a",
+  "archive_files_verified": 43,
+  "active_source_config_test_hashes_verified": 333,
+  "documentation_only_source_exception": [
+    "src/prime_rl/orchestrator/types.py"
+  ],
+  "applied_paths_verified": 3,
+  "exact_tensor_comparisons": {
+    "fixed/muon/loaded": 10,
+    "fixed/muon/continued": 30,
+    "fixed/adam/loaded": 16,
+    "fixed/adam/continued": 42,
+    "fixed/mixed/loaded": 13,
+    "fixed/mixed/continued": 36,
+    "frozen-bug/adam/loaded": 16,
+    "frozen-bug/adam/continued": 42
+  },
+  "frozen_negative_control": {
+    "muon": {
+      "saved_steps": [
+        3,
+        3
+      ],
+      "loaded_steps": [
+        1,
+        1
+      ],
+      "divergent_parameters": [
+        "0.weight",
+        "0.bias",
+        "2.weight",
+        "2.bias"
+      ]
+    },
+    "mixed": {
+      "saved_steps": [
+        3,
+        3
+      ],
+      "loaded_steps": [
+        1,
+        1
+      ],
+      "divergent_parameters": [
+        "0.weight",
+        "0.bias",
+        "2.weight",
+        "2.bias"
+      ]
+    }
+  },
+  "limits": [
+    "Real single-rank DCP/FP32 MLP and actual Muon/Adam/CPUOffload wrappers; no full-model/FSDP repartition claim.",
+    "Malformed-group rejection and pointer identities independently source-reviewed; runtime receipts assert them."
+  ]
+}

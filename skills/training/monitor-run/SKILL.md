@@ -5,6 +5,30 @@ description: Monitor an ongoing prime-rl training run — find the output direct
 
 # Monitor a run
 
+## Native producer profile
+
+First identify the run's exact source and lock. This branch's native RG/reverse-text
+profile has CPU producer/credit acceptance; historical parent-stack GPU results
+are not a new GPU-stack validation. Existing legacy runs must be interpreted and
+restarted with their recorded branch/config, not automatically moved here.
+
+The environment server streams updates internally, but PrimeRL consumes only the
+completed assembled Episode. An active partial stream is not a completed group
+member or a publishable critic sample. Error/cancellation markers still complete
+group accounting; they never count as successful peers.
+
+Reward components are `score × weight` exactly once; unscored `None` entries are
+absent from distributions, not zeros. Raw named environment metrics remain
+separate. The displayed generation timing maps to the new agent span. Token
+batching and optional length penalties retain historical branch-based counters;
+those counts can differ from deduplicated upstream physical-call totals.
+
+Training projection receipts distinguish the retained training prefix from full
+generated text and raw usage. Public trace JSON rounds token floats by default;
+use exact msgpack/Python evidence for numerical comparisons. The original physical
+trace is retained in memory only when projection applies and is excluded from the
+public record. Private task value prefixes remain redacted.
+
 ## Runbook
 
 ### On launch
@@ -105,10 +129,12 @@ All metrics print to the console log (and W&B when configured).
 
 | Metric | Description |
 |--------|-------------|
-| `mismatch_kl/{all,env}/{mean,std,max}` | KL between trainer and (old) inference policy over trainable tokens |
+| `mismatch_kl/{all,env}/{mean,std,max}` | KL between trainer and inference over policy-sampled RL/reference-KL tokens; omitted when that population is empty |
 | `entropy/{all,env}/{mean,std,max}` | policy entropy over trainable tokens |
 | `masked_advantage_{positive,negative}/mean` | fraction of DPPO-masked tokens with +/- advantage |
 | `optim/grad_norm` | spikes may precede divergence |
+
+Entropy and mismatch statistics pool token observations across ranks; `std` uses Bessel correction. Their medians are not collected. Scalar/per-sample/custom metric medians remain available. Included NaNs remain visible, while excluded padding or frozen CE logprobs do not enter mismatch statistics. Do not interpret missing mismatch keys on a pure-CE step as zero mismatch.
 
 **Performance** — trainer and orchestrator step independently, so comparing step times shows who's waiting on whom.
 
@@ -134,7 +160,7 @@ curl -s http://localhost:8000/metrics | grep -E "num_requests|gpu_cache_usage"
 
 ```
 {output_dir}/rollouts/step_N/
-├── train_rollouts.jsonl   # all train rollouts (vf.RolloutOutput, trajectory excluded)
+├── train_rollouts.jsonl   # completed rollout records (canonical trace graph; private task prefixes redacted)
 ├── eval_rollouts.jsonl    # only present when eval ran
 └── train_rollouts.bin     # binary batch consumed by the trainer
 ```

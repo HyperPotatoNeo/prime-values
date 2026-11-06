@@ -1,0 +1,149 @@
+{
+  "status": "Current roadmap after completed unit10 and accepted unit11 final005 identical-harness CPU producer/value gate; publication tracked with unit11 results.",
+  "baseline": "unit10 published1801d112; unit11 native-producer candidate based on that source",
+  "current_pins": {
+    "verifiers": "b13ba60da63cea91389e7575766b7270d0d11fc5",
+    "renderers": "bdb96b0c84a307e2b71c6a366c9d718c3ac7fe78",
+    "torch": "2.11.0",
+    "transformers": "5.6.2",
+    "vllm": "0.24.0"
+  },
+  "recommended_sequence": [
+    {
+      "unit": "Explicit training projection boundary",
+      "scope": "Preserve current native full-physical-trace default and current legacy behavior. Add an explicit optional projection limit for deliberately migrated configurations at materialization/value ownership; never rewrite the source Episode to manufacture clipped provenance.",
+      "evidence": "work/sequence-boundary/attempt001/result.json: identical actual requests, 651 prompt tokens and 28 completion tokens. Limit654 gives legacy3 actions versus native28 and different discounted terminal credit; limit650 gives legacy no samples. Within limit680 both match.",
+      "paths": [
+        "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+        "src/prime_rl/orchestrator/trajectories.py",
+        "src/prime_rl/orchestrator/train_sink.py",
+        "src/prime_rl/orchestrator/types.py",
+        "src/prime_rl/value/trajectory.py"
+      ],
+      "review_requirements": [
+        "Projection limit defaults to None; legacy route keeps its existing parsing limit. No environment-ID-specific behavior.",
+        "Project aligned policy token/logprob/mask/routing streams and original sampled-mask provenance before immutable critic capture; rebuild clipped TrainingLayout spans where applicable.",
+        "No retained sampled tokens means no training sample, not terminal reward on a context token.",
+        "Preserve existing token-batch counters and length-penalty inputs: both num_total_tokens (last call usage) and num_output_tokens (aggregated provider usage) remain observed values despite clipped sample geometry. Do not silently redefine them as projected sample length.",
+        "Legacy truncation changes trace stop_condition, not original per-call finish_reason. Preserve observed Episode text/calls; compare actual overlength LOO prompt bytes without inventing finish-reason changes.",
+        "Prove supported single-turn migration against actual frozen legacy. Do not claim universal multi-turn/branch equivalence from a single flat-prefix example. Existing native branched semantics remain unchanged when projection disabled."
+      ],
+      "gate": "Actual same-response producer -> TrainSink -> task and LOO credit/publication comparison for within-limit, completion-crossing and prompt-crossing cases; original Episode unchanged. No GPU necessary.",
+      "status": "Completed in unit10; actual implementation is pure owned trace projection before Rollout, not a second materializer."
+    },
+    {
+      "unit": "Coherent native producer and renderer protocol",
+      "verifier_pin": "3f142cc61adb4b0168d925fb44e76370d6299a37",
+      "renderer_pin": "0526944665ac9f00e8d56e110babe97a2c174fa4",
+      "rationale": "Minimum reviewed pair carrying engine weight-version spans. Ultimate target308619da/a9d16769 adds116 verifier and15 renderer commits beyond this pair; defer that unrelated scope.",
+      "gpu_dependencies": "Actual Linux lock resolution retains current numerical/GPU dependency versions; real producer/value acceptance is CPU-only. GPU execution on the upgraded Python dependency closure is not yet verified.",
+      "minimum_metadata_changes": [
+        "verifiers requires openai>=2.54,<3; prime-sandboxes>=0.4.2; prime-pydantic-config>=0.4.3; mcp==2.0.0; math-verify>=0.8; renderer[multimodal]>=0.1.12",
+        "Renderer optional tokenizer extra allows transformers>=4.50; do not infer runtime compatibility from a successful lock alone.",
+        "Actual unit11 also requires pydantic-config65b15df/v0.4.3 and prime0.8.0; older prime CLI imports removed sandbox APIs despite successful metadata resolution."
+      ],
+      "local_upstream_paths": [
+        "verifiers/v1/serve/client.py:EnvClient.run and cancellation/close",
+        "verifiers/v1/serve/delta.py:EpisodeAssembly, DeltaStreamer, dump",
+        "verifiers/v1/episode.py:Episode task/env/run/group and last_error",
+        "verifiers/v1/trace.py:Reward, Trace, Branch.trainable, WireTrace",
+        "verifiers/v1/graph.py:MessageNode.token_ids, renderer_token_ids/logical_ids, serialization",
+        "verifiers/v1/clients/train.py:response_from_generate",
+        "renderers/client.py:generate",
+        "renderers/qwen3.py"
+      ],
+      "consumer_paths": [
+        "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+        "src/prime_rl/orchestrator/envs.py",
+        "src/prime_rl/orchestrator/episodes.py",
+        "src/prime_rl/orchestrator/types.py",
+        "src/prime_rl/orchestrator/trajectories.py",
+        "src/prime_rl/orchestrator/train_sink.py",
+        "src/prime_rl/orchestrator/value_context.py",
+        "src/prime_rl/orchestrator/records.py"
+      ],
+      "contract_changes": [
+        "Legacy bridge removed by91d4f69e6; remaining v0 removed by66a606493. Old EnvClient cannot simply talk to new streamed protocol, nor vice versa.",
+        "Streamed turn deltas assemble final WireEpisode; failed/no-trace cases retain task identity. Adapt error -> last_error and richer Episode metadata.",
+        "Rewards become raw score+weight records with unscored placeholders; preserve total and named raw metrics without double weighting.",
+        "Agent runtime/config placement and taskset IDs change; update selected supported configuration roundtrips deliberately.",
+        "Use physical token_ids for trainer/critic geometry; logical renderer IDs are only renderer continuation coordinates.",
+        "New branch trainability/compaction and sampled-token evidence must not silently redefine native sampled-mask topology or value credit. Reject unsupported shapes until semantics are deliberate.",
+        "JSON serializers round per-token floats by default; actual msgpack mode=python retains full precision. Never use default JSON replay as the loss-equivalence oracle."
+      ],
+      "gate": "Real two-worker streamed completion/cancellation/error transport, exact supported Qwen request/token provenance, sequence projection, original-trace selection, LOO barrier and actor/value publication; reuse fixed-credit numerical controls only at changed boundaries.",
+      "status": "Implemented and accepted final005 identical-harness CPU producer/value gate in unit11; no new GPU-stack runtime claim."
+    },
+    {
+      "unit": "Observation-only weight-version carrier alignment and admission",
+      "status": "Unit12 final002 CPU gate accepted:12 exact task/LOO context comparisons,11 coordinate controls and20 existing sink regressions; no real backend attribution or model-training claim.",
+      "order": "Before or together with the vLLM0.32 transition, not after it.",
+      "rationale": "vLLM0.32 always emits version spans with default label; sampling_mask is optional/defaultFalse and remains rejected because replay changes the training distribution.",
+      "scope": "Retain exact opaque Trace labels; validate sampled ordinal intervals, derive strict numeric live-policy IDs or unknown, carry through projection/materializer/packing as optional int64 physical-axis metadata. No objective/value changes.",
+      "gate": "Deterministic adversarial carrier data through actual native response/trace/materializer/packing, including shared prefixes, clipped completions and unknown labels; no dispatch-version substitution. Actual engine provenance remains a later runtime gate."
+    },
+    {
+      "unit": "Inference backend transition",
+      "reference_commit": "f8016025 (vLLM0.32 transition)",
+      "pins": {
+        "vllm": "0.32.0",
+        "torch": "2.13.0",
+        "transformers": "5.19.0"
+      },
+      "scope": "Select coherent inference serving, launch and weight-reload interfaces; preserve FP32 optimizer/master/reduction settings and supported Qwen training algorithm. Do not copy all new models, NIXL/ModelExpress or process-wide GC defaults just because upstream changed them.",
+      "paths": [
+        "pyproject.toml and uv.lock",
+        "src/prime_rl/inference/vllm/server.py",
+        "src/prime_rl/inference/vllm/serving_tokens.py",
+        "src/prime_rl/inference/vllm/worker/filesystem.py",
+        "src/prime_rl/inference/vllm/worker/nccl.py",
+        "src/prime_rl/inference/patches.py",
+        "src/prime_rl/inference/server.py",
+        "packages/prime-rl-configs/src/prime_rl/configs/inference.py"
+      ],
+      "concrete_break": "vLLM API server imports move from entrypoints.openai.api_server to entrypoints.launchers.api_server.entry/app_state and launchers.app/cli_args; ErrorResponse moves to entrypoints.serve.engine.protocol. Existing monkey patches and worker reload hooks need actual version-specific review.",
+      "gate": "One real supported Qwen serving -> policy/value updates -> resume pipeline plus weight reload. Pin complete ancestral sampling/tokenizer; compare mathematical invariants and measured numerical differences honestly across kernel versions, with frozen-repeat controls where required. Do not assume bitwise equality or claim speed/mismatch improvements without evidence."
+    },
+    {
+      "unit": "Verified engine provenance and mismatch observability",
+      "upstream_commits": [
+        "a22eeb329d29ba68996fe2be173417b168093bcd",
+        "b2df580d19957e74580ca3d352d76d433cbd5e74"
+      ],
+      "benefit": "Distinguish same-weight numerical trainer/inference mismatch from policy drift during and after generation; diagnose rather than silently alter credit.",
+      "scope": "After the aligned carrier/admission prerequisite and actual backend support, label startup and successful reload, prove real engine completion spans, and reuse bounded GPU summaries for age bins. Do not delay carrier support until this diagnostic stage.",
+      "requirements": [
+        "Unknown/default engine labels stay explicitly unknown in exact-token metrics; report coverage. Do not import upstream dispatch-version fallback as sampled-token truth.",
+        "Validate span bounds, ordering, overlap and coverage against original physical completion coordinates before mask projection; preserve unknown and non-sampled sentinel positions through packing.",
+        "Real generation paused across a weight update must return two correctly aligned version spans; startup labels and filesystem/NCCL paths need coverage for supported configurations.",
+        "Token provenance is distinct from critic evaluator version, replay age and group dispatch version.",
+        "Keep cde40c64 stale-token masking/cancellation changes, sampling replay and score-centering/EMA objectives out of this observability unit."
+      ]
+    }
+  ],
+  "compatibility_options": {
+    "recommended": "Develop new producer/backend on an explicit native-supported branch/profile (RG plus reverse-text initially); preserve frozen current-stack source/lock for historical legacy execution. Reject unsupported legacy configuration before allocating resources. This does not require porting all69 declared legacy entries and does not claim universal backward compatibility.",
+    "if_simultaneous_legacy_is_required": "A separately pinned legacy worker project plus explicit final-Episode to new protocol/schema adapter is possible, but must carry cancellation, errors, joint-group scoring and precise token arrays. Do not vendor v0 into value code or assume old/new ZMQ clients interoperate. This additional maintenance burden is not currently justified by an actual mixed workflow.",
+    "math": "Do not automatically switch old math examples: native research-environments304 changes dataset default, boxed-answer acceptance, metadata/shuffling and verifier/timeouts. No saved non-RG math research workload establishes it as a prerequisite.",
+    "reverse_text": "Same default prompt/scorer is promising; named metric lcs versus lcs_reward_func and the demonstrated sequence boundary still need explicit preservation before replacing configurations."
+  },
+  "non_goals": [
+    "Full upstream merge",
+    "New optimization objectives",
+    "Changes to existing research runs",
+    "All-example migration",
+    "GPU allocation during this planning unit"
+  ],
+  "milestones": [
+    {
+      "unit": 10,
+      "status": "published1801d112",
+      "summary": "Optional pure single-turn training projection; native defaults, full scoring text and raw provider usage preserved."
+    },
+    {
+      "unit": 11,
+      "status": "final005 identical-harness CPU producer/value gate passed with zero paired differences; publication tracked under experiments/native-producer",
+      "summary": "Exact verifier3f142/renderer052694/pydantic-config65b15df installed and CPU-tested. Existing numerical lock versions retained. Native RG/reverse profile; legacy parent execution remains separate."
+    }
+  ]
+}

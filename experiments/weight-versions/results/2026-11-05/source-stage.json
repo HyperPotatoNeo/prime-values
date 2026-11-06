@@ -1,0 +1,40 @@
+{
+  "base": "19e0e4f73984aac040636dda0467375355831b09",
+  "changed_source": {
+    "src/prime_rl/orchestrator/episodes.py": "48c7dcd0e4cd521fe80a167c8ec5f4713af9ce01f973135e1b95c39e6ffd2ccb",
+    "src/prime_rl/orchestrator/provenance.py": "dae7219e974015d744adbfd8b18fa2f888f871a3112854b3091550210277b757",
+    "src/prime_rl/orchestrator/train_sink.py": "6e305e36df26eb6fdf4c13a26b8e363619bf46647685c4a2b317736516789d9c",
+    "src/prime_rl/orchestrator/trajectories.py": "1949d2e00a789c1186fbc32e6863b3b17e6333d4b768ec5953e86bfc6e9094eb",
+    "src/prime_rl/trainer/batch.py": "6d71b39ab66a7d2b7e9e951e3e39d3d54ba89c21c34bf300f7cef8d68877eff5",
+    "src/prime_rl/trainer/rl/data.py": "233631707b6cfb6de0e77a47bc2bd8ce03d5281a14679a0d6e30b24cf1997d05",
+    "src/prime_rl/transport/provenance.py": "2355264fce1416bc3aba37b8c25e00170239910d2f98229e3bc77f5a4b9cbcc8",
+    "src/prime_rl/transport/types.py": "6f7d2c772ffbe149fcc1e0fd131f16f5df9b21587d0fc844f19a4f181468c28f"
+  },
+  "protected_value_files": {
+    "src/prime_rl/value/coordinator.py": "5908d638577e40658f1f138cc467a77cbca770d9e6563c685a2c6da46e95d28d",
+    "src/prime_rl/value/service.py": "d43e49d629554bce6858d86c7c80433785549bc8cd999934aa24bac89d93a017",
+    "src/prime_rl/value/transport.py": "ef16e38403bf7861c6528f7e516ed85d8c2582f1ed466095c22552d312400c82",
+    "src/prime_rl/value/client.py": "e463c3023792c1d60f22a27985e23f3c83881341c67d4a83ee4e68d6a3e6a19d",
+    "src/prime_rl/value/batch.py": "5715f6aff68b6c9f08ac4975b91aa1a2202ddb6ab209db006afab61ecbb988e2",
+    "src/prime_rl/value/__init__.py": "59908484cd44c375907924489f409a5cf2c8ee2d601aeeb1df85ccd3a9fd924f",
+    "src/prime_rl/value/trajectory.py": "68b1b0d0d277e0caee15cf835c29f788a058edc7fe06f82f73c281a14ccf4db6",
+    "src/prime_rl/value/types.py": "9a9cb794ab1e5135bd2adda0f2d87421b27b9a53cf24403d18b2fe1ed197dd6e",
+    "src/prime_rl/value/replay.py": "08320cf2f89c6891f0f300e6e2d9dc3beca8ab43461e4242cdbf7648b4b818d6",
+    "src/prime_rl/value/train.py": "f25808b52b06d494b2bb2b46e05e739f3c7ffb801cd978bbf1425d5a8dd2e7d0",
+    "src/prime_rl/value/inference.py": "2a0f04e6008ba409bc2b074092dda7a57fc06ae32c03c059692b226d683cb621",
+    "src/prime_rl/value/math.py": "6f8a26845a6995ba9624761e15541ec392773fb2563f95cedd8e0184064b58b5",
+    "src/prime_rl/value/trainer.py": "1473a908524aebdbdb368edd9301293488779a91d4653ef690eae851d33612e9",
+    "src/prime_rl/value/weights.py": "01e5dab56739b1a3e62a2a7baf95058380899ad37a48385e7c361942f0a74639",
+    "src/prime_rl/value/evaluator.py": "5ad24d7c201ba58cf114c4cb5070db7901c06a3e286325f8b31c0a0ff86e248e",
+    "src/prime_rl/value/credit.py": "004d505dcc0d2aac35c19e251b43f459823324162266bc6ce7f5570515525b9c",
+    "src/prime_rl/value/update_schedule.py": "e19fc89dbb9ae6d1953e848983794e19b0a99d2cdaba01ba4c2463720981e801",
+    "src/prime_rl/value/colocated.py": "0e471048961589f794e3f17c0e3af7609ad9dc20c0e94666d70112e6201a4cb5",
+    "src/prime_rl/orchestrator/algo/base.py": "0f5064e05650a317c0e941507547c8e4b94ec9fe1d685b923711215af2199349",
+    "src/prime_rl/orchestrator/algo/advantage.py": "490661cc8e07e13253e167f5786efc806c131a3a985ee9f9b2651225bedc3938",
+    "src/prime_rl/orchestrator/algo/grpo.py": "e7aa4244a0c98521fc21bf0af45f61dbeaeb3b8f19eb4fe04453a091bb10662b",
+    "src/prime_rl/orchestrator/algo/tether.py": "db2361974b13d1ae6929b910cf8402fc05e59f73d578652837bb5a578d07d297"
+  },
+  "dependency_changes": false,
+  "gpu_runs": 0,
+  "status": "source ready; actual boundary gate pending"
+}

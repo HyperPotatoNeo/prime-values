@@ -1,0 +1,25 @@
+{
+  "archive_sha256": "6f2870cafcb541f27c610f35fc418c9048e5d1abd964b4bdb99d800438b9d881",
+  "archive_bytes": 284864,
+  "archive_members_verified": 132,
+  "active_runtime_source_hashes_verified": 320,
+  "source_final_check": {
+    "files_verified": 2342,
+    "after_driver_exit": true
+  },
+  "stages_natural_exit": [
+    0,
+    0
+  ],
+  "restored_progress": {
+    "step": 3,
+    "total_tokens": 2864,
+    "total_samples": 6
+  },
+  "final_progress": {
+    "step": 4,
+    "total_tokens": 3860,
+    "total_samples": 8
+  },
+  "sampling_audit_sha256": "ec616f9f63e79306ffd38a971c32d5858c0ba3a882df596c2c4de7ff4fa8b37b"
+}

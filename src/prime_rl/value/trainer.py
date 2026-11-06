@@ -12,7 +12,12 @@ from torchtitan.distributed.utils import clip_grad_norm_
 from prime_rl.configs.trainer import CheckpointConfig
 from prime_rl.configs.value import ValueFunctionConfig
 from prime_rl.trainer.ckpt import CheckpointManager, setup_ckpt_managers
-from prime_rl.trainer.model import predict_value, setup_value_model, value_model_supports_packing
+from prime_rl.trainer.model import (
+    model_supports_packed_sequence_metadata,
+    predict_value,
+    setup_value_model,
+    value_model_supports_packing,
+)
 from prime_rl.trainer.optim import setup_optimizer
 from prime_rl.trainer.parallel_dims import ParallelDims
 from prime_rl.trainer.runs import Progress
@@ -22,6 +27,7 @@ from prime_rl.trainer.world import get_world
 from prime_rl.utils.act_offloading import maybe_activation_offloading
 from prime_rl.utils.logger import get_logger
 from prime_rl.utils.monitor import setup_monitor
+from prime_rl.utils.sequence import prepare_packed_sequence_metadata
 from prime_rl.utils.utils import resolve_latest_ckpt_step
 from prime_rl.value.batch import ValueMicroBatch, pack_value_samples
 from prime_rl.value.math import align_value_logits, compute_value_loss, value_head_output_size
@@ -258,8 +264,15 @@ class ValueTrainerRuntime:
         metric_state = _ValueMetricState.empty()
         for micro_batch in active.micro_batches:
             input_ids, position_ids, mask, targets = _to_tensors(micro_batch)
-            with maybe_activation_offloading(self.config.model.ac_offloading):
-                logits = predict_value(self.model, input_ids, position_ids)
+            packing_metadata = (
+                prepare_packed_sequence_metadata(
+                    micro_batch.sequence_lengths, total_tokens=input_ids.shape[1], device=input_ids.device
+                )
+                if model_supports_packed_sequence_metadata(self.model)
+                else None
+            )
+            with maybe_activation_offloading(self.config.model.ac_offloading, self.model):
+                logits = predict_value(self.model, input_ids, position_ids, packing_metadata=packing_metadata)
                 logits = align_value_logits(logits, micro_batch.sequence_lengths)
                 loss, metrics = compute_value_loss(logits, targets, mask, self.config.loss, active.scale)
             loss.backward()

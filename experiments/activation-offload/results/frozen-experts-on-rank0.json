@@ -1,0 +1,301 @@
+{
+  "mode": "frozen",
+  "rank": 0,
+  "compiled_graphs": 6,
+  "observations": [
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 4096
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": true,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 32768
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": true,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 32768
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": true,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 32768
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": false,
+      "changed_storage": false,
+      "copied": false,
+      "saved_device": "cuda",
+      "bytes": 192
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 6144
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": false,
+      "changed_storage": false,
+      "copied": false,
+      "saved_device": "cuda",
+      "bytes": 8
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 12288
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 12288
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 12288
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 4096
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": false,
+      "plain_tensor": false,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": false,
+      "saved_device": "cuda",
+      "bytes": 8192
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 4096
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 8192
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 4096
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": true,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 32768
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": true,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 32768
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": true,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 32768
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": false,
+      "changed_storage": false,
+      "copied": false,
+      "saved_device": "cuda",
+      "bytes": 192
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 6144
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": false,
+      "changed_storage": false,
+      "copied": false,
+      "saved_device": "cuda",
+      "bytes": 8
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 12288
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 12288
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 12288
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 4096
+    },
+    {
+      "parameter_alias": true,
+      "expert_alias": false,
+      "plain_tensor": false,
+      "eligible": true,
+      "changed_storage": true,
+      "copied": false,
+      "saved_device": "cuda",
+      "bytes": 8192
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 4096
+    },
+    {
+      "parameter_alias": false,
+      "expert_alias": false,
+      "plain_tensor": true,
+      "eligible": true,
+      "changed_storage": false,
+      "copied": true,
+      "saved_device": "cpu",
+      "bytes": 8192
+    }
+  ],
+  "replacement_control": null,
+  "reference": "/data/activation-offload-001/output/frozen-experts-off",
+  "source_files": {
+    "offloading": {
+      "path": "/data/trainer-metrics-001/candidate/src/prime_rl/utils/act_offloading.py",
+      "sha256": "1eb19c7c2fde8ff657ddb718e11f8385f0be756a713a311bb09aebb0f3c1d425"
+    },
+    "experts": {
+      "path": "/data/trainer-metrics-001/candidate/src/prime_rl/trainer/models/layers/moe.py",
+      "sha256": "1836a27cab1e9e5e61061b3852a981fcfc32e5d25fe5e9a7303e3be6fdda2e21"
+    }
+  },
+  "harness_sha256": "b274eae6dab7f9ab18cdbc5112187086809d8a913a7ecb41ee5b4ce9ac51173b",
+  "scope": "Actual GroupedExperts, torch EP2 and nested FSDP with compiled block; FP32 masters/reduction/Adam, BF16 forward. Not a full model or throughput benchmark."
+}

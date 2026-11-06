@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "actual_RLConfig_validated": true,
+  "actual_write_subconfigs": true,
+  "actual_child_cli": true,
+  "complete_orchestrator_equal": true,
+  "inherited_projection_cap": 64,
+  "native_inline_prompt_preserved": true,
+  "source_sha256": {
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-producer-candidate/packages/prime-rl-configs/src/prime_rl/configs/rl.py": "fd452300c10a921ac648f3d461014209de2ac4f843afca1c9cbded8ea12f5dd7",
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-producer-candidate/packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py": "bab41fc48c988ec2a3cbfdef09c5337b9a637314bfd9020340a839ed362d834d",
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-producer-candidate/src/prime_rl/entrypoints/rl.py": "51b24d7229f3f5acf2067739e8b39d071f4462c9531c7f6732e38ffc9885b4a9",
+    "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/native-producer-cpu/.venv/lib/python3.12/site-packages/pydantic_config/cli.py": "a1d17da3c676a4c4cfdb3b214563a5c7601d180a4e462d1fda974ebf2b36126c"
+  },
+  "toml_sha256": "8873e9a3cfe81a52b7842cb1a343a68c03dcbb91740744c0d2808c740b172c46",
+  "harness_sha256": "240fa22bfb3c51923e1fcdff286f700bac8a56b64428c2ae67bcd1e484e72194",
+  "no_processes_or_gpu_launched": true
+}

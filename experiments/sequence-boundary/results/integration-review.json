@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "applied_files_verified": 18,
+  "protected_core_config_dependency_files_unchanged": 210,
+  "archive_manifest_files_verified": 71,
+  "archive_sha256": "fe08f1983ab0fd28ff2157a3845688d63e9c5146f82548c1353c7503f9bb7a2c",
+  "parent_owned_docs": "NativeRG usage, start-run skill and next dependency roadmap updated after implementation acceptance. No additional runtime change."
+}

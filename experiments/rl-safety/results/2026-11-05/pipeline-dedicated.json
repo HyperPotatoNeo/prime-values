@@ -1,0 +1,136 @@
+{
+  "fresh": {
+    "placement": "dedicated",
+    "policy_steps": [
+      1,
+      2,
+      3
+    ],
+    "policy_losses": [
+      -0.0496,
+      0.021,
+      0.0222
+    ],
+    "policy_gradient_norms": [
+      6.2623,
+      3.3822,
+      4.4469
+    ],
+    "value_versions": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "value_losses": [
+      0.52506,
+      0.65064,
+      0.42378,
+      0.54942
+    ],
+    "max_observed_evaluator_version": 4,
+    "dedicated_adoptions": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "policy_checkpoint": 3,
+    "stable_value_checkpoints": [
+      4
+    ],
+    "resume_policy_step": null,
+    "resume_value_step": null,
+    "checkpoint_progress": {
+      "1": {
+        "step": 1,
+        "total_tokens": 940,
+        "total_samples": 2
+      },
+      "2": {
+        "step": 2,
+        "total_tokens": 1904,
+        "total_samples": 4
+      },
+      "3": {
+        "step": 3,
+        "total_tokens": 2844,
+        "total_samples": 6
+      }
+    },
+    "stage_exit": {
+      "natural_returncode": null,
+      "qualification": "Historical fresh-stage exit was not recorded; completion logs and checkpoints verified."
+    },
+    "log_classifications": {
+      "inference.log": "expected_shutdown_engine_dead",
+      "orchestrator.log": "clear",
+      "trainer.log": "clear",
+      "value_evaluator.log": "clear",
+      "value_trainer.log": "clear",
+      "envs/train/reverse-text-v1.log": "clear",
+      "trainer/torchrun/ca28fb87417742df96698e08aa5de918_79hxw1j4/attempt_0/0/stderr.log": "clear",
+      "trainer/torchrun/ca28fb87417742df96698e08aa5de918_79hxw1j4/attempt_0/0/stdout.log": "clear",
+      "value_trainer/torchrun/b0c88d58f3df41cebb160608c215ffd4_9c_d_vm3/attempt_0/0/stderr.log": "clear",
+      "value_trainer/torchrun/b0c88d58f3df41cebb160608c215ffd4_9c_d_vm3/attempt_0/0/stdout.log": "clear"
+    }
+  },
+  "resumed": {
+    "placement": "dedicated",
+    "policy_steps": [
+      4
+    ],
+    "policy_losses": [
+      -0.0038
+    ],
+    "policy_gradient_norms": [
+      2.0428
+    ],
+    "value_versions": [
+      5
+    ],
+    "value_losses": [
+      0.28415
+    ],
+    "max_observed_evaluator_version": 5,
+    "dedicated_adoptions": [
+      4,
+      5
+    ],
+    "policy_checkpoint": 4,
+    "stable_value_checkpoints": [
+      5
+    ],
+    "resume_policy_step": 3,
+    "resume_value_step": 4,
+    "checkpoint_progress": {
+      "3": {
+        "step": 3,
+        "total_tokens": 2844,
+        "total_samples": 6
+      },
+      "4": {
+        "step": 4,
+        "total_tokens": 3840,
+        "total_samples": 8
+      }
+    },
+    "stage_exit": {
+      "natural_returncode": 0,
+      "returncode_after_cleanup": 0
+    },
+    "log_classifications": {
+      "inference.log": "clear",
+      "orchestrator.log": "clear",
+      "trainer.log": "clear",
+      "value_evaluator.log": "clear",
+      "value_trainer.log": "clear",
+      "envs/train/reverse-text-v1.log": "clear",
+      "trainer/torchrun/19815df6b18e40568b3e35b1f25d3c90_bxpkk5mq/attempt_0/0/stderr.log": "clear",
+      "trainer/torchrun/19815df6b18e40568b3e35b1f25d3c90_bxpkk5mq/attempt_0/0/stdout.log": "clear",
+      "value_trainer/torchrun/bc35161d62434892954f27239d934a59_d9go3boy/attempt_0/0/stderr.log": "clear",
+      "value_trainer/torchrun/bc35161d62434892954f27239d934a59_d9go3boy/attempt_0/0/stdout.log": "clear"
+    }
+  }
+}

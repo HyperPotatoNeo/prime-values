@@ -1,0 +1,23 @@
+[
+  {
+    "excluded_logprob": "nan",
+    "finite_loss": false,
+    "finite_all_gradients": false,
+    "finite_eligible_gradient": true,
+    "desired_behavior": "finite loss and gradients; excluded token has zero gradient"
+  },
+  {
+    "excluded_logprob": "inf",
+    "finite_loss": false,
+    "finite_all_gradients": false,
+    "finite_eligible_gradient": true,
+    "desired_behavior": "finite loss and gradients; excluded token has zero gradient"
+  },
+  {
+    "excluded_logprob": "-inf",
+    "finite_loss": false,
+    "finite_all_gradients": false,
+    "finite_eligible_gradient": true,
+    "desired_behavior": "finite loss and gradients; excluded token has zero gradient"
+  }
+]

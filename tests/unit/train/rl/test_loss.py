@@ -1,10 +1,133 @@
+import math
+
 import pytest
 import torch
 
-from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig
-from prime_rl.trainer.rl.loss import LossInputs, LossOutputs, compute_entropy, compute_loss, setup_rl_loss_fn
+from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig
+from prime_rl.trainer.rl.loss import (
+    DIAGNOSTIC_RATIO_LIMIT,
+    LossInputs,
+    LossOutputs,
+    compute_entropy,
+    compute_importance_ratio_and_mismatch_kl,
+    compute_loss,
+    setup_rl_loss_fn,
+)
 
 pytestmark = [pytest.mark.gpu]
+
+
+@pytest.mark.parametrize("loss_type", ["dppo", "ipo"])
+def test_policy_loss_matches_tabulated_probability_objective_and_logit_gradient(loss_type):
+    # The first four actions move far in both directions for both advantage signs.
+    # DPPO rejects only movement in the advantage direction; IPO rejects either.
+    probabilities = [0.7, 0.1, 0.1, 0.7, 0.35, 0.25, 0.4]
+    behavior = [0.3, 0.5, 0.5, 0.3, 0.3, 0.3, 0.4]
+    advantages = [2.0, 2.0, -3.0, -3.0, 1.0, -1.0, 100.0]
+    weights = [0.5, 1.5, 0.25, 2.0, 0.75, 1.25, 3.0]
+    accepted = [False, True, False, True, True, True] if loss_type == "dppo" else [False] * 4 + [True] * 2
+    adv_tau, kl_tau = 1.3, 0.07
+    config = (
+        DefaultLossConfig(dppo_mask_low=0.2, dppo_mask_high=0.2, adv_tau=adv_tau, kl_tau=kl_tau)
+        if loss_type == "dppo"
+        else IPOLossConfig(ipo_threshold=0.2, adv_tau=adv_tau, kl_tau=kl_tau)
+    )
+    logits = torch.tensor(
+        [[math.log(p), math.log1p(-p)] for p in probabilities],
+        dtype=torch.float64,
+        device="cuda",
+        requires_grad=True,
+    )
+    inputs = LossInputs(
+        trainer_logprobs=logits.log_softmax(-1)[:, 0],
+        inference_logprobs=torch.tensor(behavior, dtype=torch.float64, device="cuda").log(),
+        ref_logprobs=None,
+        advantages=torch.tensor(advantages, dtype=torch.float64, device="cuda"),
+        loss_mask=torch.tensor([True] * 6 + [False], device="cuda"),
+        loss_weights=torch.tensor(weights, dtype=torch.float64, device="cuda"),
+    )
+    result = setup_rl_loss_fn(config)(inputs)
+    result.loss.backward()
+
+    expected_loss = 0.0
+    expected_gradient = []
+    for p, q, advantage, weight, keep in zip(
+        probabilities[:6], behavior[:6], advantages[:6], weights[:6], accepted, strict=True
+    ):
+        ratio = p / q
+        drift = math.log(ratio)
+        policy_term = -adv_tau * advantage * ratio if keep else 0.0
+        expected_loss += weight * (policy_term + kl_tau * drift**2)
+        # d log softmax(action) / d logits = one_hot(action) - probabilities.
+        coefficient = weight * (policy_term + 2 * kl_tau * drift)
+        expected_gradient.append([coefficient * (1 - p), -coefficient * (1 - p)])
+    expected_gradient.append([0.0, 0.0])
+    torch.testing.assert_close(result.loss, result.loss.new_tensor(expected_loss), rtol=1e-10, atol=1e-10)
+    torch.testing.assert_close(logits.grad, logits.new_tensor(expected_gradient), rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.parametrize("partition", [(9,), (2, 3, 4), (1,) * 9])
+def test_mixed_component_gradient_is_invariant_to_sequence_partition(partition):
+    # CE/ref-KL may train observation tokens outside the policy action mask.
+    # Global component counts are supplied by the trainer, not inferred here.
+    p = [0.35, 0.25, 0.4, 0.6, 0.2, 0.4, 0.1, 0.7, 0.3]
+    q = [0.3, 0.3, 0.4, 0.5, 0.3, 0.35, 0.5, 0.7, 0.3]
+    reference = [0.3, 0.3, 0.4, 0.5, 0.3, 0.55, 0.6, 0.7, 0.3]
+    adv = [2.0, -3.0, 100.0, 0.0, 0.0, 999.0, -999.0, 0.0, 0.0]
+    rl_weight = [0.5, 1.25, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    ce_weight = [0.0, 0.25, 0.0, 0.5, 2.0, 0.0, 0.0, 0.0, 0.0]
+    ref_weight = [0.0, 0.0, 0.0, 0.0, 0.0, 0.75, 1.25, 0.0, 0.0]
+    logits = torch.tensor(
+        [[math.log(prob), math.log1p(-prob)] for prob in p],
+        dtype=torch.float64,
+        device="cuda",
+        requires_grad=True,
+    )
+
+    def split(values, dtype=torch.float64):
+        return list(torch.tensor(values, dtype=dtype, device="cuda").split(partition))
+
+    loss, _ = compute_loss(
+        trainer_logprobs=list(logits.log_softmax(-1)[:, 0].split(partition)),
+        inference_logprobs=split([math.log(prob) for prob in q]),
+        ref_logprobs=split([math.log(prob) for prob in reference]),
+        advantages=split(adv),
+        loss_mask=split([True, True] + [False] * 7, torch.bool),
+        rl_weights=split(rl_weight),
+        ce_weights=split(ce_weight),
+        ref_kl_weights=split(ref_weight),
+        rl_loss_fn=setup_rl_loss_fn(DefaultLossConfig()),
+        rl_scale=2,
+        ce_scale=3,
+        ref_kl_scale=2,
+    )
+    loss.backward()
+
+    objective = 0.0
+    coefficients = [0.0] * 9
+    for index in (0, 1):
+        ratio = p[index] / q[index]
+        drift = math.log(ratio)
+        weight = rl_weight[index] / 2
+        objective += weight * (-adv[index] * ratio + 0.001 * drift**2)
+        coefficients[index] += weight * (-adv[index] * ratio + 0.002 * drift)
+    for index in (1, 3, 4):
+        weight = ce_weight[index] / 3
+        objective -= weight * math.log(p[index])
+        coefficients[index] -= weight
+    for index, accepted in ((5, True), (6, False)):
+        ratio = p[index] / q[index]
+        drift = math.log(ratio)
+        weight = ref_weight[index] / 2
+        # The reference-derived advantage is fixed during the policy update.
+        policy_term = -math.log(reference[index] / p[index]) * ratio if accepted else 0.0
+        objective += weight * (policy_term + 0.001 * drift**2)
+        coefficients[index] += weight * (policy_term + 0.002 * drift)
+    gradient = [
+        [coefficient * (1 - prob), -coefficient * (1 - prob)] for prob, coefficient in zip(p, coefficients, strict=True)
+    ]
+    torch.testing.assert_close(loss, loss.new_tensor(objective), rtol=1e-10, atol=1e-10)
+    torch.testing.assert_close(logits.grad, logits.new_tensor(gradient), rtol=1e-10, atol=1e-10)
 
 
 def test_grpo_loss():
@@ -281,3 +404,112 @@ def _dummy_custom_loss(inputs: LossInputs, multiplier: float = 1.0) -> LossOutpu
         loss=loss,
         metrics={"custom_metric": torch.tensor(multiplier)},
     )
+
+
+@pytest.mark.parametrize("component", ["dppo", "ipo", "ref_kl", "ce"])
+@pytest.mark.parametrize("empty", [False, True])
+def test_excluded_nonfinite_tokens_have_zero_gradient_in_complete_loss(component, empty):
+    trainer = torch.tensor([-1.0, float("nan"), float("inf"), -float("inf")], device="cuda", requires_grad=True)
+    active = 0.0 if empty else 1.0
+    component_weights = torch.tensor([active, 0.0, 0.0, 0.0], device="cuda")
+    mask = torch.tensor([not empty, False, False, False], device="cuda")
+    loss, _ = compute_loss(
+        trainer_logprobs=[trainer],
+        inference_logprobs=[torch.tensor([-1.0, float("nan"), -float("inf"), float("inf")], device="cuda")],
+        ref_logprobs=[torch.tensor([-0.7, float("nan"), float("inf"), -float("inf")], device="cuda")],
+        advantages=[torch.tensor([1.0, float("nan"), float("inf"), -float("inf")], device="cuda")],
+        loss_mask=[mask],
+        rl_weights=None if component in ("dppo", "ipo") else [torch.zeros_like(component_weights)],
+        ce_weights=[component_weights] if component == "ce" else None,
+        ref_kl_weights=[component_weights] if component == "ref_kl" else None,
+        rl_loss_fn=setup_rl_loss_fn(IPOLossConfig() if component == "ipo" else DefaultLossConfig()),
+        rl_scale=1,
+        ce_scale=1,
+        ref_kl_scale=1,
+    )
+    loss.backward()
+    expected_loss = 0.0 if empty else {"dppo": -1.0, "ipo": -1.0, "ref_kl": -0.3, "ce": 1.0}[component]
+    expected_gradient = 0.0 if empty else (-0.3 if component == "ref_kl" else -1.0)
+    torch.testing.assert_close(loss, trainer.new_tensor(expected_loss))
+    torch.testing.assert_close(trainer.grad, trainer.new_tensor([expected_gradient, 0.0, 0.0, 0.0]))
+
+
+@pytest.mark.parametrize("loss_type", ["dppo", "ipo"])
+def test_rejected_overflowing_ratio_keeps_kl_without_policy_nan(loss_type):
+    trainer = torch.tensor([-0.1, -1.0], device="cuda", requires_grad=True)
+    config = DefaultLossConfig() if loss_type == "dppo" else IPOLossConfig()
+    result = setup_rl_loss_fn(config)(
+        LossInputs(
+            trainer_logprobs=trainer,
+            inference_logprobs=torch.tensor([-1000.0, -1.0], device="cuda"),
+            ref_logprobs=None,
+            advantages=torch.ones(2, device="cuda"),
+            loss_mask=torch.ones(2, dtype=torch.bool, device="cuda"),
+        )
+    )
+    result.loss.backward()
+    drift = 999.9
+    torch.testing.assert_close(result.loss, trainer.new_tensor(config.kl_tau * drift**2 - 1))
+    torch.testing.assert_close(trainer.grad, trainer.new_tensor([2 * config.kl_tau * drift, -1]))
+    for value in result.metrics.values():
+        assert torch.isfinite(value).all()
+        assert not value.requires_grad
+    assert result.metrics["importance_ratio/all/saturated"].tolist() == [1.0, 0.0]
+    assert result.metrics["importance_ratio/accepted/saturated"].tolist() == [0.0]
+    assert result.metrics["log_importance_ratio/all"][0] > 999
+
+
+@pytest.mark.parametrize("loss_type", ["dppo", "ipo"])
+def test_accepted_large_finite_ratio_keeps_uncapped_policy_gradient(loss_type):
+    trainer = torch.tensor([-20.0], dtype=torch.float64, device="cuda", requires_grad=True)
+    config = DefaultLossConfig() if loss_type == "dppo" else IPOLossConfig()
+    result = setup_rl_loss_fn(config)(
+        LossInputs(
+            trainer_logprobs=trainer,
+            inference_logprobs=torch.tensor([-40.0], dtype=torch.float64, device="cuda"),
+            ref_logprobs=None,
+            advantages=torch.tensor([2.0], dtype=torch.float64, device="cuda"),
+            loss_mask=torch.ones(1, dtype=torch.bool, device="cuda"),
+        )
+    )
+    result.loss.backward()
+    policy_term = -2 * math.exp(20)
+    torch.testing.assert_close(result.loss, trainer.new_tensor(policy_term + config.kl_tau * 20**2))
+    torch.testing.assert_close(trainer.grad, trainer.new_tensor([policy_term + 2 * config.kl_tau * 20]))
+    assert result.metrics["importance_ratio/accepted/above_10000"].item() == 1
+    assert result.metrics["importance_ratio/accepted/saturated"].item() == 0
+
+
+@pytest.mark.parametrize("loss_type", ["dppo", "ipo"])
+def test_zero_policy_signal_does_not_exponentiate_irrelevant_ratio(loss_type):
+    trainer = torch.tensor([-20.0], device="cuda", requires_grad=True)
+    config = DefaultLossConfig(kl_tau=0) if loss_type == "dppo" else IPOLossConfig(kl_tau=0)
+    result = setup_rl_loss_fn(config)(
+        LossInputs(
+            trainer_logprobs=trainer,
+            inference_logprobs=torch.tensor([-1000.0], device="cuda"),
+            ref_logprobs=None,
+            advantages=torch.zeros(1, device="cuda"),
+            loss_mask=torch.ones(1, dtype=torch.bool, device="cuda"),
+        )
+    )
+    result.loss.backward()
+    assert result.loss.item() == 0
+    assert trainer.grad.item() == 0
+    assert result.metrics["importance_ratio/accepted/saturated"].item() == 1
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_mismatch_diagnostic_saturates_extreme_tails_without_capping_ratio(dtype):
+    drift = torch.tensor(
+        [100.0, 1e31, -1e31, float("inf"), -float("inf"), float("nan"), -1.0, 0.0, 1.0],
+        device="cuda",
+        dtype=dtype,
+    )
+    log_ratio, ratio, mismatch = compute_importance_ratio_and_mismatch_kl(drift, torch.zeros_like(drift))
+    torch.testing.assert_close(mismatch[:5], torch.full_like(mismatch[:5], DIAGNOSTIC_RATIO_LIMIT))
+    assert torch.isnan(mismatch[5])
+    torch.testing.assert_close(mismatch[6:], mismatch.new_tensor([math.expm1(-1) + 1, 0, math.expm1(1) - 1]))
+    torch.testing.assert_close(log_ratio, drift, equal_nan=True)
+    torch.testing.assert_close(ratio, drift.exp(), equal_nan=True)
+    assert ratio[0] > DIAGNOSTIC_RATIO_LIMIT

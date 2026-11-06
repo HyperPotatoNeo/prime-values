@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "exact_saved_context_pairs": 12,
+  "request_pairs": 6,
+  "baseline_source_hashes_verified": 10,
+  "candidate_source_hashes_verified": 12,
+  "actual_dependency_python_hashes_equal_previous_unit": {
+    "verifiers": 199,
+    "renderers": 33,
+    "pydantic_config": 2
+  },
+  "harness_sha256": "f0a2c9f6e1939710befe2742f1830d2d9b6d126a787cc16967db97c44aa56f50",
+  "baseline_raw_sha256": "129dc9c63e3bc6b28bdc218b1a83e769232e0ecf44c10992438ec3e0faa489e1",
+  "candidate_raw_sha256": "efc5e0e630a7d654425c0442512e416d47327de8e3a663ae0dfc043415aa9df6",
+  "known_numeric_steps": [
+    5,
+    6
+  ],
+  "dispatch_999_not_used": true,
+  "unknown_and_frozen_sources_absent": true,
+  "scope": "Independent saved raw arithmetic/input/packing and provenance verification; actual engine attribution remains future backend gate."
+}

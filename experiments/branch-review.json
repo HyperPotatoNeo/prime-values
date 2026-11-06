@@ -1,0 +1,66 @@
+{
+  "status": "bounded read-only branch audit complete; no new production blocker found in reviewed seams",
+  "base": "30bfbf301335e8ce24c62fa5fd24bcc37a633bd3",
+  "head": "1708eb0cbc1fc8a9c86a06cf0bb99a1d5842ac06",
+  "unit5": "Independently reviewed8-file metric-streaming candidate patch85e0c6ecaf46a799fa09f991c314852e05293075538e2c5d6fdd5b51d490298a; runtime acceptance pending, not included in reviewed committed head.",
+  "scope": [
+    "Value-owned snapshot creation, reward/prefix update timing, evaluator result projection, publication before policy filters, TETHER inputs",
+    "Canonical Episode failure/eligibility adapter, dispatcher fatal unsupported Episode handling, native payload ownership and legacy joint-group contract",
+    "Optional packed metadata actor/critic shared forward capability, local/global CP boundaries, fallback behavior",
+    "Safety loss edits, normalization extraction, checkpoint progress/error propagation, policy/critic converted-weight cache sharing",
+    "Config/default drift and documentation claims relevant to these seams"
+  ],
+  "conclusions": {
+    "value": "Token/mask/sampled-mask ownership is explicit; immutable layout/prefix metadata and separate value transport prevent later policy routing/filter mutations from changing critic input/targets. Reward replacement happens after rollout scoring; group-private prefix installation follows the complete group barrier. Value publication precedes policy filters. The original independent GAE/target lambdas, terminal reward and TETHER coefficient chronology remain.",
+    "episode": "Real canonical WireEpisode reaches an explicit single-original-trace adapter. Multi-trace episodes fail loudly before eligibility; empty or failed episodes cannot fabricate successful credit. Agent.trainable=False skips materialization. Legacy joint scoring remains server-side and partial groups remain unusable. Native tasks are selected by historical row-order RNG, serialized once per group, and reconstructed from declared TaskData/config; UUID group identity avoids aliasing semantic idx.",
+    "packing": "Metadata is optional, CPU-derived from existing lengths, and advertised only for seven custom FlashAttention families. Actor RL, value trainer and shared evaluator all thread it; CP global attention metadata and local intersected metadata remain distinct. HF/eager/SDPA/SFT and unsupported hybrid paths retain their fallback. Critic CP/VLM restrictions are not broadened.",
+    "objectives": "Safety unit stabilizes excluded-token arithmetic and diagnostics, but does not add an importance-ratio objective cap. Normalization remains component member count, not sum of weights. No hidden changes to value/model/loss config defaults were found.",
+    "lifecycle": "Atomic orchestrator progress writes and intermediate trainer counters are complementary; they do not imply transactional whole-system/sampler replay. Component exceptions interrupt orchestration rather than hanging. Conversion cache validation covers required base-model keys, shares policy/critic caches without requiring a value head, and uses a process lock plus temporary-directory publication."
+  },
+  "source_identity_checks": [
+    "No diff in value/math.py, value/batch.py, value/replay.py, value/evaluator.py, GRPO/routing, or value/algorithm/trainer config files between base andhead.",
+    "No production tests rerun for this source audit. Previously recorded unit and real-runtime evidence remain separately attributable; this review does not expand their model/topology scope."
+  ],
+  "documentation_findings": [
+    {
+      "path": "docs/algorithms.md:178",
+      "finding": "Default RL formula and prose falsely claim min(ratio,delta). Current preserved objective is unbounded accepted PG ratio with advantage-sign probability-difference gate; KL is not gated.",
+      "formula": "For M={t: loss_mask_t and w_t!=0}, N=max(global |M|,1), ell_t=log(pi_t)-log(mu_t), dp_t=pi_t-mu_t, keep_t=1-1[(A_t>0 and dp_t>h) or (A_t<=0 and dp_t<-l)], L_RL=sum_M w_t*(-adv_tau*keep_t*A_t*exp(ell_t)+kl_tau*ell_t^2)/N. Absent weights mean1. A=0 contributes zero PG. Threshold comparisons are strict."
+    },
+    {
+      "path": "src/prime_rl/orchestrator/types.py:78",
+      "finding": "Rollout docstring says on-disk results.jsonl is unchanged. Fields remain canonical trace plus preserved episode provenance, but task nesting/errors/call finish-reason schema changed; metadata exclusion does not imply schema/byte continuity."
+    }
+  ],
+  "limits_to_preserve": [
+    "Single-original-trace policy/value credit only, no multiagent credit claim.",
+    "Native per-row task subclass/config variations and lossy serialization fail explicitly; external Harbor requires shared-artifact verification and is rejected in this scoped launcher.",
+    "Published research-environment pin intentionally carries five unused native persona-default changes and Harbor network metadata policy; no universal environment parity claim.",
+    "Sampler RNG/cursor and outstanding rollout queues are not restored exactly; demonstrated counter/optimizer resume is not stochastic task-order restart.",
+    "Seven dense/MoE FlashAttention entrypoints are wired but GPU evidence covers representative Qwen/Llama/MoE paths, not every model. Hybrid packed CP remains outside scope.",
+    "Boundary metadata removes discovery host reads; installed external ring setup still reads CUDA tensors on host. Unit5 accumulation scope is not whole-step throughput or sync-free proof.",
+    "Separate score-centering/EMA chat owns new objectives and top-k candidate payloads from f6b9a40c; do not duplicate or blindly merge its stale verifier/wire schema. Reconcile candidate arrays with canonical trace/task_data/owned critic boundary deliberately."
+  ],
+  "next_current_stack_candidate": {
+    "commit": "53aecbf10ed0be79555c26a7a66f5c56218f0fa8",
+    "purpose": "Keep views of live model parameter/DTensor storage out of activation offloading; default activation offloading is enabled and object-type checks alone miss views.",
+    "scope": [
+      "utils/act_offloading.py",
+      "trainer/rl/train.py caller",
+      "trainer/sft/train.py caller",
+      "value/trainer.py caller"
+    ],
+    "preserve": "Current pin-memory config, stream-disabled policy, optimization/reduction dtypes and numerical defaults. Do not blindly import upstream removal of pin_memory.",
+    "gates": [
+      "Actual parameter/DTensor views remain on device while genuine activations are offloaded.",
+      "Real compiled/FSDP expert forward/backward and actor/critic full-gradient/update parity against offload-disabled oracle; no synthetic-only EP support claim.",
+      "Correct lifecycle across repeated microbatches, checkpoint recomputation and live FSDP parameter replacement; bounded copy-byte evidence."
+    ],
+    "deferred_related_commit": "1810d5b9ab039b45496aabe207be084c4d70537e deduplicates by storage,offset,numel,dtype without a mutation-version key. Weak storage references protect freed-storage reuse, not in-place mutation between saves. Requires an independent alias/mutation snapshot oracle before adoption."
+  },
+  "broader_deferred": [
+    "Exact token provenance a22eeb32/b2df580d requires coherent vLLM0.32+renderer+verifier adoption; no dispatch-age substitution.",
+    "Trainer-pull transport32b502bf changes handoff/backpressure/resume protocol and removes a policy-version hold; not a metadata-only optimization.",
+    "Worker-retained payloads8acab25e changes ownership/lifetime across environment, actor and critic paths and overlaps score-centering arrays; plan separately after branch reconciliation."
+  ]
+}

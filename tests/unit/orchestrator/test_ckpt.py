@@ -39,3 +39,21 @@ def test_legacy_progress_only_checkpoint_loads_with_empty_algorithm_state(tmp_pa
     assert manager.load(restored, 4) == {}
     assert restored.step == 4
     assert restored.total_samples == 9
+
+
+def test_failed_save_preserves_previous_progress_and_algorithm_state(tmp_path):
+    import pytest
+
+    manager = CheckpointManager(tmp_path, CheckpointConfig())
+    manager.save(Progress(step=3), 3, algorithm_states={"train": {"rho": 0.4}})
+    path = manager.get_ckpt_path(3) / "progress.pt"
+    original = path.read_bytes()
+    # A real serialization failure after opening the output must not truncate
+    # the previous checkpoint, including its adaptive controller state.
+    with pytest.raises((AttributeError, TypeError)):
+        manager.save(Progress(step=9), 3, algorithm_states={"train": {"unserializable": lambda: None}})
+    assert path.read_bytes() == original
+    assert list(path.parent.glob("*.tmp")) == []
+    restored = Progress()
+    assert manager.load(restored, 3) == {"train": {"rho": 0.4}}
+    assert restored.step == 3

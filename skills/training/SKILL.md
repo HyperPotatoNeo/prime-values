@@ -11,3 +11,11 @@ Two phases — start the run, then watch it.
 - **Monitor a run** — see `monitor-run/SKILL.md` for the runbook: how to find the output dir, what to tail, which metrics to watch, and how to restart safely.
 
 Both subskills assume the `configs` skill for config-loading mechanics.
+
+## Native producer profile
+
+This branch is an experimental native RG/reverse-text profile. Read
+`experiments/native-producer/README.md` before launching. Historical legacy
+examples require parent revision `1801d112` and its lock; their presence here
+does not make them executable under the new verifier. CPU producer/value
+acceptance does not establish a new GPU-stack training result.

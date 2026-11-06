@@ -1,0 +1,23 @@
+{
+  "base_commit": "30bfbf301335e8ce24c62fa5fd24bcc37a633bd3",
+  "branch": "chore/value-behavior-baseline",
+  "image": "primeintellect/prime-rl@sha256:e175fb968a270de9450cde72817ebac0a97087fbfc3b7765f1c10cc5b5886209",
+  "source_changes": [],
+  "submodules": [
+    "160000 commit 99f47c6cc043e91c995fae225a495a92efe1126c\tdeps/pydantic-config",
+    "160000 commit 5904fa24aa73f83c1694fd85a78d0e746d468284\tdeps/renderers",
+    "160000 commit 3e3b5ac3d75aa30f783d5b0c71e39b034cadcec2\tdeps/research-environments",
+    "160000 commit 9c6b155e10e58981a2495840b8a9026becbcfb9e\tdeps/verifiers"
+  ],
+  "file_sha256": {
+    "experiments/value-baseline/check_mutations.py": "8c39181b6674f1f8071997b9e74094f6d8664497548d0c1ea0d8db32c865a4b4",
+    "experiments/value-baseline/diagnose_masked_nonfinite.py": "52cced2dc05bb5309a912a5837fc5404c6e99319638249e922913f8615d6450b",
+    "experiments/value-baseline/run_checks.sh": "fc595c102e53202ff7141720d65406278a5abf4ac7c8714cce73d515923c5565",
+    "skills/training/start-run/SKILL.md": "11fe0c67b619bdc647fe22cb3323b635c90f4786c8ae59ded8ffb3ab6efe8806",
+    "tests/integration/value_baseline_probe.py": "6f7f59e9199ff244703b684267c36cdadd419f8fbcc60129ff8fa9d7d56139de",
+    "tests/unit/orchestrator/test_adaptive_baselines.py": "9fece02b774c068b790aa99ea93f1fffbc5a13cc249640dae956caf09aff55ad",
+    "tests/unit/orchestrator/test_advantage.py": "d8b2ebaa95cb47da054bb2e6e570f73f6398991fb1ac4893df816f03a6aff82b",
+    "tests/unit/train/rl/test_loss.py": "88e2ce729f6b167e1a625d5d2a2a5434e7083b10f54977c6381fe72880261328",
+    "tests/unit/value/test_model_parity.py": "ca8f39410b33e116c1d949d5127c1fa14aa024a0a6a66bfff063950ea4fffbc6"
+  }
+}

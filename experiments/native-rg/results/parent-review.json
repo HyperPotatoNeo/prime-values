@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "paired_cases_exact": 8,
+  "credit_modes_exact": [
+    "task",
+    "group_leave_one_out"
+  ],
+  "dataset_files_verified": 4,
+  "actual_source_hashes": 15,
+  "unchanged_nonroot_lock_entries": 460,
+  "archive_manifest_files_verified": 51,
+  "archive_sha256": "04506adf766de50bfa50f372ab9b94cdc9e712527b8b357415820bddbeeaf995",
+  "scope": "Independent saved-output equality/source/archive/data checks; no new runtime or GPU run."
+}

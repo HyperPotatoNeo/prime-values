@@ -37,6 +37,7 @@ concurrency:
 
 jobs:
   prepare:
+    if: github.repository == 'PrimeIntellect-ai/prime-rl'
     name: Prepare build
     runs-on: ubuntu-latest
     permissions:

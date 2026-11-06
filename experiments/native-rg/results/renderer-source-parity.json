@@ -1,0 +1,32 @@
+{
+  "actual_path": "/Users/siddarth/Documents/Codex/2026-11-05/so-for-this-i-want-to/work/prime-values-analysis/deps/renderers/renderers",
+  "expected_pinned_source": "deps/renderers at bdb96b0c84a307e2b71c6a366c9d718c3ac7fe78",
+  "python_file_count": 25,
+  "files": {
+    "__init__.py": "0bc7c596e3c4fa1116f37da7bc8299c300dd82b81772dbc37edee1bd12e9eace",
+    "_version.py": "2bbf180cfee2ef657998c4a5e01000800deed6c6c1b636c0cd36e0cd6576997d",
+    "base.py": "70fa14fe257d83aef04d56c0acb4ae327fb79d418c5fcf5442aa72b66438e627",
+    "client.py": "58c5a0752410fbe7fe691f4ef393ba99fb74d355e4c50c53aa9ead14faf4091f",
+    "configs.py": "e1576953c420185c4e558ebb2152103073936985b18259951b003591a09ea9b6",
+    "deepseek_r1.py": "998a51471e1691283ae36153d140caf91f216bc2e4d060525a2ad91b63da7c90",
+    "deepseek_v3.py": "0946fcf91487bd5b8795520f70288f67393d47ac0709f198c701b0b8f966e02b",
+    "default.py": "0870a6fb68183d175c0da64b961f7e40ab7fd075bdf26cd708c7a5ea2374210e",
+    "glm45.py": "d35efe63902fe8830caa5b989c061e66fc68a849cf5fd79044971a59caec98a4",
+    "glm5.py": "71e108038e469f3d7bd3584ba818246c2cdc098bf6a494f750a45883d7d9f665",
+    "gpt_oss.py": "c91659f04b8504ace5eeea9f6aec9d1b556471c2aef6ed5a2a7bf8f3deba0160",
+    "hy3.py": "627ac656bfcf605d435068246ca6852a4fb490cb834627994f047bb99ff72b0e",
+    "kimi_k2.py": "2e0ec8b391baae9ed652e1a21007b504cb762349b517e7b003937d0fb784e5d0",
+    "kimi_k25.py": "98309955a8a1a53fc4e94e5a5d54cd83f2ae1e59492058dd938b716cc2903fcb",
+    "laguna_xs2.py": "e363f908a6d6b11635da285bf476fdffe03853d58eec82e93ba09edb985ade59",
+    "llama_3.py": "6a575cf370d2c4652c8c11251f690483bcee80d6bba135b9f7c21271cd5fd7e6",
+    "minimax_m2.py": "221eee24018c8b1df30f6414b0e729b642dc339976dcf8eeae9ef6b60fa2955b",
+    "nemotron3.py": "9d777c7c9854f9c54913cd23bf7c5ac3eade15f230ac927369606d3385922c27",
+    "parsers.py": "c8ddb6b574f0a73303acff170333a48e0a19b359aba7589a2700bd712e7a99fd",
+    "parsing.py": "3b0607847f135cb3f2e8c57d4720b2fb4c6edc5955d9d2998e64e0a7ebbd6f84",
+    "prime_qwen3.py": "a284631c8934f07ed30aae79c276d9163674bef765c0405b4096da9016aa8782",
+    "qwen3.py": "dac2891e9eb7ea4a1abca18ed44e5e029f5e110d90f66729287f115a0da7b984",
+    "qwen35.py": "597ecaaa6fc9076d2c893f63f6dca40c46722951d611ffcb4df886720d8db6bb",
+    "qwen36.py": "d65aa0c6175ddc3871ddd7f5b28515d46e76408b8b438893ef81e6a62aaf225d",
+    "qwen3_vl.py": "37f96dfbfef209fa2a61b471b200f48c4f335228b7ca817cd771542432282660"
+  }
+}

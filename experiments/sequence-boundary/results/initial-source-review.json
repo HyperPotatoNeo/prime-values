@@ -1,0 +1,55 @@
+{
+  "status": "actual same-response difference reproduced; design only, no production patch",
+  "source_root": "work/native-rg-candidate",
+  "source_contract": [
+    {
+      "path": "packages/prime-rl-configs/src/prime_rl/configs/orchestrator.py",
+      "symbol": "OrchestratorConfig.resolve_env_config",
+      "behavior": "Injects max_seq_len=actor seq_len into legacy extra_env_kwargs only."
+    },
+    {
+      "path": "deps/verifiers/verifiers/utils/response_utils.py",
+      "symbol": "parse_response_tokens",
+      "behavior": "After generation, clips prompt/completion token arrays to max_seq_len; prompt overflow removes all sampled tokens. Response text remains complete for scoring."
+    },
+    {
+      "path": "deps/verifiers/verifiers/v1/legacy.py",
+      "symbol": "rollout_output_to_trace / _to_v1_tokens",
+      "behavior": "Builds the canonical trace from already-clipped step.tokens, and maps legacy truncation flags to native stop conditions."
+    },
+    {
+      "path": "src/prime_rl/orchestrator/train_sink.py",
+      "symbol": "TrainSink.process_rollout",
+      "behavior": "Materializes and freezes original incoming graph geometry before rollout scoring/value evaluation; no common actor-length clipping is applied here."
+    },
+    {
+      "path": "src/prime_rl/value/credit.py",
+      "symbol": "value_input / compute_value_result",
+      "behavior": "Critic visible length is controlled by critic seq_len; terminal reward belongs to the last visible sampled action. This later cap does not reproduce an earlier, smaller actor cap."
+    }
+  ],
+  "reproduction": {
+    "harness": "work/sequence-boundary/reproduce.py",
+    "receipt": "work/sequence-boundary/attempt001/result.json",
+    "requests": "work/sequence-boundary/attempt001/requests.json",
+    "actual_prompt_tokens": 651,
+    "actual_completion_tokens": 28,
+    "reward_all_cases": 1.0,
+    "within_budget": "Identical requests, owned geometry, credit targets and nontruncated flags.",
+    "actor_seq_len_654": "Legacy has 3 actions and truncated=True; native has 28 actions and truncated=False. With gamma0.9 and independent lambdas1, first-action target changes from0.81 to0.0581497370030401.",
+    "actor_seq_len_650": "Legacy has no trainable samples; native has28 actions. Both score the complete correct response at reward1.",
+    "scope": "Actual pinned servers/renderer/tokenizer/cache/scorers/materializer/owned snapshot/credit. Deterministic HTTP response and zero value predictions, no model or GPU, no full TrainSink publication claim."
+  },
+  "design_constraints": [
+    "Preserve existing native full-trajectory behavior and legacy clipping behavior by default; native RG was additive and no historical training config was switched.",
+    "A compatibility projection must operate after full generation/scoring. Reducing generation max_tokens changes model responses and rewards, so it cannot preserve this legacy behavior.",
+    "Keep one canonical materializer and explicit owned value inputs; do not alter mutable trace geometry after the value snapshot or implement a separate native value framework.",
+    "Do not generalize single-turn branch clipping to multi-turn/shared-prefix graphs without defining per-turn versus per-branch equivalence; legacy clipped each recorded response before graph conversion.",
+    "Once a deliberate native compatibility projection exists, use one real overlength boundary acceptance rather than repeat full actor/critic GPU suites for configuration-only changes."
+  ],
+  "next_unit_selection": {
+    "reverse_text": "All33 legacy entries across19 files use default dataset/prompt args. Native b13 matches single-turn parsing/reward for ordinary traces, but overlength geometry prevents unconditional behavior-equivalence claims. Bulk config rewriting is cleanup to accompany actual bridge migration, not a standalone major unit. Preserve explicit environment display names; named reward metric changes lcs_reward_func to lcs also need documentation or alias preservation.",
+    "actual_research": "Saved current research runs use RG; synchronization acceptance uses native reverse-text. No saved math training execution was established by the declared configuration inventory.",
+    "math": "Leave legacy math examples on existing bridge until a deliberate package-level compatibility port. Current native304 differs in default dataset, unboxed-answer extraction, missing row info/filter/shuffle options, unpinned runtime math-verify and timeout/length/error behavior. Do not map IDs silently or enable later LLM fallback."
+  }
+}

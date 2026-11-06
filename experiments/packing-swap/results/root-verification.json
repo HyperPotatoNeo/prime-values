@@ -1,0 +1,10 @@
+{
+  "status": "pass",
+  "applied_paths_verified": 8,
+  "packed_bytes_independently_equal": 1007809,
+  "packed_sha256": "e8e58d634dd5a7c37f60630dc925892bb976e64b6d726e0e6543cb5491757484",
+  "review": "Parent reviewed relative-load/sentinel bounds, per-iteration recheck, scalar fallback and strict lexicographic/row-major tie preservation. Independently verified actual frozen/candidate raw batch bytes and source/harness hashes. Independent reviewer strengthened tie oracle before final130-case pass.",
+  "direct_cases": 130,
+  "public_balanced_partition_cases": 12,
+  "limits": "CPU helper timing and actual serialized batch parity; no GPU/end-to-end throughput claim."
+}
