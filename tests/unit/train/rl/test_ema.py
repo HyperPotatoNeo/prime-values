@@ -187,3 +187,37 @@ def test_checkpoint_manager_restores_ema_and_rejects_missing_state(tmp_path):
     manager.additional_state["ema_reference"] = ema
     with pytest.raises(CheckpointException, match="Missing key.*ema_reference"):
         manager.load_from_path(tmp_path / "without-ema", policy, [optimizer], scheduler, progress)
+
+
+def test_ema_reshards_fsdp_reference_after_no_grad_forward(tmp_path):
+    import torch.distributed as dist
+    from torch.distributed.device_mesh import init_device_mesh
+    from torch.distributed.fsdp import MixedPrecisionPolicy, fully_shard
+    from torch.distributed.tensor import DTensor
+
+    dist.init_process_group("gloo", init_method=(tmp_path / "rendezvous").as_uri(), rank=0, world_size=1)
+    try:
+        mesh = init_device_mesh("cpu", (1,))
+        policy = nn.Sequential(nn.Linear(2, 2), nn.Linear(2, 2))
+        reference = copy.deepcopy(policy)
+        for model in (policy, reference):
+            precision = MixedPrecisionPolicy(param_dtype=torch.bfloat16)
+            fully_shard(model[1], mesh=mesh, reshard_after_forward=False, mp_policy=precision)
+            fully_shard(model, mesh=mesh, reshard_after_forward=True, mp_policy=precision)
+        ema = EMAReference(reference, policy, 0.95)
+        for publication in (1, 2):
+            with torch.no_grad():
+                ema.model(torch.ones(1, 2))
+            assert all(isinstance(param, DTensor) and param.dtype == torch.float32 for param in ema.model.parameters())
+            expected = {
+                name: param.detach().to_local().clone().mul_(0.95) for name, param in ema.model.named_parameters()
+            }
+            with torch.no_grad():
+                for name, param in policy.named_parameters():
+                    param.add_(0.013)
+                    expected[name].add_(param.detach().to_local().to(torch.bfloat16).float(), alpha=0.05)
+            ema.update(policy, publication)
+            for name, param in ema.model.named_parameters():
+                torch.testing.assert_close(param.to_local(), expected[name], rtol=0, atol=0)
+    finally:
+        dist.destroy_process_group()

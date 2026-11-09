@@ -5,6 +5,7 @@ from typing import Any
 import torch
 from torch import nn
 from torch.distributed.checkpoint.state_dict import get_model_state_dict, set_model_state_dict
+from torch.distributed.fsdp import FSDPModule
 
 
 class EMAReference:
@@ -15,6 +16,9 @@ class EMAReference:
         self.last_publication = -1
         self.model.requires_grad_(False)
         self.model.eval()
+        if isinstance(self.model, FSDPModule):
+            # Reference forwards have no backward pass to restore sharded parameters.
+            self.model.set_reshard_after_forward(True, recurse=True)
         self._copy(policy, 0.0)
 
     @torch.no_grad()
