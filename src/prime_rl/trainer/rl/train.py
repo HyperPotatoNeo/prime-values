@@ -17,7 +17,7 @@ from prime_rl.trainer.ckpt import setup_ckpt_managers
 from prime_rl.trainer.multi_ckpt import setup_multi_checkpoint_manager
 from prime_rl.trainer.optim import setup_optimizer, setup_multi_optimizer
 from prime_rl.trainer.scheduler import setup_scheduler, setup_multi_scheduler
-from prime_rl.configs.trainer import TrainerConfig
+from prime_rl.configs.trainer import ReinforceLossConfig, TrainerConfig
 from prime_rl.trainer.rl.data import DataLoader, FakeDataLoader
 from prime_rl.utils.cp import (
     gather_for_cp,
@@ -160,6 +160,16 @@ def train(config: TrainerConfig):
     logger.info(f"Initializing model ({config.model})")
     loading_from_ckpt_later = config.ckpt and checkpoint_step is not None
     model = setup_model(config.model, parallel_dims, loading_from_ckpt_later)
+
+    ema = None
+    ema_kl = config.loss.ema_kl if isinstance(config.loss, ReinforceLossConfig) else None
+    if ema_kl is not None and ema_kl.coefficient:
+        from prime_rl.trainer.rl.ema import EMAReference
+
+        reference = setup_model(config.model, parallel_dims, loading_from_ckpt_later)
+        ema = EMAReference(reference, model, ema_kl.decay)
+        if ckpt_manager is not None:
+            ckpt_manager.additional_state["ema_reference"] = ema
 
     logger.info(f"Initializing tokenizer ({config.tokenizer})")
     tokenizer = setup_tokenizer(config.tokenizer)
@@ -413,6 +423,22 @@ def train(config: TrainerConfig):
             if cp_enabled:
                 temperatures = shard_for_cp(temperatures, cp_rank=cp_rank, cp_world_size=cp_size)
 
+            if ema is not None:
+                if ref_logprobs is not None:
+                    raise ValueError("EMA reference cannot overwrite another reference stream")
+                if mm_kwargs is not None or routed_experts is not None:
+                    raise ValueError("EMA KL supports text-only inputs without router replay")
+                with torch.no_grad():
+                    reference_out = forward(
+                        ema.model,
+                        input_ids,
+                        forward_position_ids,
+                        labels=labels,
+                        temperature=temperatures,
+                        packing_metadata=packing_metadata,
+                    )
+                    ref_logprobs = shift_tensor_right(reference_out["logprobs"])
+
             # Forward pass with per-token temperatures
             with maybe_record_function("forward"), maybe_activation_offloading(config.model.ac_offloading, model):
                 out = forward(
@@ -585,6 +611,8 @@ def train(config: TrainerConfig):
         # resume from the broadcast directory.
         if weight_broadcast is None:
             broadcast_weights_time = 0
+            if ema is not None:
+                ema.update(model, progress.step)
         else:
             nccl_broadcast_unused = (
                 config.weight_broadcast.type == "nccl"
@@ -594,6 +622,8 @@ def train(config: TrainerConfig):
             if not nccl_broadcast_unused:
                 broadcast_weights_start_time = time.perf_counter()
                 weight_broadcast.broadcast_weights(model, step=progress.step)
+                if ema is not None:
+                    ema.update(model, progress.step)
                 broadcast_weights_time = time.perf_counter() - broadcast_weights_start_time
                 # Clean up old broadcast directories (unless at ckpt interval if using filesystem weight broadcast)
                 if config.weight_broadcast.type == "filesystem":
@@ -655,6 +685,9 @@ def train(config: TrainerConfig):
         tensor_stats = tensors.compute_stats()
         tensor_stats.update(compute_token_metrics(token_summaries, diagnostic_summaries))
         tensor_stats.update(compute_policy_provenance(provenance_summaries))
+        if ema is not None:
+            tensor_stats["ema/updates"] = ema.updates
+            tensor_stats["ema/last_publication"] = ema.last_publication
 
         # Compute step metrics
         perf_counter = get_perf_counter(model, seq_len)

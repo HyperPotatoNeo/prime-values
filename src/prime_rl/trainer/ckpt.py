@@ -57,11 +57,13 @@ class AppState(Stateful):
         optimizers: list[Optimizer],
         scheduler: LRScheduler | None,
         progress: Progress | None,
+        additional_state: dict[str, Stateful] | None = None,
     ):
         self.model = model
         self.optimizers = optimizers
         self.scheduler = scheduler
         self.progress = progress
+        self.additional_state = additional_state if additional_state is not None else {}
         self._optimizer_group_params: list[list[str]] | None = None
 
     def _get_base_optimizers(self) -> list[Optimizer]:
@@ -87,6 +89,10 @@ class AppState(Stateful):
             "model": model_state_dict,
             "optimizers": optimizer_state_dict,
         }
+        for name, state in self.additional_state.items():
+            if name in {"model", "optimizers", "scheduler", "progress"}:
+                raise ValueError(f"Checkpoint state name is reserved: {name}")
+            state_dict[name] = state.state_dict()
         if self.scheduler is not None:
             scheduler_state_dict = self.scheduler.state_dict()
             state_dict["scheduler"] = scheduler_state_dict
@@ -162,6 +168,8 @@ class AppState(Stateful):
                 optim_state_dict=state_dict["optimizers"],
             )
 
+        for name, state in self.additional_state.items():
+            state.load_state_dict(state_dict[name])
         if self.scheduler is not None:
             self.scheduler.load_state_dict(state_dict["scheduler"])
         if self.progress is not None:
@@ -182,6 +190,7 @@ class CheckpointManager:
 
     def __init__(self, output_dir: Path, config: CheckpointConfig):
         self.config = config
+        self.additional_state: dict[str, Stateful] = {}
         self.skip_optimizer = config.skip_optimizer
         self.ckpt_dir = get_ckpt_dir(output_dir)
         self.logger = get_logger()
@@ -217,7 +226,7 @@ class CheckpointManager:
         start_time = time.perf_counter()
 
         # Create checkpoint state
-        state_dict = {"app": AppState(model, optimizers, scheduler, progress)}
+        state_dict = {"app": AppState(model, optimizers, scheduler, progress, self.additional_state)}
 
         # Checkpoint the local dataloader
         if dataloader is not None:
@@ -249,7 +258,9 @@ class CheckpointManager:
         start_time = time.perf_counter()
 
         # Load sharded state
-        app_state = AppState(model, optimizers if not self.skip_optimizer else [], scheduler, progress)
+        app_state = AppState(
+            model, optimizers if not self.skip_optimizer else [], scheduler, progress, self.additional_state
+        )
         state_dict = {"app": app_state}
         dcp_load(state_dict=state_dict, checkpoint_id=path)
 

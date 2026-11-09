@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -6,7 +7,7 @@ from beartype import beartype as typechecker
 from jaxtyping import Bool, Float, Int, jaxtyped
 from torch import Tensor
 
-from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig
+from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig, ReinforceLossConfig
 from prime_rl.utils.utils import import_object
 
 
@@ -279,10 +280,48 @@ def ce_loss_fn(inputs: LossInputs) -> LossOutputs:
     return LossOutputs(loss=loss, metrics=metrics)
 
 
+def reverse_kl_under_sampler(policy_logp: Tensor, reference_logp: Tensor, sampler_logp: Tensor) -> Tensor:
+    """Unclipped importance-corrected k3; expectation under q equals KL(p || e).
+
+    q and e are fixed. Differentiating this expression gives the exact
+    reverse-KL gradient in expectation, including when q != p. Clipping the
+    importance ratio here would change the regularizer.
+    """
+    log_ratio = policy_logp - sampler_logp.detach()
+    ref_delta = reference_logp.detach() - policy_logp
+    ratio = torch.exp(log_ratio)
+    stable_near = ratio * (torch.expm1(ref_delta.clamp_max(20)) - ref_delta)
+    stable_far = torch.exp(reference_logp.detach() - sampler_logp.detach()) - ratio * (ref_delta + 1)
+    return torch.where(ref_delta > 20, stable_far, stable_near)
+
+
+def reinforce_loss_fn(inputs: LossInputs, config: ReinforceLossConfig) -> LossOutputs:
+    mask = inputs.loss_mask
+    policy_logp = inputs.trainer_logprobs[mask]
+    sampler_logp = inputs.inference_logprobs[mask].detach()
+    advantages = inputs.advantages[mask].detach()
+    if config.importance_cap is None:
+        importance = torch.ones_like(policy_logp)
+    else:
+        importance = torch.exp(torch.clamp_max(policy_logp.detach() - sampler_logp, math.log(config.importance_cap)))
+    loss = -advantages * importance * policy_logp
+    metrics = {"reinforce/importance_weight": importance.detach()}
+    if config.ema_kl is not None and config.ema_kl.coefficient:
+        if inputs.ref_logprobs is None:
+            raise ValueError("EMA KL requires the trainer's EMA reference forward")
+        kl = reverse_kl_under_sampler(policy_logp, inputs.ref_logprobs[mask], sampler_logp)
+        loss = loss + config.ema_kl.coefficient * kl
+        metrics["ema_kl"] = kl.detach()
+    if inputs.loss_weights is not None:
+        loss = loss * inputs.loss_weights[mask]
+    return LossOutputs(loss=loss.sum(), metrics=metrics)
+
+
 def setup_rl_loss_fn(loss_config: LossConfig) -> LossFn:
     """Build the loss fn for the rl component from ``trainer.loss``:
     ``default_loss_fn`` (``DefaultLossConfig``), ``ipo_loss_fn``
-    (``IPOLossConfig``), or the imported function (``CustomLossConfig``).
+    (``IPOLossConfig``), ``reinforce_loss_fn`` (``ReinforceLossConfig``),
+    or the imported function (``CustomLossConfig``).
     The ce / ref_kl loss types are fixed and unaffected by ``trainer.loss``."""
     if isinstance(loss_config, CustomLossConfig):
         custom_fn = import_object(loss_config.import_path)
@@ -290,6 +329,10 @@ def setup_rl_loss_fn(loss_config: LossConfig) -> LossFn:
 
         def rl_fn(inputs: LossInputs) -> LossOutputs:
             return custom_fn(inputs, **kwargs)
+    elif isinstance(loss_config, ReinforceLossConfig):
+
+        def rl_fn(inputs: LossInputs) -> LossOutputs:
+            return reinforce_loss_fn(inputs, loss_config)
     elif isinstance(loss_config, IPOLossConfig):
 
         def rl_fn(inputs: LossInputs) -> LossOutputs:
