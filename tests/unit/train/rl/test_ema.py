@@ -53,6 +53,9 @@ def test_reinforce_matches_matched_objective_with_masks_and_weights(cap, coeffic
     torch.testing.assert_close(result.loss, expected, rtol=1e-12, atol=1e-12)
     torch.testing.assert_close(actual_grad, expected_grad, rtol=1e-12, atol=1e-12)
     assert actual_grad[-1] == 0
+    if coefficient:
+        with pytest.raises(ValueError, match="reference forward"):
+            setup_rl_loss_fn(config)(LossInputs(policy, sampler, None, advantages, torch.ones(4, dtype=torch.bool)))
     assert bool(actual_grad[2] != 0) == bool(coefficient)
     empty = setup_rl_loss_fn(config)(
         LossInputs(policy, sampler, reference, advantages, torch.zeros(4, dtype=torch.bool), weights)
@@ -101,6 +104,8 @@ def test_ema_config_is_opt_in_and_roundtrips():
     assert ReinforceLossConfig().ema_kl is None
     assert EMAKLConfig().coefficient == 0
     assert EMAKLConfig().decay == 0.95
+    with pytest.raises(ValidationError):
+        EMAKLConfig(decay=1.0)
     disabled = TrainerConfig(model={"lora": {}}, loss={"type": "reinforce", "ema_kl": {"coefficient": 0}})
     assert disabled.loss.ema_kl.coefficient == 0
     enabled = TrainerConfig(
@@ -140,3 +145,45 @@ def test_ema_config_rejects_unsupported_runtime(override):
     }
     with pytest.raises(ValidationError, match="EMA KL"):
         TrainerConfig(**config)
+
+
+def test_checkpoint_manager_restores_ema_and_rejects_missing_state(tmp_path):
+    from torch.distributed.checkpoint.api import CheckpointException
+
+    from prime_rl.configs.trainer import CheckpointConfig
+    from prime_rl.trainer.ckpt import AppState, CheckpointManager
+    from prime_rl.trainer.runs import Progress
+
+    policy = nn.Linear(3, 2)
+    optimizer = torch.optim.AdamW(policy.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0)
+    progress = Progress(step=3, total_tokens=27, total_samples=4)
+    ema = EMAReference(copy.deepcopy(policy), policy, 0.95)
+    policy(torch.ones(1, 3)).sum().backward()
+    optimizer.step()
+    optimizer.zero_grad()
+    scheduler.step()
+    ema.update(policy, progress.step)
+    manager = CheckpointManager(tmp_path, CheckpointConfig())
+    manager.additional_state["ema_reference"] = ema
+    expected_policy = copy.deepcopy(policy.state_dict())
+    expected_ema = copy.deepcopy(ema.state_dict())
+    manager.save_to_path(tmp_path / "with-ema", policy, [optimizer], scheduler, progress)
+    with torch.no_grad():
+        policy.weight.zero_()
+        ema.model.weight.zero_()
+    ema.updates = 0
+    ema.last_publication = -1
+    progress.step = 99
+    manager.load_from_path(tmp_path / "with-ema", policy, [optimizer], scheduler, progress)
+    torch.testing.assert_close(policy.state_dict(), expected_policy, rtol=0, atol=0)
+    torch.testing.assert_close(ema.state_dict(), expected_ema, rtol=0, atol=0)
+    assert progress == Progress(step=3, total_tokens=27, total_samples=4)
+    with pytest.raises(ValueError, match="reserved"):
+        AppState(policy, [optimizer], scheduler, progress, {"model": ema}).state_dict()
+
+    manager.additional_state.clear()
+    manager.save_to_path(tmp_path / "without-ema", policy, [optimizer], scheduler, progress)
+    manager.additional_state["ema_reference"] = ema
+    with pytest.raises(CheckpointException, match="Missing key.*ema_reference"):
+        manager.load_from_path(tmp_path / "without-ema", policy, [optimizer], scheduler, progress)
