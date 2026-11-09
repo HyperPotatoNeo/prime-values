@@ -438,6 +438,28 @@ class IPOLossConfig(BaseConfig):
     """Temperature for the KL term."""
 
 
+class EMAKLConfig(BaseConfig):
+    """Reverse-KL regularization against an EMA of published policy weights."""
+
+    coefficient: float = Field(0.0, ge=0, allow_inf_nan=False)
+    """KL coefficient. Zero disables both the regularizer and the reference model."""
+
+    decay: float = Field(0.95, ge=0, lt=1, allow_inf_nan=False)
+    """EMA update: ``reference = decay * reference + (1 - decay) * published_policy``."""
+
+
+class ReinforceLossConfig(BaseConfig):
+    """REINFORCE with detached, optionally truncated importance weights."""
+
+    type: Literal["reinforce"] = "reinforce"
+
+    importance_cap: float | None = Field(2.0, gt=0, allow_inf_nan=False)
+    """Upper token importance-ratio cap. None disables importance weighting entirely."""
+
+    ema_kl: EMAKLConfig | None = None
+    """Optional EMA KL regularizer on RL tokens; None disables it."""
+
+
 class CustomLossConfig(BaseConfig):
     type: Literal["custom"] = "custom"
 
@@ -448,7 +470,9 @@ class CustomLossConfig(BaseConfig):
     """Kwargs forwarded to the loss function."""
 
 
-LossConfig: TypeAlias = Annotated[DefaultLossConfig | IPOLossConfig | CustomLossConfig, Field(discriminator="type")]
+LossConfig: TypeAlias = Annotated[
+    DefaultLossConfig | IPOLossConfig | ReinforceLossConfig | CustomLossConfig, Field(discriminator="type")
+]
 
 
 class FakeDataLoaderConfig(BaseConfig):
@@ -571,6 +595,25 @@ class TrainerConfig(BaseConfig):
 
     env_vars: EnvVars = {}
     """Extra environment variables for the trainer process(es). Merged on top of the launcher defaults."""
+
+    @model_validator(mode="after")
+    def validate_ema_kl(self):
+        ema_kl = self.loss.ema_kl if isinstance(self.loss, ReinforceLossConfig) else None
+        if ema_kl is None or ema_kl.coefficient == 0:
+            return self
+        if self.max_concurrent_runs != 1 or self.model.lora is not None or self.model.cp != 1:
+            raise ValueError("EMA KL requires one full-parameter run with CP=1")
+        if self.model.impl != "custom" or "Qwen3-4B" not in self.model.name or self.model.vlm is not None:
+            raise ValueError("EMA KL supports the custom Qwen3-4B text model")
+        if self.model.ep not in (1, "auto") or self.enable_router_replay:
+            raise ValueError("EMA KL does not support expert parallelism or router replay")
+        if self.model.fused_lm_head_token_chunk_size == "disabled":
+            raise ValueError("EMA KL requires the chunked LM head")
+        if self.model.fp8 or (
+            self.weight_broadcast.type == "nccl" and self.weight_broadcast.quantize_in_weight_transfer
+        ):
+            raise ValueError("EMA KL requires unquantized BF16 weight publication")
+        return self
 
     @model_validator(mode="after")
     def deepep_disables_grad_clipping(self):

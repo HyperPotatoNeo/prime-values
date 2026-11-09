@@ -14,6 +14,7 @@ This page covers the math and the configurable algorithmic components: the algor
 - [Loss](#loss)
   - [Loss Components](#loss-components)
   - [Default RL Loss](#default-rl-loss)
+  - [REINFORCE and EMA KL](#reinforce-and-ema-kl)
   - [Custom Loss](#custom-loss)
 - [Advantage](#advantage)
   - [Default Advantage](#default-advantage)
@@ -214,6 +215,61 @@ The knobs (under `[trainer.loss]` with `type = "default"`):
 | `kl_tau` | 1e-3 | Temperature on the KL regularizer. Set to 0 to disable. |
 
 Set `[trainer.loss] type = "default"` and configure via the knobs above. The `ce` and `ref_kl` components are fixed and unaffected by `[trainer.loss]`.
+
+### REINFORCE and EMA KL
+
+`trainer.loss.type = "reinforce"` selects a token REINFORCE objective with detached
+importance weights: `-advantage * weight * policy_logprob`. `importance_cap`
+defaults to `2.0`; setting it to `"None"` disables importance weighting entirely.
+It does not change the default DPPO or IPO objectives.
+
+An optional EMA reference regularizes the RL component:
+
+```toml
+[trainer.model]
+name = "Qwen/Qwen3-4B"
+impl = "custom"
+
+[trainer.loss]
+type = "reinforce"
+importance_cap = 2.0
+
+[trainer.loss.ema_kl]
+coefficient = 0.01
+decay = 0.95
+```
+
+Omit `ema_kl`, set it to `"None"`, or set its `coefficient` to `0.0` to disable
+both the reference forward and its model allocation. `decay` defaults to `0.95`
+and must be in `[0, 1)`. The coefficient is nonnegative and defaults to zero.
+
+For policy `p`, sampler `q`, and EMA reference `e`, the regularizer per sampled
+token is `(p/q) * (e/p - log(e/p) - 1)`. Its expectation under `q` is
+`KL(p || e)`. The sampler and reference are detached, but the policy importance
+ratio remains differentiable and **unclipped**, independently of `importance_cap`.
+The regularizer uses the same eligible RL tokens, weights, and denominator as
+the REINFORCE term, including eligible tokens with zero advantage. CE and
+reference-distillation components keep their existing definitions.
+
+The reference starts from the BF16-rounded initial policy. After each successful
+weight publication, it updates as `e = decay * e + (1 - decay) * published_policy`.
+Accumulation uses the model's configured optimization dtype; buffers are copied.
+Fake-data training updates once per optimizer step. Skipped terminal NCCL
+publications do not update the reference. Reference forwards run in evaluation
+mode without gradients and use the policy's token temperatures and sequence
+packing. A resumed initial-weight synchronization does not advance the EMA.
+
+Full trainer checkpoints include the reference weights, update count, last
+publication, and decay. Resume requires matching EMA state and decay; weight-only
+exports cannot resume that state. Metrics include `ema_kl`, `ema/updates`, and
+`ema/last_publication`.
+
+EMA KL currently supports the custom Qwen3-4B text model with a chunked LM head,
+one full-parameter run, CP=1, and unquantized BF16 weight publication. LoRA,
+multimodal inputs, router replay, expert parallelism, and a second reference
+log-probability stream are rejected. Budget for an additional sharded model and
+forward pass. GPU behavior on other architectures or parallel layouts is not
+established by this configuration.
 
 ### Custom Loss
 

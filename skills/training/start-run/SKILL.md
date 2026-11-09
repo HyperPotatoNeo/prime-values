@@ -222,3 +222,14 @@ For finite NCCL runs, the orchestrator stops scheduling training after the final
 Sampled policy diagnostics use the existing RL/reference-KL token population. `observed_policy_version` reports coverage; `sampled_weight_age` compares known nonfuture labels against the pre-update policy version only for single-run, non-LoRA training. Unknown, future and empty populations remain explicit. These observations do not identify critic versions or the full retained KV history; see `experiments/provenance-diagnostics/README.md`.
 
 Use `mismatch_kl_by_sampled_age` to inspect whether mismatch is concentrated in older sampled tokens. Compare bin counts and saturation fractions alongside means/maxima; unknown/future are separate populations and absent age bins are not evidence of fresh data. This diagnostic is observation-only and does not enable stale-token masking or adaptive concurrency.
+
+### EMA KL regularization
+
+For matched REINFORCE/TIS with an EMA reference, use `trainer.loss.type = "reinforce"`
+and `trainer.loss.ema_kl.coefficient > 0`; `decay` defaults to `0.95`. Omit the table
+or set the coefficient to zero to disable both EMA allocation and the regularizer.
+Use custom Qwen3-4B, full-parameter single-run training, CP=1, the chunked LM head,
+and unquantized BF16 weight publication. Do not combine it with an external
+reference stream. Preserve `optimization_dtype` and `reduce_dtype`. Full trainer
+checkpoints must include the matching EMA state and decay to resume. See
+`docs/algorithms.md` for objective, publication cadence, and supported limits.
